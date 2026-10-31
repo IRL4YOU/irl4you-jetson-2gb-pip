@@ -27,6 +27,8 @@ REPORT_KEEP = 6          # so viele Pakete bleiben
 REPORT_MARK = "===== HÄNGER "
 REPORT_FILE = "hang-diagnose.txt"
 
+OUT_DEAD_S = 12.0        # Jetson: so lange darf der Encoder ohne Bilder bleiben (die Ausgabe steht dann; der Empfänger wirft eine Sendung ohne Daten nach 14 s hinaus)
+
 FPS = re.compile(r"\b(in|dmx|dec|vr)_f(\d)=([0-9.]+)/")
 FEED = re.compile(r"\bfeed_sbf(\d)=(\d)")
 
@@ -118,6 +120,49 @@ class HangWatch:
         self.dstate_since = None
 
 
+class JetsonHangWatch(HangWatch):
+    """Jetson: die Fassung ohne Mischer-Zweige. Es gibt weder die Statistikzeile mit in_fN/dmx_fN noch Zweig-Zustände, geprüft wird also nur:
+      "dstate"  Threads von belacoder hängen im Kernel (Zustand D), wie oben.
+      "stats"   Die Kennzahlen-Datei von belacoder (einmal je Sekunde) steht still: die Hauptschleife des Prozesses hängt.
+      "output"  Der Encoder liefert seit OUT_DEAD_S keine Bilder mehr (Feld fps der Kennzahlen unter 1), der Prozess lebt aber: die Ausgabe steht.
+    Dasselbe Verfahren wie beim anderen Paket: Diagnosepaket sichern, dann belacoder neu starten; Ruhezeit und Höchstzahl je Stunde gelten unverändert."""
+
+    def __init__(self, clock=time.monotonic, wall=time.time):
+        super().__init__(clock, wall)
+        self.silent_since = None
+
+    def started_now(self):
+        super().started_now()
+        self.silent_since = None
+
+    def acted_now(self):
+        super().acted_now()
+        self.silent_since = None
+
+    def check_jetson(self, stats_mtime, fps, d_threads=0):
+        """None oder {"kind": "dstate"|"stats"|"output", "slot": None, "text": …}. stats_mtime: Änderungszeit der Kennzahlen-Datei (Wanduhr) oder None; fps: Bilder
+        je Sekunde, die der Encoder laut Kennzahlen liefert, oder None."""
+        now = self.clock()
+        if self.started is None or now - self.started < START_GRACE_S:
+            return None
+        if d_threads > 0:
+            self.dstate_since = self.dstate_since if self.dstate_since is not None else now
+            if now - self.dstate_since >= DSTATE_S:
+                return {"kind": "dstate", "slot": None, "text": "%d Thread(s) von belacoder hängen seit %d s im Kernel (Zustand D)" % (d_threads, int(now - self.dstate_since))}
+        else:
+            self.dstate_since = None
+        if stats_mtime is None or self.wall() - stats_mtime > STALE_S:
+            age = "fehlt" if stats_mtime is None else "%d s alt" % int(self.wall() - stats_mtime)
+            return {"kind": "stats", "slot": None, "text": "Statistik von belacoder steht still (%s)" % age}
+        if fps is not None and fps < 1.0:
+            self.silent_since = self.silent_since if self.silent_since is not None else now
+            if now - self.silent_since >= OUT_DEAD_S:
+                return {"kind": "output", "slot": None, "text": "Der Encoder liefert seit %d s keine Bilder, die Ausgabe steht" % int(now - self.silent_since)}
+        else:
+            self.silent_since = None
+        return None
+
+
 # ----------------------------------------------------------------------------------------------------------------------- Diagnosepaket
 
 def _read(path, limit=400):
@@ -196,7 +241,7 @@ def thread_table(pid, proc="/proc", sleep=time.sleep, interval=1.0):
     return "\n".join(rows)
 
 
-def build_report(hit, pid, uptime_s, live_text, events, slots, proc="/proc", sleep=time.sleep, wall=time.time):
+def build_report(hit, pid, uptime_s, live_text, events, slots, proc="/proc", sleep=time.sleep, wall=time.time, slot_fmt=None):
     """Das Paket als Text. slots: [(Platz, "Bild WxH, Ton ja/nein", Zustand des Zweigs)]. Nur Zahlen und Namen von Elementen, nie Schlüssel oder Adressen."""
     parts = [
         "%s%s UTC · %s" % (REPORT_MARK, time.strftime("%Y-%m-%d %H:%M:%S", time.gmtime(wall())), hit["text"]),
@@ -209,7 +254,7 @@ def build_report(hit, pid, uptime_s, live_text, events, slots, proc="/proc", sle
             parts.append("  " + line)
     parts += ["", "Threads (Messung über 1 s):", thread_table(pid, proc, sleep), "", "Threads im Zustand D (ganzes System):", blocked_tasks(proc), "", "Plätze (was nginx meldet und was der Regler glaubt):"]
     for slot, pub, state in slots:
-        parts.append("  Platz %s: %s | Zweig-Zustand %s (1 gestoppt, 2 läuft ohne Bild, 3 Bilder kommen)" % (slot, pub, state))
+        parts.append((slot_fmt or "  Platz %s: %s | Zweig-Zustand %s (1 gestoppt, 2 läuft ohne Bild, 3 Bilder kommen)") % (slot, pub, state))
     parts += ["", "Statistik von belacoder (erste Zeilen):", live_text.strip()[:6000], "", "Letzte Ereignisse:"]
     parts += ["  " + e for e in events[-25:]]
     return "\n".join(parts) + "\n"
