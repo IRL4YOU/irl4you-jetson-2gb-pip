@@ -754,4 +754,8 @@ def always_compatible(a, b):
     both = a.get("type") in ("pip", "single") and b.get("type") in ("pip", "single") and a.get("always_ready") is True and b.get("always_ready") is True
     if pipbox_live.supported() and both:
         return True                       # Engine Compositor: Zuordnung, Größen, Ecken, Stile, Zuschnitt, Rahmen, Verzögerung, Ton: alles live (eine Kamera oder mit kleinen Bildern)
+    if pipeline_jetson.is_jetson() and both:
+        # Jetson-Kette: Lage, Größe, Ecke, Beschnitt, Rahmen, Ton und Ansicht gehen über die Steuerdatei. Nur die Art und die Zahl der kleinen Bilder (Pads des
+        # Compositors) ändern den Aufbau; eine neue Kamera an einem Platz startet der Sende-Dienst selbst gezielt neu (SlotController.reload).
+        return a.get("type") == b.get("type") and all(bool(a.get(k)) == bool(b.get(k)) for k in ("pip", "pip2", "pip3"))
     return both and a.get("type") == b.get("type") and norm(a) == norm(b)

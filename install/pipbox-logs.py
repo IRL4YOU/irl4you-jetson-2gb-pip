@@ -1064,6 +1064,55 @@ def usb_events():
             "emi = Anschluss abgeschaltet durch Störung oder Spannungseinbruch, over = Überstrom):\n" + (mem or "keine") + "\n")
 
 
+def is_jetson():
+    return os.path.exists("/etc/nv_tegra_release")
+
+
+def jetson_system():
+    """Jetson: L4T-Stand, Takte und Last der Video-Hardware (VIC, NVDEC, NVENC in Promille, GPU), Lüfteransteuerung, zwei Zeilen tegrastats."""
+    NL = chr(10)
+    out = ["L4T: " + (read_small("/etc/nv_tegra_release") or "?").splitlines()[0].strip()]
+    loads = []
+    base = "/sys/devices/platform/host1x"
+    try:
+        for u in sorted(os.listdir(base)):
+            v = read_small(f"{base}/{u}/load")
+            if v:
+                loads.append("%s %s" % (u, v.strip()))
+    except OSError:
+        pass
+    out.append("Last der Einheiten (Promille, Momentaufnahme): " + (", ".join(loads) or "?"))
+    g = read_small("/sys/devices/gpu.0/load")
+    out.append("GPU (Promille): " + (g.strip() if g else "?"))
+    try:
+        for d in sorted(os.listdir("/sys/class/devfreq")):
+            f = read_small(f"/sys/class/devfreq/{d}/cur_freq")
+            out.append("Takt %s: %s MHz" % (d, int(f) // 1000000 if f and f.strip().isdigit() else "?"))
+    except OSError:
+        pass
+    out.append("Lüfter (PWM Soll/Ist): %s / %s" % ((read_small("/sys/devices/pwm-fan/target_pwm") or "?").strip(), (read_small("/sys/devices/pwm-fan/cur_pwm") or "?").strip()))
+    out.append("tegrastats:" + NL + run(["timeout", "4", "tegrastats", "--interval", "1000"], 8).strip())
+    return NL.join(out) + NL
+
+
+def jetson_chain():
+    """Jetson-Kette: Steuerdatei (Lage, Ebene, Sichtbarkeit, Beschnitt, Rahmen, Ton je Platz), Ansicht (gewünscht/bestätigt), Zubringer und Weichen mit Kernen."""
+    NL = chr(10)
+    out = ["Steuerdatei /run/pipbox-send/pad-ctl:", (tail_file("/run/pipbox-send/pad-ctl", 150) or "(fehlt: keine Sendung oder kein Modus \"alle Kameras immer bereit\")").strip(),
+           "", "Ansicht gewünscht (main-view) / bestätigt (view-state): %s / %s" % ((read_small(f"{STATE}/main-view") or "-").strip(), (read_small("/run/pipbox-send/view-state") or "-").strip()),
+           "", "Zubringer und Füllbilder (PID, Kern, Laufzeit, Befehl gekürzt):"]
+    ps = run(["ps", "-eo", "pid,psr,etimes,args"], 8)
+    for line in ps.splitlines():
+        if "gst-launch-1.0" in line and ("rtmpsrc location=rtmp://127.0.0.1" in line or "videotestsrc" in line and "udpsink" in line):
+            parts = line.split(None, 3)
+            if len(parts) == 4:
+                aff = run(["taskset", "-pc", parts[0]], 3).strip().split(":")[-1].strip()
+                cmd = parts[3]
+                cmd = cmd[cmd.find("rtmpsrc"):][:60] if "rtmpsrc" in cmd else "Füllbild " + cmd[cmd.find("port="):][:12]
+                out.append("  %s Kern %s (erlaubt %s) seit %s s  %s" % (parts[0], parts[1], aff, parts[2], cmd))
+    return NL.join(out) + NL
+
+
 def sections():
     now = time.time()
     local = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(now))
@@ -1074,11 +1123,13 @@ def sections():
             "Bereinigt: Passwörter, Stream-ID, Serveradressen, WLAN-Namen, IP- und MAC-Adressen, Kamera-Schlüssel, Tailscale-Namen, E-Mail-Adressen und "
             "Zugangsschlüssel sind durch Platzhalter ersetzt (gleiche Werte haben gleiche Nummern). Bitte trotzdem vor dem Weitergeben kurz durchsehen.\n"
             % (time.strftime("%Y-%m-%d %H:%M:%S", time.gmtime(now)), local, version))
-    units = ["pipbox", "pipbox-dji", "pipbox-send", "pipbox-health", "bluetooth", "NetworkManager", "tailscaled", "nginx"]
-    helpers = ["pipbox-swupdate", "pipbox-update", "pipbox-wifi", "pipbox-btdriver", "pipbox-remote", "pipbox-power", "pipbox-logmode"]
+    units = ["pipbox", "pipbox-dji", "pipbox-send", "pipbox-hdmi", "pipbox-preview", "pipbox-health", "bluetooth", "NetworkManager", "tailscaled", "nginx"]
+    helpers = ["pipbox-swupdate", "pipbox-update", "pipbox-wifi", "pipbox-btdriver", "pipbox-remote", "pipbox-power", "pipbox-logmode", "pipbox-send-ctl"]
     out = [("Kopf", head),
            ("System", "Kernel: %s\nBetriebszeit: %s\nLast: %s\n%s" % (run(["uname", "-r"], 5).strip(), run(["uptime", "-p"], 5).strip(),
                                                                     read_small("/proc/loadavg"), run(["free", "-m"], 5))),
+           ("Jetson: L4T, Video-Hardware, Takte, Lüfter, tegrastats", jetson_system() if is_jetson() else "(kein Jetson)\n"),
+           ("Jetson-Kette: Steuerdatei, Ansicht, Zubringer und Weichen mit Kernen", jetson_chain() if is_jetson() else "(kein Jetson)\n"),
            ("Dienste", "".join("%-22s %s\n" % (u, run(["systemctl", "is-active", u + ".service"], 5).strip()) for u in units)
             + "Einmalige Helfer (\"inactive\" ist normal, wenn sie nicht gerade arbeiten):\n"
             + "".join("%-22s %s\n" % (u, run(["systemctl", "is-active", u + ".service"], 5).strip()) for u in helpers)
@@ -1106,12 +1157,14 @@ def sections():
            ("Netzwerk-Zähler (seit dem Start)", net_counters()),
            ("Ereignisse der Sendekette (belacoder: Zweige starten, Zeitausrichtung)", tail_file("/run/pipbox-send/belacoder-events.txt", 80)),
            ("Hänger der Sendekette (Diagnosepakete des Wächters: Threads von belacoder, Zustand D, Statistik; Neustart erfolgte automatisch)", tail_file("/var/lib/pipbox/hang-diagnose.txt", 400)),
+           ("Unerwartete Enden von belacoder (letzte Berichte: Ausgabezeilen, Weichen je Platz mit Lücken und Nachzüglern, verworfene Pakete je Port)", tail_file("/var/lib/pipbox/belacoder-ende.txt", 400)),
+           ("Pipeline-Text der letzten Sendekette", tail_file("/var/tmp/pipbox/pipeline", 120)),
            ("nginx: letzte Fehler", tail_file("/var/log/nginx/error.log", 40)),
            ("Zustand der Software-Updates", tail_file("/run/pipbox-swupdate/status.json", 40)),
            ("Protokoll der Software-Updates", collapse_repeats(tail_file("/var/log/pipbox-swupdate.log", 150))),
            ("Protokoll der System-Updates", collapse_repeats(tail_file(f"{STATE}/update.log", 80)))]
-    for u, n in (("pipbox-dji", 700), ("pipbox-send", 700), ("pipbox", 400), ("pipbox-wifi", 120), ("pipbox-btdriver", 120), ("pipbox-swupdate", 200),
-                 ("pipbox-update", 100), ("pipbox-remote", 100), ("pipbox-power", 40)):
+    for u, n in (("pipbox-dji", 700), ("pipbox-send", 700), ("pipbox", 400), ("pipbox-hdmi", 150), ("pipbox-preview", 80), ("pipbox-wifi", 120), ("pipbox-btdriver", 120),
+                 ("pipbox-swupdate", 200), ("pipbox-update", 100), ("pipbox-remote", 100), ("pipbox-power", 40)):
         text = journal(u, n)
         out.append(("Journal %s" % u, collapse_repeats(drop_noise(text) if u == "pipbox-dji" else text)))
     # Tailscale: Zustand der Freigaben (privat und öffentlich) und die Zeilen des Dienstes, die Freigabe, Zertifikat, Anmeldung und Fehler betreffen
