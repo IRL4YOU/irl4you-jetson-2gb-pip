@@ -1,5 +1,8 @@
 # Änderungen
 
+## 0.1.27
+- **USB-Kamera lieferte nicht wirklich 30 Bilder je Sekunde.** Im RTMP-Strom kamen nur 21 bis 24 Bilder je Sekunde an (Lücken bis 1,1 s, Schlüsselbilder alle 1,2 bis 1,9 s statt jede Sekunde), obwohl Kamera (30,1 fps, größter Abstand 42 ms) und Kodierer (30,0 fps) regelmäßig lieferten. Ursache: Der Muxer `flvmux` der Einspeisung hatte keine Wartezeit und warf Bilder weg, die gegenüber dem Ton zu spät kamen (die Einspeisung läuft mit niedriger Priorität). Jetzt wartet er 300 ms (`latency`): im RTMP-Strom genau 30,0 fps, jeder Abstand 33,3 ms. Gemessen mit verschiedenen Werten: 50 ms 29,7 fps mit Aussetzern, 100 ms 29,8, 150 ms 29,5, 200 ms und 300 ms 30,0 gleichmäßig. Bild und Ton der USB-Kamera kommen dadurch zusammen etwa 0,3 s später an; wer das ausgleichen will, stellt bei den anderen Kameras die Verzögerung ein.
+
 ## 0.1.26
 - **Protokoll: neuer Abschnitt „USB-Kamera“** mit der Einstellung der Karte (Bildformat Automatisch, MJPEG oder H.264) und den Bildformaten, die die Kamera laut Treiber anbietet (zum Beispiel Action 4: MJPG und H264, je 1280x720 und 1920x1080). Daran sieht man bei einem Problem sofort, welches Format gewählt ist.
 - **Bildformat „H.264“ erklärt:** Die Action 4 bietet H.264 über USB an, der Kernel (4.9) kann es aber nicht abholen (die Kamera meldet für H.264 keine Puffergröße). Die Box nimmt dann automatisch MJPEG; der Hinweis steht an der Auswahl und die Meldung „Das Bildformat … lässt sich von dieser Kamera nicht abholen“ im Journal. Gemessen: Die direkte Abholung am Treiber vorbei (libusb) liefert H.264 mit 32 bis 37 Mbit/s und ist insgesamt deutlich teurer als MJPEG mit Hardware-Dekodierung und -Kodierung (rund 183 % gegenüber 117 % eines Kerns); sie wird deshalb nicht eingebaut.

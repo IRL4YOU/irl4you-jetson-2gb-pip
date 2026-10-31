@@ -59,6 +59,7 @@ PROBE_RETRY_PAUSE = 1.0                                  # Sekunden vor dem zwei
 BITRATE_RANGE = (1000, 20000)                            # kbit/s
 FPS_CHOICES = (25, 30)
 AUDIO_CHOICES = ("hdmi", "none")
+MUX_LATENCY_NS = 300000000                              # Wartezeit des Muxers (flvmux) der USB-Einspeisung: ohne sie wirft er Bilder weg, die gegenüber dem Ton zu spät sind (gemessen mit der Action 4: nur 21 bis 24 statt 30 Bilder je Sekunde im RTMP-Strom, Lücken bis 1,1 s). Mit 200 bis 300 ms genau 30,0 fps, Abstand 33,3 ms
 NICE = 10                                                # die Einspeisung darf der Sendekette nie Rechenzeit wegnehmen
 GRACE = 15.0                                             # so lange darf der Stream brauchen, bis nginx ihn zeigt
 STALL = 12.0                                             # so lange darf er danach fehlen, bevor neu gestartet wird
@@ -310,7 +311,7 @@ def usb_feeder_argv(cfg, device, cand, audio_device=None, rtmp_port=RTMP_PORT, r
     else:
         a = ["audiotestsrc", "wave=silence", "is-live=true", "!", "audio/x-raw,rate=48000,channels=2", "!",
              "voaacenc", "bitrate=128000", "!", "aacparse", "!", "queue", "!", "mux."]
-    sink = ["flvmux", "name=mux", "streamable=true", "!", "rtmpsink", "location=rtmp://127.0.0.1:%d/%s/%s" % (rtmp_port, rtmp_app, cfg["key"])]
+    sink = ["flvmux", "name=mux", "streamable=true", "latency=%d" % MUX_LATENCY_NS, "!", "rtmpsink", "location=rtmp://127.0.0.1:%d/%s/%s" % (rtmp_port, rtmp_app, cfg["key"])]
     return ["gst-launch-1.0", "-q"] + v + a + sink
 
 
