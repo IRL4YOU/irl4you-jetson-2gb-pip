@@ -440,6 +440,7 @@ class Sender:
                 load_json=lambda name: load_json(f"{STATE}/{name}"), live_keys=live_keys,
                 feeders=pipbox_always.JetsonFeeders(log=lambda m: print(m, flush=True)), log=lambda m: print(m, flush=True), padctl_path=PADCTL,
                 geometry_fn=lambda cfg: _jetson_geometry(cfg), crop_fn=pipeline_jetson.crop_edges,
+                delay_fn=lambda cfg, keys: server.PipelineStore.delay_values({**server.PipelineStore.DEFAULT, **cfg}, keys),
                 view_file=f"{STATE}/{server.VIEW_FILE}", view_state=server.VIEW_STATE, view_values=server.PipelineStore.view_values)
         elif plan.get("always"):
             self.always = pipbox_always.Controller(

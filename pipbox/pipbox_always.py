@@ -369,12 +369,18 @@ class JetsonFeeders:
             time.sleep(0.1)
         return False
 
+    def set_delays(self, ms_by_slot):
+        """Verzögerung je Platz (Millisekunden, Liste in der Reihenfolge der Plätze) an die Weichen geben; sie gilt der Kamera, die gerade an dem Platz hängt."""
+        with self.lock:
+            for slot, r in self.relays.items():
+                r.set_delay(ms_by_slot[slot] if slot < len(ms_by_slot) else 0)
+
     def relay_report(self):
         """Zustand und Ereignisse der Weichen für den Bericht bei einem unerwarteten Ende von belacoder: je Platz Tor, Füllbild und die letzten Ereignisse (nur Plätze und Uhrzeiten)."""
         out = []
         for slot, r in sorted(self.relays.items()):
-            out.append("Platz %d: Tor %s, Füllbild %s, Lücken vor der Weiche %d Pakete, davon Nachzügler %d, Zubringer-Starts %d" % (
-                slot, "offen" if r.gate else "zu", "beendet" if r.fill_done else "läuft", r.lost_in, r.late_in, self.starts.get(slot, 0)))
+            out.append("Platz %d: Tor %s, Füllbild %s, Verzögerung %d ms, Lücken vor der Weiche %d Pakete, davon Nachzügler %d, Zubringer-Starts %d" % (
+                slot, "offen" if r.gate else "zu", "beendet" if r.fill_done else "läuft", round(r.delay_s * 1000), r.lost_in, r.late_in, self.starts.get(slot, 0)))
             out += ["    " + e for e in list(r.events)[-8:]]
         return out
 
@@ -494,9 +500,10 @@ class SlotController:
     CANVAS = (0, 0, 1920, 1080)
 
     def __init__(self, load_json, live_keys, feeders, log=print, padctl_path=None, clock=time.monotonic, geometry_fn=None,
-                 view_file=None, view_state=None, view_values=None, crop_fn=None):
+                 view_file=None, view_state=None, view_values=None, crop_fn=None, delay_fn=None):
         self.load_json, self.live_keys, self.feeders, self.log = load_json, live_keys, feeders, log
         self.padctl_path, self.clock, self.geometry_fn = padctl_path, clock, geometry_fn
+        self.delay_fn = delay_fn              # (Einstellung, Schlüssel je Platz) -> Verzögerung in ms je Platz; sie gehört zur Kamera, nicht zur Rolle (PipelineStore.delay_values)
         self.crop_fn = crop_fn                # (Schlüssel, Beschnitt) -> Kanten für den nvvidconv des Platzes (pipeline_jetson.crop_edges); None: kein Beschnitt
         self.padctl_last = None
         # Ansicht im Betrieb wie beim Rockchip-Baustein: die Oberfläche schreibt "ausgeblendet Tonquelle stumm" in view_file und wartet, bis dieselbe Zeile in
@@ -628,6 +635,16 @@ class SlotController:
             return int(hide), int(apos), 0
         return 0, {"main": -1, "pip": 0, "pip2": 1, "pip3": 2}.get(self.cfg.get("audio", "main"), -1), 0
 
+    def apply_delays(self):
+        """Verzögerung je Kamera (Einstellung "Verzögerung" im Bildaufbau) an die Weichen der Plätze geben, an denen die Kameras gerade hängen."""
+        if not self.delay_fn or not hasattr(self.feeders, "set_delays"):
+            return
+        try:
+            vals = self.delay_fn(self.cfg, list(self.binder.slot_key))
+        except (KeyError, TypeError, ValueError):
+            return
+        self.feeders.set_delays(vals)
+
     def read_view(self):
         """Die Zeile der Oberfläche lesen ("ausgeblendet Tonquelle stumm"); None, wenn es sie nicht gibt oder sie nicht passt."""
         if not self.view_file:
@@ -704,6 +721,7 @@ class SlotController:
     def tick(self):
         self.reload()
         self.view = self.read_view()
+        self.apply_delays()
         live = self.live_keys()
         self.live_set = live
         if live is not None:
