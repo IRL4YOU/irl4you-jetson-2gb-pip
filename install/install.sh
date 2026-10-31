@@ -78,6 +78,9 @@ mkdir -p "$DEST" "$APP"
 cp "$HERE/VERSION" "$DEST/VERSION"
 # Altes, das nicht mehr gebraucht wird, entfaellt: Ordner der Oberflaeche ersetzen, dann vorbereiten
 rm -rf "$APP/srv" "$APP/tw" "$APP/web" "$APP/__pycache__"
+# Dateien, die frühere Versionen mitbrachten und die es nicht mehr gibt (Rockchip-Reste), einzeln entfernen: cp -a ersetzt nur, was im Paket steht
+rm -f "$APP/pipbox_live.py" "$APP/pipbox_live.pyc"
+rm -rf "$APP/gst" "$APP/gst-src"
 cp -a "$HERE/pipbox/." "$APP/"
 cp "$HERE/VERSION" "$APP/VERSION"
 chown -R root:root "$APP"

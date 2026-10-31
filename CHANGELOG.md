@@ -1,5 +1,8 @@
 # Änderungen
 
+## 0.1.22
+- Installation und Update räumen `pipbox_live.py` (und einen alten Ordner `gst`) in `/opt/pipbox` weg, die frühere Versionen mitbrachten und die es nicht mehr gibt. Ohne das bliebe die Datei nach einem Update liegen. Sonst keine Änderung (0.1.21 ist am Gerät geprüft: Sendung 30 fps, Dienste laufen, Tausch-Hinweis „ohne Unterbrechung“, Statistik ohne NPU, kein Lüfterwert).
+
 ## 0.1.21
 - **Rockchip-Reste umgestellt oder entfernt** (aus dem anderen Paket übernommen, auf dem Jetson tot oder irreführend). Verhalten der Sendekette, der Pläne und der Kettentexte ist unverändert (Vergleich über 240 Einstellungen und 42 Änderungspaare vor und nach dem Umbau: keine Abweichung), dazu kommen die Korrekturen unten.
   - Entfernt: die Engine mit Rockchip-Compositor (`pipbox_live.py`, 1100 Zeilen), die Rockchip-Zweige in `pipeline.py` (Umschalter, Überlagerungs-Baustein, Verpixeln-Zweig), die alten Zubringer-Klassen in `pipbox_always.py`, die Umschalter-Dateien und Prüfungen des Bausteins (`plugin.py`), `style_text`/`small_decode`, die NPU-Messung und die Rückmeldung der alten Kette im Sendedienst.
