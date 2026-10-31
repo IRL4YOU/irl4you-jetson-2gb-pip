@@ -4,12 +4,12 @@ Der Hardware-Decoder des Jetson (nvv4l2decoder) wirft Bilder eines neuen Streams
 ankommt, und der Compositor liefert in dieser Zeit keinen Ausgang (gemessen: bis zur Länge eines Keyframe-Abstands, bei 8 Sekunden Abstand also 8 bis 13 Sekunden Stillstand
 der ganzen Sendung). Deshalb liest die Kette nicht direkt vom Zubringer der Kamera, sondern von dieser Weiche:
 
-  Füllbild (schwarz, nur am Anfang) ─┐
+  Füllbild (schwarz, aufgenommen, spielt die Weiche selbst ab) ─┐
   Kamera-Zubringer (Bild, Ton) ──────┴─> Weiche ─> udpsrc der Sendekette (Bild und Ton)
 
-Die Weiche gibt das Füllbild weiter, bis der erste IDR der Kamera ankommt, und schaltet genau dort auf die Kamera um (mit den zuletzt gesehenen SPS/PPS davor), sodass der
-Decoder nie ein Bild ohne seinen Keyframe sieht. Bleiben die Bilder der Kamera länger als ACTIVE_GAP aus, schließt das Tor: es geht nichts mehr durch (der Platz ist dann in der
-Kette ausgeblendet, der Compositor liefert weiter, gemessen), und beim Zurückkehren öffnet es wieder erst an einem IDR. Der Ton läuft nur bei offenem Tor von der Kamera, sonst
+Die Weiche spielt das Füllbild ab, bis der erste IDR der Kamera ankommt, und schaltet genau dort auf die Kamera um (mit den zuletzt gesehenen SPS/PPS davor), sodass der
+Decoder nie ein Bild ohne seinen Keyframe sieht. Bleiben die Bilder der Kamera länger als ACTIVE_GAP aus, schließt das Tor und das Füllbild läuft wieder (der Compositor und der Decoder brauchen an jedem Platz laufend Bilder, sonst steht die ganze
+Ausgabe, gemessen: 25 s), und beim Zurückkehren öffnet das Tor wieder erst an einem IDR. Der Ton läuft nur bei offenem Tor von der Kamera, sonst
 schickt die Weiche Stille, damit der audiomixer der Kette nie auf einen Platz wartet. Folgenummer und Quelle der RTP-Pakete werden neu gesetzt, damit der Strom für den
 Depayloader lückenlos aussieht.
 
@@ -44,6 +44,22 @@ def pin_cpu(cpu):
         os.sched_setaffinity(0, {int(cpu)})
     except (AttributeError, OSError, ValueError):
         pass
+
+
+def fill_gop(capture):
+    """Aus mitgeschnittenen RTP-Paketen des Füllbild-Encoders (Liste von Paketen in Reihenfolge) genau eine Gruppe von Bildern: vom SPS/PPS vor einem IDR bis vor das SPS/PPS vor dem nächsten.
+    Ergebnis (Pakete, Dauer in RTP-Takten): Paket = (Abstand in RTP-Takten zum ersten, Bytes); None, wenn keine vollständige Gruppe dabei war."""
+    kinds = [classify(x) for x in capture]
+    starts = [i for i, k in enumerate(kinds) if k == "param" and (i == 0 or kinds[i - 1] != "param")]
+    for a, b in zip(starts, starts[1:]):
+        if "idr" not in kinds[a:b]:
+            continue
+        ts0 = int.from_bytes(capture[a][4:8], "big")
+        ticks = (int.from_bytes(capture[b][4:8], "big") - ts0) & 0xFFFFFFFF
+        if not 0 < ticks < 90000 * 5:
+            continue
+        return [((int.from_bytes(x[4:8], "big") - ts0) & 0xFFFFFFFF, bytes(x)) for x in capture[a:b]], ticks
+    return None
 
 
 def classify(pkt):
@@ -101,6 +117,10 @@ class SlotRelay(threading.Thread):
         self.lost_in = 0                      # Pakete, die laut Folgenummer zwischen Zubringer und Weiche fehlen (Lücke nach vorn)
         self.late_in = 0                      # Pakete, die nach einer Lücke doch noch kamen (Reihenfolge vertauscht): so viele davon waren kein Verlust
         self.seq = 0
+        self.fill_gop = None                  # (Pakete, Takte): ein aufgenommenes schwarzes Füllbild, das die Weiche selbst abspielt (set_fill)
+        self.fill_on = False                  # das Füllbild wird gerade abgespielt
+        self.fill_t0, self.fill_i = 0.0, 0
+        self.fill_ts = 0                      # RTP-Zeitstempel, ab dem das nächste Abspielen beginnt (lückenlos weiterzählen)
         self.socks = {}
         for name, port in (("v", in_v), ("a", in_a), ("f", in_f)):
             s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
@@ -123,6 +143,10 @@ class SlotRelay(threading.Thread):
             self.note("Verzögerung %d ms (vorher %d ms)" % (round(d * 1000), round(self.delay_s * 1000)))
             self.delay_s = d
 
+    def set_fill(self, gop):
+        """Das aufgenommene Füllbild (siehe fill_gop) übernehmen. Die Weiche spielt es ab, solange keine Kamera Bilder liefert: kein Prozess je Platz nötig (vier Encoder kosteten gemessen 150 % CPU)."""
+        self.fill_gop = gop
+
     def reset(self):
         """Andere Kamera auf diesem Platz oder neuer Abnehmer (belacoder startet neu): das Tor schließt und das Füllbild läuft wieder, bis der nächste IDR der Kamera kommt.
         Ein neuer Abnehmer steigt sonst mitten im Keyframe-Abstand ein und sähe bis zum nächsten IDR nichts (gemessen: der Ausgang steht dann bis zu einem Keyframe-Abstand)."""
@@ -130,6 +154,7 @@ class SlotRelay(threading.Thread):
         self.params = []
         self.fill_done = False
         self.fill_seen = False
+        self.fill_on = False
         self.started = False
         self.q.clear()
         self.note("zurückgesetzt (Tor zu, Füllbild wieder an)")
@@ -226,8 +251,30 @@ class SlotRelay(threading.Thread):
             self.fill_seen = True
             self.send_v(pkt)
 
+    def fill_play(self, now):
+        """Füllbild abspielen (im Takt der aufgenommenen Zeitstempel), solange die Kamera nicht an der Kette ist; immer von der Gruppe an, die mit SPS/PPS und IDR beginnt."""
+        if self.fill_done or not self.fill_gop:
+            self.fill_on = False
+            return
+        pkts, ticks = self.fill_gop
+        loop_s = ticks / 90000.0
+        if not self.fill_on:
+            self.fill_on, self.fill_t0, self.fill_i = True, now, 0
+        elif now - self.fill_t0 > loop_s + 2.0:
+            self.fill_t0, self.fill_i = now, 0                  # lange nicht aufgerufen: nicht alles nachholen, neu beginnen (an einem IDR)
+        while self.fill_t0 + pkts[self.fill_i][0] / 90000.0 <= now:
+            dt, pkt = pkts[self.fill_i]
+            self.fill_seen = True
+            self.send_v(pkt[:4] + ((self.fill_ts + dt) & 0xFFFFFFFF).to_bytes(4, "big") + pkt[8:])
+            self.fill_i += 1
+            if self.fill_i >= len(pkts):
+                self.fill_i = 0
+                self.fill_t0 += loop_s
+                self.fill_ts = (self.fill_ts + ticks) & 0xFFFFFFFF
+
     def tick(self, now):
         self.flush(now)
+        self.fill_play(now)
         if self.gate and now - self.last_cam > ACTIVE_GAP:
             self.note("Tor zu (seit %.1f s keine Bilder der Kamera)" % (now - self.last_cam))
             self.gate = False                 # die Kamera liefert nichts mehr
