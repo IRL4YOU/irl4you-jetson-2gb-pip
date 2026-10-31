@@ -25,7 +25,7 @@ esac
 
 echo "JPIP-STEP pakete"
 need=""
-for p in gstreamer1.0-tools git curl ca-certificates; do
+for p in gstreamer1.0-tools git curl ca-certificates bluez usbutils rfkill; do
   dpkg -s "$p" >/dev/null 2>&1 || need="$need $p"
 done
 if [ -n "$need" ]; then
