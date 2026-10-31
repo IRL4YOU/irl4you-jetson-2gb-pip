@@ -1,5 +1,9 @@
 # Änderungen
 
+## 0.1.6
+- USB-Kamera als Kamera (Webcam, HDMI-USB-Grabber): Der Dienst aus dem anderen Paket speist die erste angeschlossene USB-Kamera als RTMP-Kamera ein (MJPEG, Rohbild oder H.264, mit dem Hardware-Kodierer des Jetson). **Nicht mit einer echten Kamera geprüft:** Getestet wurde der Weg ab der Kamera (MJPEG, Rohbild und H.264 aus einem Testbild bis zum RTMP-Server: richtige Größe, 30 Bilder/s, Ton). Wie sich echte Kameras und Grabber melden (Formate, Tongerät), bleibt offen. Ein H.264-Strom mit Füllzeilen (Osmo Action 6 am USB) wird nicht zugeschnitten. Der HDMI-Eingang des Rockchip-Boards fehlt dem Jetson. Hinweis: Eine USB-Kamera am Jetson braucht Strom; bei Ausfällen einen USB-Hub mit eigenem Netzteil verwenden.
+- Fernzugriff über Tailscale auf Ubuntu 18.04: Die Paketquelle von tailscale.com hat für dieses System nur Version 1.8.2 von 2021 (ohne „serve“ und „funnel“). Der Helfer lädt deshalb das offizielle Programmpaket (rund 36 MB, aktuelle Version) und richtet den Dienst selbst ein. Die Anmeldung beim Tailscale-Konto machst du selbst.
+
 ## 0.1.5
 - DJI-Kameras per Bluetooth: Der Dienst aus dem anderen Paket (Protokoll nach Moblin) läuft jetzt auf dem Jetson. Er braucht die Bluetooth-Bibliothek bleak ab Version 0.22 und damit Python 3.8; das System hat 3.6, deshalb richtet die Installation eine eigene Umgebung ein (/opt/pipbox/venv-dji, Python 3.8 aus den Ubuntu-Paketen und bleak per pip, braucht Internet). Schlägt das fehl, läuft alles andere, nur die DJI-Kameras gehen dann nicht.
 - Voraussetzung: ein USB-Bluetooth-Adapter (getestet: ASUS USB-BT500). Der Jetson Nano 2GB hat kein eingebautes Bluetooth.

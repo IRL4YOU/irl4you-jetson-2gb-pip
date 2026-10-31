@@ -41,7 +41,7 @@ HDMI_DEVICE = "/dev/hdmirx"
 HDMI_STATUS = "/sys/kernel/debug/hdmirx/status"          # Zustand des HDMI-Empfängers (nur root)
 HDMI_AUDIO = "hw:CARD=rockchiphdmiin"                    # ALSA-Karte des HDMI-Tons
 KEY_RE = re.compile(r"^[a-z0-9][a-z0-9_-]{0,31}$")       # wie in der Weboberfläche
-DEFAULTS = {"enabled": False, "key": "hdmi", "bitrate": 8000, "fps": 30, "audio": "hdmi", "source": "hdmi", "usb_format": "auto"}
+DEFAULTS = {"enabled": False, "key": "hdmi", "bitrate": 8000, "fps": 30, "audio": "hdmi", "source": "usb", "usb_format": "auto"}      # Jetson: Quelle "usb" (es gibt keinen HDMI-Eingang)
 SOURCE_CHOICES = ("hdmi", "usb")
 USB_FORMAT_CHOICES = ("auto", "mjpeg", "h264")           # Bildformat der USB-Webcam: Automatisch (MJPEG zuerst), MJPEG oder H.264 zuerst; das andere bleibt als Rückfall
 SYS_V4L = "/sys/class/video4linux"
@@ -247,7 +247,7 @@ def usb_caps(cand):
     return "%s %dx%d@%d" % (label, w, h, f), "%s,width=%d,height=%d,framerate=%d/1" % (media, w, h, f)
 
 
-PADDED_H264 = ("action6",)                               # Kameras, deren H.264-Strom unten Füllzeilen hat (Namensteil, klein): Osmo Action 6
+PADDED_H264 = ()                                         # Kameras, deren H.264-Strom unten Füllzeilen hat (Namensteil, klein). Jetson: leer. Beim Rockchip wird die Osmo Action 6 (1088 statt 1080 Zeilen) zugeschnitten und neu kodiert; das ließ sich auf dem Jetson nicht prüfen (siehe CHANGELOG). Der Strom geht hier unverändert durch.
 
 
 def usb_h264_padded(cand, name=""):
@@ -258,12 +258,23 @@ def usb_h264_padded(cand, name=""):
 
 
 def _usb_decode(kind):
-    """Teil der Pipeline hinter der Quelle bis zum rohen Bild (für den Probelauf und die Einspeisung)."""
+    """Teil der Pipeline hinter der Quelle bis zum rohen Bild (für den Probelauf und die Einspeisung). Jetson: MJPEG dekodiert nvjpegdec (rohes Bild im Systemspeicher), Rohbilder
+    wandelt videoconvert in I420; H.264 bleibt vorerst ein Strom (Dekoder und Kodierer folgen in der Einspeisung)."""
     if kind == "mjpeg":
-        return ["jpegparse", "!", "mppjpegdec"]
+        return ["jpegparse", "!", "nvjpegdec"]
     if kind == "h264":
         return ["h264parse", "config-interval=-1"]
-    return ["videoconvert"]
+    return ["videoconvert", "!", "video/x-raw,format=I420"]
+
+
+NVMM_NV12 = "video/x-raw(memory:NVMM),format=NV12"
+
+
+def _nv_encode(cfg, fps):
+    """Hardware-Kodierer der Einspeisung (Jetson): Bild kommt als rohes Bild im Systemspeicher oder in NVMM, nvvidconv bringt es nach NVMM/NV12. Alle Sekunde ein IDR-Bild
+    (idrinterval; der Standard wäre alle 256 Bilder, ein Empfänger wartete dann bis zu 8,5 s auf sein erstes Bild)."""
+    return ["nvvidconv", "!", NVMM_NV12, "!", "nvv4l2h264enc", "bitrate=%d" % (cfg["bitrate"] * 1000), "iframeinterval=%d" % fps, "idrinterval=%d" % fps,
+            "insert-sps-pps=true", "!", "h264parse", "config-interval=-1"]
 
 
 def usb_probe_argv(device, cand):
@@ -286,13 +297,10 @@ def usb_feeder_argv(cfg, device, cand, audio_device=None, rtmp_port=RTMP_PORT, r
     kind = cand[0]
     fps = cand[3]
     v = ["v4l2src", "device=" + device, "!", usb_caps(cand)[1], "!"] + _usb_decode(kind) + ["!"]
-    if kind == "h264" and usb_h264_padded(cand, name):
-        v += ["queue", "!", "mppvideodec", "crop-rectangle=<0,0,%d,%d>" % (cand[1], cand[2]), "height=%d" % cand[2], "!", "queue", "!",
-              "mpph264enc", "bitrate=%d" % (cfg["bitrate"] * 1000), "gop=%d" % fps, "!", "h264parse", "config-interval=-1", "!", "queue", "!", "mux."]
-    elif kind == "h264":
+    if kind == "h264":                                  # H.264 geht unverändert durch (kein Neukodieren, keine Last auf der Video-Hardware)
         v += ["queue", "!", "mux."]
     else:
-        v += ["queue", "!", "mpph264enc", "bitrate=%d" % (cfg["bitrate"] * 1000), "gop=%d" % fps, "!", "h264parse", "config-interval=-1", "!", "queue", "!", "mux."]
+        v += ["queue", "!"] + _nv_encode(cfg, fps) + ["!", "queue", "!", "mux."]
     if cfg["audio"] == "hdmi" and audio_device:
         a = ["alsasrc", "device=" + audio_device] + ALSA_CLOCK + ["!", "audioconvert", "!", "audioresample", "!", "audio/x-raw,rate=48000,channels=2", "!",
              "voaacenc", "bitrate=128000", "!", "aacparse", "!", "queue", "!", "mux."]
@@ -328,7 +336,7 @@ def friendly_error(lines, usb=False):
         return "Kein HDMI-Signal"
     if "rtmp" in low and ("connect" in low or "could not" in low or "failed" in low):
         return "Keine Verbindung zum RTMP-Eingang der Box"
-    if "mpp" in low and ("fail" in low or "error" in low):
+    if ("mpp" in low or "nvv4l2" in low or "nvjpeg" in low or "nvvidconv" in low) and ("fail" in low or "error" in low):
         return "Der Hardware-Kodierer meldet einen Fehler"
     return "Die Einspeisung wurde beendet" + (": " + re.sub(r"\s+", " ", lines[-1])[:120] if lines else "")
 

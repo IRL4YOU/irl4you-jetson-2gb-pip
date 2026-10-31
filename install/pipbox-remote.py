@@ -131,13 +131,84 @@ def get(url, limit=100000):
         return r.read(limit + 1)[:limit]
 
 
+STATIC_INDEX = "https://pkgs.tailscale.com/stable/?mode=json"
+STATIC_URL = "https://pkgs.tailscale.com/stable/{}"
+STATIC_MAX = 80 * 1024 * 1024          # größtes erlaubtes Paket (das aktuelle ist rund 36 MB)
+ARCHS = {"aarch64": "arm64", "x86_64": "amd64", "armv7l": "arm"}
+# Dateien, die aus dem Programmpaket übernommen werden: Name im Archiv (unter "<Paketname>/") -> (Ziel, Rechte)
+STATIC_FILES = {"tailscaled": ("/usr/sbin/tailscaled", 0o755), "tailscale": ("/usr/bin/tailscale", 0o755),
+                "systemd/tailscaled.service": ("/etc/systemd/system/tailscaled.service", 0o644)}
+STATIC_DEFAULTS = ("systemd/tailscaled.defaults", "/etc/default/tailscaled")      # nur anlegen, wenn es noch keine gibt
+
+
+def get_big(url, limit):
+    if not url.startswith("https://pkgs.tailscale.com/"):
+        raise RuntimeError("Unerlaubte Quelle")
+    with urllib.request.urlopen(urllib.request.Request(url, headers={"User-Agent": "irl4you-box"}), timeout=60) as r:
+        data = r.read(limit + 1)
+    if len(data) > limit:
+        raise RuntimeError("Das Paket von tailscale.com ist größer als erlaubt")
+    return data
+
+
+def static_files(data, name):
+    """Aus dem Programmpaket (tgz) nur die erlaubten Dateien lesen: {Name im Archiv ohne Ordner: Inhalt}. Alles andere im Archiv wird ignoriert (keine Pfade nach außen)."""
+    import io
+    import tarfile
+    base = name[:-4] + "/"
+    want = set(STATIC_FILES) | {STATIC_DEFAULTS[0]}
+    out = {}
+    with tarfile.open(fileobj=io.BytesIO(data), mode="r:gz") as tf:
+        for m in tf:
+            if m.isfile() and m.name.startswith(base) and m.name[len(base):] in want and m.size < 120 * 1024 * 1024:
+                out[m.name[len(base):]] = tf.extractfile(m).read()
+    missing = [k for k in want if k not in out]
+    if missing:
+        raise RuntimeError("Im Paket von tailscale.com fehlen Dateien: " + ", ".join(sorted(missing)))
+    return out
+
+
+def write_atomic(path, data, mode):
+    tmp = path + ".new"
+    with open(tmp, "wb") as f:
+        f.write(data)
+    os.chmod(tmp, mode)
+    os.replace(tmp, path)
+
+
+def do_install_static():
+    """Für Systeme ohne Paketquelle der aktuellen Version (Ubuntu 18.04 auf dem Jetson: dort liegt nur Tailscale 1.8.2 von 2021, ohne "serve" und "funnel"): das offizielle
+    Programmpaket von tailscale.com laden, die erlaubten Dateien in die Systempfade legen und den Dienst einrichten."""
+    arch = ARCHS.get(os.uname().machine)
+    if not arch:
+        raise RuntimeError("Dieser Prozessor (%s) wird nicht unterstützt." % os.uname().machine)
+    status(state="working", step="Suche die aktuelle Version bei tailscale.com", message="")
+    idx = json.loads(get(STATIC_INDEX, 200000).decode())
+    name = (idx.get("Tarballs") or {}).get(arch, "")
+    if not re.fullmatch(r"tailscale_[0-9]{1,2}\.[0-9]{1,3}\.[0-9]{1,3}_%s\.tgz" % arch, str(name)):
+        raise RuntimeError("Die Versionsangabe von tailscale.com sieht unerwartet aus")
+    status(step="Lade Tailscale (%s, rund 36 MB)" % name[:-4])
+    files = static_files(get_big(STATIC_URL.format(name), STATIC_MAX), name)
+    status(step="Richte Tailscale ein")
+    for key, (dest, mode) in STATIC_FILES.items():
+        write_atomic(dest, files[key], mode)
+    if not os.path.exists(STATIC_DEFAULTS[1]):
+        write_atomic(STATIC_DEFAULTS[1], files[STATIC_DEFAULTS[0]], 0o644)
+    subprocess.run(["systemctl", "daemon-reload"], stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=60)
+    r = subprocess.run(["systemctl", "enable", "--now", "tailscaled"], stdout=subprocess.PIPE, stderr=subprocess.PIPE, universal_newlines=True, timeout=120)
+    if r.returncode != 0 or not installed():
+        raise RuntimeError("Tailscale ließ sich nicht starten: " + (r.stdout + r.stderr)[-150:].replace("\n", " "))
+    log("Tailscale installiert (Programmpaket %s)" % name[:-4])
+    status(state="idle", step="", message="Tailscale ist installiert. Als Nächstes verbinden.")
+
+
 def do_install():
     if installed():
         status(state="idle", message="Tailscale ist schon installiert.")
         return
     cn = codename()
     if cn not in CODENAMES:
-        raise RuntimeError(f"Dieses System ({cn or '?'}) wird nicht unterstützt (Ubuntu 22.04/24.04).")
+        return do_install_static()          # zum Beispiel Ubuntu 18.04 (Jetson): das Programmpaket statt der Paketquelle
     status(state="working", step="Lade die Paketquelle von tailscale.com", message="")
     key = get(KEY_URL.format(cn), 20000)
     lst = get(LIST_URL.format(cn), 2000).decode()
