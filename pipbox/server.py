@@ -89,6 +89,7 @@ def main():
     Handler.outages = OutageWatch()
     Handler.usbwatch = UsbWatch(os.path.join(args.state, "usb-events.json"), demo=args.demo)
     Handler.support = SupportCases(os.path.join(args.state, "support-cases.json"))
+    Sampler.FAN_FILE = os.path.join(args.state, "fan.json")
     Handler.sampler = Sampler(args.demo)
     Handler.sampler.sample()  # Startwerte für Ratenberechnung
     Handler.srtla = SrtlaStore(os.path.join(args.state, "srtla.json"))
