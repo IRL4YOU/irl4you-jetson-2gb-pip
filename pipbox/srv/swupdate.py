@@ -328,7 +328,7 @@ class SwUpdate:
             # (eingespielt wird wie immer erst auf Knopfdruck). So kommen alle Boxen wieder auf denselben Zweig.
             out["bridge"] = True
             out["latest"], out["newer"] = sl, True
-            out["notes"] = "Die Testphase des Datenschutz-Tests ist beendet. Dieses Update führt zurück auf die stabile Version; die Erkennung ist dort eine eigene Karte (Datenschutz)."
+            out["notes"] = "Die Testphase ist beendet. Dieses Update führt zurück auf die stabile Version."
         return out
 
     def request(self, action, confirm, version=None, older=False):

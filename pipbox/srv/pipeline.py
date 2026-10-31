@@ -6,7 +6,6 @@ import threading
 
 from srv import pipeline_jetson
 from srv.cameras import KEY_RE
-from srv.datenschutz import datenschutz_aktiv
 from srv.plugin import FREE, PIP_CORNERS
 from srv.style import SIZE_MAX, SIZE_MIN, STYLE_SLOTS, clean_styles
 
@@ -38,16 +37,6 @@ class PipelineStore:
                "pip3_delay_ms": DEFAULT_PIP_DELAY_MS, "auto_failover": True, "swap_cams": 0, "always_ready": False, "facecam": ""}
     SLOTS = ("main", "pip", "pip2", "pip3")
     Q = "queue max-size-time=10000000000 max-size-buffers=1000 max-size-bytes=41943040"
-    DATENSCHUTZ_PFAD = None                 # Tests: Pfad der Einstellung (sonst DATENSCHUTZ_DATEI); DATENSCHUTZ_FEST = dict/None übersteuert die Datei
-    DATENSCHUTZ_FEST = "datei"
-
-    @classmethod
-    def datenschutz(cls):
-        """{"delay_ms": ...} wenn die Sendekette die Hauptkamera verpixeln soll, sonst None (siehe datenschutz_aktiv)."""
-        if cls.DATENSCHUTZ_FEST != "datei":
-            return cls.DATENSCHUTZ_FEST
-        return datenschutz_aktiv(cls.DATENSCHUTZ_PFAD)
-
     def __init__(self, path):
         self.path = path
         self.lock = threading.Lock()

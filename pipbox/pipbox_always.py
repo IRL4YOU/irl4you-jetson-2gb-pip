@@ -125,7 +125,7 @@ FILL_SIZE = (1920, 1080)    # Größe des Füllbildes: gleich der üblichen Kame
 
 
 def fill_cmd(slot, gst="gst-launch-1.0", size=None):
-    """Jetson: Füllbild für einen Platz, solange seine Kamera noch nicht da war. Ein schwarzer H.264-Stream (30 Bilder/s, alle halbe Sekunde ein IDR mit SPS/PPS: ohne idrinterval sendet der Encoder nur alle 256 Bilder einen, ein später einsteigender Decoder wartete bis zu 8,5 s; wenig Datenrate) geht an den
+    """Jetson: Füllbild für einen Platz, solange seine Kamera noch nicht da ist oder nicht mehr sendet. Ein schwarzer H.264-Stream (30 Bilder/s, alle halbe Sekunde ein IDR mit SPS/PPS: ohne idrinterval sendet der Encoder nur alle 256 Bilder einen, ein später einsteigender Decoder wartete bis zu 8,5 s; wenig Datenrate) geht an den
     Füll-Eingang der Weiche. So hat der Compositor an jedem Platz von Anfang an Bilder (ohne sie liefert nvcompositor beim Start keinen Ausgang, gemessen)."""
     if not 0 <= slot < SLOTS:
         raise ValueError("Platz ungültig")
@@ -139,7 +139,7 @@ def fill_cmd(slot, gst="gst-launch-1.0", size=None):
 
 class JetsonFeeders:
     """Zubringer für den Jetson. Je Platz: eine Weiche (pipbox_relay.SlotRelay), die den Eingang der Kette speist, ein Zubringer der Kamera (läuft, solange sie am RTMP-Server
-    sendet) und das Füllbild (läuft, bis die Kamera zum ersten Mal einen Keyframe geliefert hat). live_fn liefert die Schlüssel der sendenden Kameras (oder None, wenn unbekannt:
+    sendet) und das Füllbild (läuft, solange der Platz belegt ist; die Weiche gibt es nur weiter, wenn die Kamera nichts liefert). live_fn liefert die Schlüssel der sendenden Kameras (oder None, wenn unbekannt:
     dann wird die Kamera einfach versucht)."""
 
     def __init__(self, live_fn=lambda: None, rtmp_port=1935, rtmp_app="publish", log=print, popen=subprocess.Popen, clock=time.monotonic, killpg=os.killpg,
@@ -258,13 +258,13 @@ class JetsonFeeders:
             st["stop"].wait(0.5)
 
     def _fill_loop(self, slot, st, relay):
-        while not st["stop"].is_set() and not relay.fill_done:
+        while not st["stop"].is_set():              # das Füllbild läuft, solange der Platz belegt ist: endet der Strom der Kamera mitten im Keyframe-Abstand, übernimmt die Weiche es sofort
             p = self._spawn(st, "fill", fill_cmd(slot), cpu=FEED_CPUS[slot % len(FEED_CPUS)])
             if p is None:
                 if st["stop"].wait(5):
                     return
                 continue
-            while p.poll() is None and not st["stop"].is_set() and not relay.fill_done:
+            while p.poll() is None and not st["stop"].is_set():
                 time.sleep(0.2)
             self._kill(p)
             if st["stop"].wait(0.3):
@@ -293,7 +293,7 @@ class JetsonFeeders:
         out = []
         for slot, r in sorted(self.relays.items()):
             out.append("Platz %d: Tor %s, Füllbild %s, Verzögerung %d ms, Lücken vor der Weiche %d Pakete, davon Nachzügler %d, Zubringer-Starts %d" % (
-                slot, "offen" if r.gate else "zu", "beendet" if r.fill_done else "läuft", round(r.delay_s * 1000), r.lost_in, r.late_in, self.starts.get(slot, 0)))
+                slot, "offen" if r.gate else "zu", "aus" if r.fill_done else "an", round(r.delay_s * 1000), r.lost_in, r.late_in, self.starts.get(slot, 0)))
             out += ["    " + e for e in list(r.events)[-8:]]
         return out
 
@@ -305,7 +305,7 @@ class JetsonFeeders:
                 if relay is None:
                     continue
                 relay.reset()
-                if not st["threads"][1].is_alive():          # das Füllbild war beendet: wieder starten (die Zubringer der Kameras laufen weiter)
+                if not st["threads"][1].is_alive():          # das Füllbild war beendet (Fehler beim Start): wieder starten (die Zubringer der Kameras laufen weiter)
                     t = threading.Thread(target=self._fill_loop, args=(slot, st, relay), daemon=True, name=f"fill{slot}")
                     st["threads"][1] = t
                     t.start()

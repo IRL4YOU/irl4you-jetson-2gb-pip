@@ -8,7 +8,6 @@ try:
 except ImportError:
     pipbox_preview = None
 from srv.auth import Auth
-from srv.datenschutz import neustart_noetig
 from srv.httpd import PHONE_FRAME
 from srv.netinfo import iface_ips
 from srv.static import ASSET_RE
@@ -79,13 +78,6 @@ class GetRoutes:
             return self.reply(200, self.layout.get())
         if path == "/api/fan":
             return self.reply(200, {"mode": self.sampler.fan_mode(), "jetson": os.path.exists("/etc/nv_tegra_release")})
-        if path == "/api/datenschutz":
-            d = self.datenschutz.get()
-            if "lizenz" in urllib.parse.parse_qs((self.path.split("?", 1) + [""])[1]):
-                d["lizenz_text"] = self.datenschutz.lizenz_text()
-            d["sending"] = self.send._active()
-            d["neustart_noetig"] = bool(d["sending"] and neustart_noetig(self.pipeline.build()))
-            return self.reply(200, d)
         if path == "/api/deck":
             return self.reply(200, self.deck.get())
         if path == "/api/btdriver":

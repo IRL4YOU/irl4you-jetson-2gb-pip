@@ -1,5 +1,11 @@
 # Änderungen
 
+## 0.1.23
+- **Sendung bleibt stehen, wenn eine Kamera ausfällt: behoben.** Endet der Strom einer Kamera (DJI „Trennen“ oder „Neu verbinden“, Kabel gezogen, Akku leer), stand bisher die ganze Ausgabe (im Prüfstand gemessen: 25 Sekunden ohne ein Byte, bis die Kamera wieder da war; am Gerät schlug der Wächter nach etwa 6 Sekunden zu und startete belacoder neu, 30 bis 40 Sekunden ohne Bild). Grund: der Bild-Mischer (nvcompositor) wartet an jedem Platz auf Bilder. Jetzt läuft das schwarze Füllbild an jedem belegten Platz dauernd mit, und die Weiche schaltet darauf zurück, sobald die Kamera nichts mehr liefert. Im Prüfstand läuft die Ausgabe durchgehend weiter (etwa 750 KB je 2 s auch während des Ausfalls), die Kamera kommt nach dem Neustart des Zubringers wieder ins Bild.
+- **Verpixeln per Chat entfernt** („!pixel“, „Moderatoren dürfen auch Köpfe ausschalten“): Die Jetson-Version hat kein Verpixeln. Mit dem Abschnitt in der Oberfläche fallen die Platzhalter `srv/datenschutz.py`, die Schalter in der Pipeline und die Hinweise (Facecam, „Alle Kameras immer bereit“) weg.
+- **Mikro-Akku (DJI) entfernt** (Haken, Erinnerung, Meldungstext): Der Dienst `pipbox-mic`, der die Akkustände liefert, gehört nicht zu diesem Paket, die Einstellung hätte nie etwas gemeldet.
+- Update-Helfer: Fortschrittsanzeige mit den echten Schritten von `install.sh` (Pakete, Dienst, Dateien, Encoder, SRTLA, Start); die toten Schritte „Baustein“ und „Datenschutz“ entfallen. Übersetzungen ohne die entfernten Texte.
+
 ## 0.1.22
 - Installation und Update räumen `pipbox_live.py` (und einen alten Ordner `gst`) in `/opt/pipbox` weg, die frühere Versionen mitbrachten und die es nicht mehr gibt. Ohne das bliebe die Datei nach einem Update liegen. Sonst keine Änderung (0.1.21 ist am Gerät geprüft: Sendung 30 fps, Dienste laufen, Tausch-Hinweis „ohne Unterbrechung“, Statistik ohne NPU, kein Lüfterwert).
 

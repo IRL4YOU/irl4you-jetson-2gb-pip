@@ -40,7 +40,6 @@ except ImportError:
 from srv.access import (ExtraAddress, PreviewAccess, SupportCases, TAILNET, UiAccess, client_origin, source_allowed)  # noqa: E402,F401
 from srv.auth import (Auth, FAIL_WINDOW, MAX_CHECKS, MAX_FAILS, REMEMBER_SECONDS, SESSION_SECONDS)  # noqa: E402,F401
 from srv.cameras import (CameraStore, HDMI_KEY, KEY_RE, ROLES)  # noqa: E402,F401
-from srv.datenschutz import (DATENSCHUTZ_BAUSTEIN, DATENSCHUTZ_DATEI, DATENSCHUTZ_MODELL, DATENSCHUTZ_PY, DatenschutzStore, PBPIXEL_BOXES, PBPIXEL_TAP, PRIVACY_URL, SENDE_PIPELINE, datenschutz_aktiv, kette_signatur, neustart_noetig, pixel_stand, pixel_umschalten, privacy_status)  # noqa: E402,F401
 from srv.dji_service import (DJI_COMMANDS, DJI_FIELDS, DjiService)  # noqa: E402,F401
 from srv.handler import (Handler)  # noqa: E402,F401
 from srv.hdmi_service import (HdmiService)  # noqa: E402,F401
@@ -103,7 +102,6 @@ def main():
     Handler.netchoice = NetChoice(os.path.join(args.state, "camera-net.json"))
     Handler.names = DeviceNames(args.state)
     Handler.layout = LayoutStore(args.state)
-    Handler.datenschutz = DatenschutzStore(args.state)
     Handler.deck = DeckStore(args.state)
     Handler.statsshare = StatsShare(args.state, demo=args.demo)
     Handler.fpsprobe = FpsProbe("rtmp://127.0.0.1:%d/%s" % (args.rtmp_port, args.rtmp_app), os.path.join(args.state, "gst-registry.bin"), demo=args.demo)
@@ -154,25 +152,13 @@ def main():
     Handler.uplinkmem = UplinkMemory()
     Handler.fpsmem = FpsMemory()
     Handler.sysalerts.light_fn = Handler.light_now
-    def mic_status():
-        try:
-            with open("/run/pipbox-mic/status.json") as f:
-                return json.load(f)
-        except (OSError, ValueError):
-            return None
     def fps_status():
         rates = Handler.send.measured_rates()
         if not rates:
             return {}
         names = {c.get("key"): c.get("name") for c in list(Handler.cams.cams) if isinstance(c, dict)}
         return {k: {"name": names.get(k) or k, "rates": list(v)} for k, v in rates.items()}
-    def pixel_get():
-        return pixel_stand(Handler.datenschutz)
-    def pixel_set(an, kopf, kennz):
-        return pixel_umschalten(Handler.datenschutz, Handler.send, Handler.pipeline, an, kopf, kennz)
-    Handler.sysalerts.pixel_get, Handler.sysalerts.pixel_set = pixel_get, pixel_set
     Handler.sysalerts.fps_fn = fps_status                                                # Bildrate je Kamera (Warnung "Kamera unter 20 fps" im Chat)
-    Handler.sysalerts.mic_fn = mic_status                                                # Stand der DJI-Mikrofone aus dem Dienst pipbox-mic (Akku-Meldung im Chat)
     Handler.sysalerts.reader = Handler.chatreader                                        # der Chat-Befehl !temp liest über denselben Leser
     Handler.chatmod = TwitchMod(Handler.twitch.store, Handler.twitchlogin, paths=Handler.chatpaths, demo=args.demo, demo_reader=Handler.chatreader if args.demo else None)
     Handler.chathelix = HelixChat(Handler.twitchlogin, Handler.chatmod)

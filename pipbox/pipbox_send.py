@@ -892,7 +892,7 @@ class Sender:
         slots = []
         feeders = getattr(self.always, "feeders", None)
         for slot, r in sorted(getattr(feeders, "relays", {}).items()):
-            slots.append((slot, "Tor %s, Füllbild %s" % ("offen" if r.gate else "zu", "beendet" if r.fill_done else "läuft"), ""))
+            slots.append((slot, "Tor %s, Füllbild %s" % ("offen" if r.gate else "zu", "aus" if r.fill_done else "an"), ""))
         report = pipbox_watch.build_report(hit, p.pid, time.monotonic() - (self.watch.started or time.monotonic()), text,
                                            [f"{t} {e}" for t, e in list(self.events)], slots, slot_fmt="  Platz %s: %s%s")
         saved = pipbox_watch.write_report(STATE, report)

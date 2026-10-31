@@ -42,7 +42,6 @@ async function sendLoad(){
   if(d.active&&d.failover&&d.failover.waiting) why.push((d.failover.inactive||[]).length?"Keine aktive Kamera sendet, warte auf ein Signal":"Keine Kamera sendet, warte auf ein Signal");
   else if(d.active&&d.failover&&d.failover.degraded){ const nm=k=>(camsByKey[k]||{}).name||k; why.push(`Notbetrieb: es senden ${d.failover.layout.map(nm).join(", ")} (fehlende Kameras kommen nach 60 s stabilem Signal zurück)`); }
   if(d.active&&d.always_note) why.push(d.always_note);
-  if(d.active&&d.facecam_main) why.push("Facecam ist das Hauptbild: nichts wird verpixelt");
   if(d.active&&d.last&&d.last_age!=null&&d.last_age<180) why.push(d.last);      // alte Meldungen verschwinden von selbst
   if(d.active&&d.restarts){ const e=d.restarts.belacoder||0, n=d.restarts.srtla_send||0;
     if(e||n) why.push("Seit dem Start automatisch neu gestartet: "+[e?`Encoder ${e}×`:"",n?`Netzverbindung ${n}×`:""].filter(Boolean).join(", ")); }

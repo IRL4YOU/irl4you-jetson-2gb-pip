@@ -87,7 +87,7 @@ class SlotRelay(threading.Thread):
         self.stop_ev = threading.Event()
         self.gate = False
         self.opened_at = 0.0
-        self.fill_done = False                # die Kamera war schon einmal zu sehen: das Füllbild wird nicht mehr gebraucht
+        self.fill_done = False                # die Kamera liefert gerade Bilder an die Kette: das Füllbild wird nicht gebraucht (fällt die Kamera aus, übernimmt es wieder)
         self.started = False                  # das erste Bild der Kamera ist (nach einer Verzögerung) tatsächlich an der Kette angekommen
         self.delay_s = 0.0                    # Verzögerung dieser Kamera (Bild und Ton)
         self.q = collections.deque()          # zurückgehaltene Pakete: (Freigabezeit, Art "v"/"a", Daten)
@@ -231,6 +231,7 @@ class SlotRelay(threading.Thread):
         if self.gate and now - self.last_cam > ACTIVE_GAP:
             self.note("Tor zu (seit %.1f s keine Bilder der Kamera)" % (now - self.last_cam))
             self.gate = False                 # die Kamera liefert nichts mehr
+            self.fill_done = False            # das Füllbild übernimmt den Platz: nvcompositor und Decoder brauchen an jedem Platz laufend Bilder, sonst steht die ganze Ausgabe (gemessen)
             self.params = []
             self.last_in = None
             self.started = False              # kommt die Kamera zurück, zählt erst ihr erstes (verzögertes) Bild wieder als "zu sehen"
