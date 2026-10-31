@@ -2,20 +2,21 @@ diff --git a/belacoder.c b/belacoder.c
 index fc6de47..7779fb8 100644
 --- a/belacoder.c
 +++ b/belacoder.c
-@@ -646,6 +646,59 @@ static gboolean write_stats(gpointer data) {
+@@ -646,6 +646,70 @@ static gboolean write_stats(gpointer data) {
    return TRUE;
  }
  
 +#include <string.h>
-+// IRL4YOU: Steuerdatei für Bild-Kacheln des Compositors (Umgebungsvariable BELACODER_PADCTL_FILE; ohne sie passiert nichts). Jede Zeile heißt
-+// "Element.Pad Eigenschaft Wert", zum Beispiel "comp.sink_1 alpha 0" (Kachel ausblenden) oder "comp.sink_1 alpha 1". Erlaubt sind alpha, xpos, ypos, width, height
-+// und zorder (Compositor) sowie volume und mute (Pads des audiomixer). Die Datei wird alle 300 ms gelesen und nur bei einer Änderung angewendet; Zeilen für
-+// unbekannte Elemente oder Pads werden übersprungen.
++// IRL4YOU: Steuerdatei für die Kette (Umgebungsvariable BELACODER_PADCTL_FILE; ohne sie passiert nichts). Zwei Zeilenformen:
++// "Element.Pad Eigenschaft Wert", zum Beispiel "comp.sink_1 alpha 0" (Kachel ausblenden): alpha, xpos, ypos, width, height, zorder (Compositor), volume, mute
++// (Pads des audiomixer); und "Element Eigenschaft Wert", zum Beispiel "vc1 left 64" (Beschnitt im nvvidconv: left, right, top, bottom) oder
++// "frame1 foreground-color 4294901760" (Farbe eines videotestsrc). Die Datei wird alle 300 ms gelesen und nur bei einer Änderung angewendet; gesetzt werden nur
++// neue oder geänderte Zeilen, Zeilen für unbekannte Elemente oder Pads werden übersprungen.
 +static const char *padctl_file = NULL;
 +
 +static gboolean padctl_poll(gpointer data) {
-+  static char last[4096] = "";
-+  char buf[4096];
++  static char last[16384] = "";
++  char buf[16384];
 +  FILE *fp = fopen(padctl_file, "r");
 +  if (!fp)
 +    return TRUE;
@@ -29,32 +30,42 @@ index fc6de47..7779fb8 100644
 +  strcpy(last, buf);
 +  char *save = NULL;
 +  for (char *line = strtok_r(buf, "\n", &save); line; line = strtok_r(NULL, "\n", &save)) {
-+    char el[64], pad[64], prop[16], key[sizeof(last)];
++    char el[64], pad[64], prop[32], key[sizeof(last)];
 +    double v;
 +    snprintf(key, sizeof(key), "\n%s\n", line);
 +    if (strstr(prev, key))
 +      continue;
-+    if (sscanf(line, "%63[^. ].%63s %15s %lf", el, pad, prop, &v) != 4)
-+      continue;
-+    GstElement *e = gst_bin_get_by_name(GST_BIN(gst_pipeline), el);
-+    if (!e)
-+      continue;
-+    fprintf(stderr, "padctl: %s.%s %s %g\n", el, pad, prop, v);
-+    GstPad *p = gst_element_get_static_pad(e, pad);
-+    if (p) {
-+      if (!strcmp(prop, "alpha"))
-+        g_object_set(G_OBJECT(p), "alpha", v < 0 ? 0.0 : (v > 1 ? 1.0 : v), NULL);
-+      else if (!strcmp(prop, "volume"))
-+        g_object_set(G_OBJECT(p), "volume", v < 0 ? 0.0 : (v > 10 ? 10.0 : v), NULL);
-+      else if (!strcmp(prop, "mute"))
-+        g_object_set(G_OBJECT(p), "mute", v != 0 ? TRUE : FALSE, NULL);
-+      else if (!strcmp(prop, "zorder"))
-+        g_object_set(G_OBJECT(p), "zorder", (guint)(v < 0 ? 0 : v), NULL);
-+      else if (!strcmp(prop, "xpos") || !strcmp(prop, "ypos") || !strcmp(prop, "width") || !strcmp(prop, "height"))
-+        g_object_set(G_OBJECT(p), prop, (gint)v, NULL);
-+      gst_object_unref(p);
++    if (sscanf(line, "%63[^. ].%63s %31s %lf", el, pad, prop, &v) == 4) {
++      GstElement *e = gst_bin_get_by_name(GST_BIN(gst_pipeline), el);
++      if (!e)
++        continue;
++      fprintf(stderr, "padctl: %s.%s %s %g\n", el, pad, prop, v);
++      GstPad *p = gst_element_get_static_pad(e, pad);
++      if (p) {
++        if (!strcmp(prop, "alpha"))
++          g_object_set(G_OBJECT(p), "alpha", v < 0 ? 0.0 : (v > 1 ? 1.0 : v), NULL);
++        else if (!strcmp(prop, "volume"))
++          g_object_set(G_OBJECT(p), "volume", v < 0 ? 0.0 : (v > 10 ? 10.0 : v), NULL);
++        else if (!strcmp(prop, "mute"))
++          g_object_set(G_OBJECT(p), "mute", v != 0 ? TRUE : FALSE, NULL);
++        else if (!strcmp(prop, "zorder"))
++          g_object_set(G_OBJECT(p), "zorder", (guint)(v < 0 ? 0 : v), NULL);
++        else if (!strcmp(prop, "xpos") || !strcmp(prop, "ypos") || !strcmp(prop, "width") || !strcmp(prop, "height"))
++          g_object_set(G_OBJECT(p), prop, (gint)v, NULL);
++        gst_object_unref(p);
++      }
++      gst_object_unref(e);
++    } else if (sscanf(line, "%63s %31s %lf", el, prop, &v) == 3 && !strchr(el, '.')) {
++      GstElement *e = gst_bin_get_by_name(GST_BIN(gst_pipeline), el);
++      if (!e)
++        continue;
++      fprintf(stderr, "padctl: %s %s %g\n", el, prop, v);
++      if (!strcmp(prop, "left") || !strcmp(prop, "right") || !strcmp(prop, "top") || !strcmp(prop, "bottom"))
++        g_object_set(G_OBJECT(e), prop, (gint)(v < 0 ? 0 : v), NULL);
++      else if (!strcmp(prop, "foreground-color"))
++        g_object_set(G_OBJECT(e), prop, (guint)(v < 0 ? 0 : v), NULL);
++      gst_object_unref(e);
 +    }
-+    gst_object_unref(e);
 +  }
 +  return TRUE;
 +}
@@ -62,7 +73,7 @@ index fc6de47..7779fb8 100644
  int main(int argc, char** argv) {
    int opt;
    char *srt_host = NULL;
-@@ -852,6 +905,9 @@ int main(int argc, char** argv) {
+@@ -852,6 +916,9 @@ int main(int argc, char** argv) {
    g_timeout_add(2000, stall_check, NULL); // check every second
    if (stats_file)
      g_timeout_add(1000, write_stats, NULL);                          // IRL4YOU: Kennzahlen für die Oberfläche

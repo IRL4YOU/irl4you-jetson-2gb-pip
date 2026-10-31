@@ -161,10 +161,10 @@ _STYLE = {"mtime": None, "ok": True}
 def plugin_style():
     """Kennt der installierte Baustein Beschnitt, Deckkraft und Rahmen je kleinem Bild (Eigenschaften "style1" bis "style3")?
     Ein alter Baustein (z. B. wenn der Neubau beim Update scheiterte) würde die Eigenschaft nicht kennen und die Sendekette
-    nicht starten: dann bleibt sie aus dem Pipeline-Text weg. Ohne Baustein (Entwicklungsrechner) ja. Jetson: noch nicht (die Nvidia-Kette kennt
-    Beschnitt, Deckkraft und Rahmen je kleinem Bild noch nicht; die Oberfläche blendet die Regler aus)."""
+    nicht starten: dann bleibt sie aus dem Pipeline-Text weg. Ohne Baustein (Entwicklungsrechner) ja. Jetson: ja (Beschnitt über den nvvidconv des Platzes,
+    Rahmen als Farbfläche im Compositor, beides im Betrieb über die Steuerdatei; nur die Eckenrundung gibt es dort nicht)."""
     if jetson():
-        return False
+        return True
     try:
         mt = os.stat(PLUGIN_SO).st_mtime
         if _STYLE["mtime"] != mt:

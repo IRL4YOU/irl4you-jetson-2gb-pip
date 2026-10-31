@@ -158,7 +158,7 @@ def _jetson_geometry(cfg):
     """Lage der Plätze für die Jetson-Kette (Hauptbild und kleine Bilder), aus der gespeicherten Einstellung."""
     c = server.PipelineStore._safe_cfg({**server.PipelineStore.DEFAULT, **cfg})
     pip, pip2, pip3, _multi = server.PipelineStore._layout(c)
-    return pipeline_jetson.slot_geometry(c, pip, pip2, pip3)
+    return pipeline_jetson.role_layout(c, pip, pip2, pip3)
 
 
 def live_keys():
@@ -439,7 +439,7 @@ class Sender:
             self.always = pipbox_always.SlotController(
                 load_json=lambda name: load_json(f"{STATE}/{name}"), live_keys=live_keys,
                 feeders=pipbox_always.JetsonFeeders(log=lambda m: print(m, flush=True)), log=lambda m: print(m, flush=True), padctl_path=PADCTL,
-                geometry_fn=lambda cfg: _jetson_geometry(cfg),
+                geometry_fn=lambda cfg: _jetson_geometry(cfg), crop_fn=pipeline_jetson.crop_edges,
                 view_file=f"{STATE}/{server.VIEW_FILE}", view_state=server.VIEW_STATE, view_values=server.PipelineStore.view_values)
         elif plan.get("always"):
             self.always = pipbox_always.Controller(
