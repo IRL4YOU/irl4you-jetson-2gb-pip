@@ -11,7 +11,7 @@ Die Sendekette wird dabei nicht angefasst (kein Abzweig in der Pipeline, kein Ei
 Mischer abbrechen, hier wird nur mitgelesen. Ohne Zuschauer läuft nichts. Eine Vorschau endet, wenn der Browser die Verbindung schließt, nach
 MAX_SECONDS oder wenn der Sender stoppt.
 
-Gemessen auf der Box (Orange Pi 5 Plus, 1080p30 HEVC, 640x360, 30 Bilder/s): H.264 rund 1,7 Mbit/s, Motion-JPEG 3 bis 7 Mbit/s; die Sendung bleibt unberührt.
+Gemessen auf der Rockchip-Box (Orange Pi 5 Plus, 1080p30 HEVC, 640x360, 30 Bilder/s): H.264 rund 1,7 Mbit/s, Motion-JPEG 3 bis 7 Mbit/s; die Sendung bleibt unberührt.
 
 Rechte: Der Webserver läuft als Benutzer pipbox und darf weder rohe Pakete lesen noch den Hardware-Dekoder benutzen (/dev/mpp_service gehört root). Die Arbeit macht darum ein
 eigener kleiner Dienst (pipbox-preview.service, Aufruf: pipbox_preview.py --serve) nur mit dem Recht CAP_NET_RAW. Er wird von systemd erst gestartet, wenn jemand die Vorschau
@@ -180,23 +180,25 @@ def little_cpus(big):
     return [c for c in range(n) if c not in set(big)] if big and n else []
 
 
-def gst_argv(codec, fps, width, cpus=None, fmt="mjpeg"):
-    """Kommandozeile des Dekoders: TS von stdin, nach stdout entweder H.264 als Byte-Strom (fmt "mp4", daraus macht Fmp4 das fragmentierte MP4) oder Motion-JPEG
-    (fmt "mjpeg"). Der Tonzweig läuft ohne Warten, sonst blockiert er tsdemux, solange das Video noch auf das erste Schlüsselbild wartet. Kleiner machen mit
-    der einfachsten Methode (nearest-neighbour): das ist rund fünfmal billiger als bilinear."""
+def gst_argv(codec, fps, width, cpus=None, fmt="mjpeg", outfd=1):
+    """Kommandozeile des Dekoders (Jetson, Nvidia-Hardware): TS von stdin, nach stdout entweder H.264 als Byte-Strom (fmt "mp4", daraus macht Fmp4 das fragmentierte MP4)
+    oder Motion-JPEG (fmt "mjpeg"). Der Tonzweig (AAC) läuft ohne Warten, sonst blockiert er tsdemux, solange das Video noch auf das erste Schlüsselbild wartet.
+    Bilder je Sekunde: nvv4l2decoder lässt mit drop-frame-interval jedes n-te Bild aus (30 Bilder/s in der Sendung, also n = 30 / fps). Skalieren und Umwandeln
+    macht die Video-Hardware (nvvidconv) im Speicher des Decoders, ohne dass die CPU die Bilder anfasst. Die Bilddaten gehen über outfd: Die Nvidia-Bibliotheken schreiben ihre
+    Meldungen ("nvbuf_utils: Could not get EGL display connection") auf die Standardausgabe und würden sie sonst verderben (gemessen)."""
     width = width - width % 2
     height = (width * 9 // 16) - ((width * 9 // 16) % 2)
+    skip = max(1, int(round(30.0 / max(1, fps))))
     pre = ["taskset", "-c", ",".join(map(str, cpus))] if cpus and shutil.which("taskset") else []
+    scaled = ["!", "nvvidconv", "!", f"video/x-raw(memory:NVMM),format=NV12,width={width},height={height}"]
     if fmt == "mp4":
-        out = ["!", "mpph264enc", f"bitrate={H264_BITRATE}", f"gop={fps}", "profile=main", "level=31", "!", "h264parse", "config-interval=-1",
-               "!", "video/x-h264,stream-format=byte-stream,alignment=au", "!", "fdsink", "fd=1"]
+        out = scaled + ["!", "nvv4l2h264enc", f"bitrate={H264_BITRATE}", f"iframeinterval={fps}", f"idrinterval={fps}", "insert-sps-pps=true", "profile=2",
+                        "!", "h264parse", "config-interval=-1", "!", "video/x-h264,stream-format=byte-stream,alignment=au", "!", "fdsink", f"fd={outfd}"]
     else:
-        out = ["!", "mppjpegenc", "q-factor=60", "!", "multipartmux", f"boundary={BOUNDARY}", "!", "fdsink", "fd=1"]
+        out = scaled + ["!", "nvjpegenc", "quality=60", "!", "multipartmux", f"boundary={BOUNDARY}", "!", "fdsink", f"fd={outfd}"]
     return pre + ["gst-launch-1.0", "-q", "fdsrc", "fd=0", "!", "tsdemux", "name=t",
-                  "t.", "!", f"video/x-{codec}", "!", "queue", "!", f"{codec}parse", "!", "mppvideodec",
-                  "!", "videorate", "drop-only=true", "!", f"video/x-raw,framerate={fps}/1",
-                  "!", "videoscale", "method=nearest-neighbour", "!", f"video/x-raw,width={width},height={height}"] + out + \
-                 ["t.", "!", "audio/x-opus", "!", "queue", "leaky=downstream", "!", "fakesink", "sync=false", "async=false"]
+                  "t.", "!", f"video/x-{codec}", "!", "queue", "!", f"{codec}parse", "!", "nvv4l2decoder", f"drop-frame-interval={skip}"] + out + \
+                 ["t.", "!", "audio/mpeg", "!", "queue", "leaky=downstream", "!", "fakesink", "sync=false", "async=false"]
 
 
 # ---- fragmentiertes MP4 aus einem H.264-Byte-Strom (Annex B), ohne GStreamer-Muxer: mp4mux lieferte im Live-Betrieb keine Häppchen
@@ -377,11 +379,17 @@ class Preview:
             raise Unavailable("capture: %s" % e)
 
     def spawn(self, fps, width, fmt="mjpeg"):
+        r, w = os.pipe()                                   # eigener Kanal für die Bilddaten (die Standardausgabe gehört den Meldungen der Nvidia-Bibliotheken)
         try:
-            return subprocess.Popen(gst_argv(self.codec(), fps, width, little_cpus(self.big_cpus()), fmt), stdin=subprocess.PIPE, stdout=subprocess.PIPE,
-                                    stderr=subprocess.DEVNULL, env=dict(os.environ, GST_MPP_NO_RGA="1"), bufsize=0)
+            proc = subprocess.Popen(gst_argv(self.codec(), fps, width, little_cpus(self.big_cpus()), fmt, outfd=w), stdin=subprocess.PIPE, stdout=subprocess.DEVNULL,
+                                    stderr=subprocess.DEVNULL, env=dict(os.environ), bufsize=0, pass_fds=(w,))
         except OSError as e:
+            os.close(r)
+            os.close(w)
             raise Unavailable("gst: %s" % e)
+        os.close(w)
+        proc.stdout = os.fdopen(r, "rb", 0)
+        return proc
 
     def stream(self, write, fps, width, still_sending, max_seconds=MAX_SECONDS, ready=None, gone=None, fmt="mjpeg"):
         """Läuft, bis der Browser geht (write löst OSError aus), die Zeit um ist oder der Sender stoppt. write(bytes) gibt Daten an den Browser,

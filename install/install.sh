@@ -16,6 +16,8 @@ case "${1:-install}" in
     systemctl disable --now pipbox.service >/dev/null 2>&1 || true
     systemctl stop pipbox-send.service >/dev/null 2>&1 || true
     systemctl disable --now pipbox-send-ctl.path >/dev/null 2>&1 || true
+    systemctl disable --now pipbox-preview.socket pipbox-preview.service >/dev/null 2>&1 || true
+    rm -f /etc/systemd/system/pipbox-preview.socket /etc/systemd/system/pipbox-preview.service
     rm -f "$UNIT" /etc/systemd/system/pipbox-send.service /etc/systemd/system/pipbox-send-ctl.service /etc/systemd/system/pipbox-send-ctl.path
     for h in $HELPERS; do
       systemctl disable --now "pipbox-$h.path" >/dev/null 2>&1 || true
@@ -75,6 +77,9 @@ done
 install -m 644 "$HERE/install/pipbox-send.service" /etc/systemd/system/pipbox-send.service
 install -m 644 "$HERE/install/pipbox-send-ctl.service" /etc/systemd/system/pipbox-send-ctl.service
 install -m 644 "$HERE/install/pipbox-send-ctl.path" /etc/systemd/system/pipbox-send-ctl.path
+# Vorschau des gesendeten Bildes: Socket, der Dienst startet erst bei Bedarf (liest den lokalen SRT-Strom mit und dekodiert ihn mit der Video-Hardware)
+install -m 644 "$HERE/install/pipbox-preview.socket" /etc/systemd/system/pipbox-preview.socket
+install -m 644 "$HERE/install/pipbox-preview.service" /etc/systemd/system/pipbox-preview.service
 
 # belacoder mit den Patches aus belacoder/ (Regler, Wächter, Kennzahlen für die Anzeige Live). Gebaut wird nur, wenn sich Skript oder Patches geändert haben;
 # schlägt der Bau fehl, bleibt das Original aus dem BELABOX-Paket (/usr/bin/belacoder) im Einsatz, nur die Kennzahlen fehlen dann.
@@ -110,6 +115,8 @@ systemctl enable pipbox.service >/dev/null 2>&1 || echo "WARNUNG: Der Dienst pip
 for h in $HELPERS send-ctl; do
   systemctl enable --now "pipbox-$h.path" >/dev/null 2>&1 || echo "WARNUNG: Der Helfer pipbox-$h.path liess sich nicht einschalten."
 done
+systemctl enable --now pipbox-preview.socket >/dev/null 2>&1 || echo "WARNUNG: Der Anschluss der Vorschau liess sich nicht einschalten (pipbox-preview.socket)."
+systemctl try-restart pipbox-preview.service >/dev/null 2>&1 || true       # neuer Programmstand (der Dienst endet sonst nach einer Minute ohne Zuschauer von selbst)
 systemctl restart pipbox.service || echo "WARNUNG: Der Dienst pipbox liess sich nicht starten (journalctl -u pipbox)."
 i=0
 while [ "$i" -lt 20 ]; do
