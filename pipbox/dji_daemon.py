@@ -374,7 +374,7 @@ def nm_wifi_options():
 
 def public_option(o):
     """Eintrag der Verbindungsliste für den Browser: ohne Passwort."""
-    return {k: o[k] for k in ("ifname", "ssid", "ip", "type") if k in o} | {"secret_missing": bool(o.get("secret_missing"))}
+    return dict({k: o[k] for k in ("ifname", "ssid", "ip", "type") if k in o}, secret_missing=bool(o.get("secret_missing")))      # (ohne den Dict-Operator |, den es erst ab Python 3.9 gibt)
 
 
 def rtmp_publishing(key, stat_url=None):

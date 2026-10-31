@@ -194,11 +194,36 @@ OM = "org.freedesktop.DBus.ObjectManager"
 
 
 def bluez_objects():
-    """Alle Objekte von BlueZ ({Pfad: {Schnittstelle: Eigenschaften}}) über D-Bus (python3-dbus), leer, wenn nicht erreichbar."""
+    """Alle Objekte von BlueZ ({Pfad: {Schnittstelle: Eigenschaften}}) über D-Bus, leer, wenn nicht erreichbar. Zuerst python3-dbus (Orange Pi, ROCK); läuft der Dienst in einer
+    eigenen Python-Umgebung ohne dieses Paket (Jetson: Python 3.8 wegen bleak), liest dbus-fast (kommt mit bleak) dasselbe."""
     try:
         import dbus
         bus = dbus.SystemBus()
         return dict(dbus.Interface(bus.get_object(BLUEZ, "/"), OM).GetManagedObjects())
+    except ImportError:
+        pass
+    except Exception:
+        return {}
+    try:
+        import asyncio
+        from dbus_fast.aio import MessageBus
+        from dbus_fast import BusType
+
+        async def read():
+            bus = await MessageBus(bus_type=BusType.SYSTEM).connect()
+            try:
+                intro = await bus.introspect(BLUEZ, "/")
+                om = bus.get_proxy_object(BLUEZ, "/", intro).get_interface(OM)
+                raw = await om.call_get_managed_objects()
+            finally:
+                bus.disconnect()
+            return {path: {iface: {k: v.value for k, v in props.items()} for iface, props in ifs.items()} for path, ifs in raw.items()}
+
+        loop = asyncio.new_event_loop()
+        try:
+            return loop.run_until_complete(asyncio.wait_for(read(), 5))
+        finally:
+            loop.close()
     except Exception:
         return {}
 

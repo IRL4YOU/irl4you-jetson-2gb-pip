@@ -16,6 +16,8 @@ case "${1:-install}" in
     systemctl disable --now pipbox.service >/dev/null 2>&1 || true
     systemctl stop pipbox-send.service >/dev/null 2>&1 || true
     systemctl disable --now pipbox-send-ctl.path >/dev/null 2>&1 || true
+    systemctl disable --now pipbox-dji.service >/dev/null 2>&1 || true
+    rm -f /etc/systemd/system/pipbox-dji.service
     systemctl disable --now pipbox-preview.socket pipbox-preview.service >/dev/null 2>&1 || true
     rm -f /etc/systemd/system/pipbox-preview.socket /etc/systemd/system/pipbox-preview.service
     rm -f "$UNIT" /etc/systemd/system/pipbox-send.service /etc/systemd/system/pipbox-send-ctl.service /etc/systemd/system/pipbox-send-ctl.path
@@ -36,13 +38,27 @@ esac
 
 echo "JPIP-STEP pakete"
 need=""
-for p in gstreamer1.0-tools git curl ca-certificates bluez usbutils rfkill; do
+for p in gstreamer1.0-tools git curl ca-certificates bluez usbutils rfkill python3.8 python3.8-venv python3-venv python-pip-whl python3-distutils; do
   dpkg -s "$p" >/dev/null 2>&1 || need="$need $p"
 done
 if [ -n "$need" ]; then
   export DEBIAN_FRONTEND=noninteractive
   # shellcheck disable=SC2086
   apt-get install -y --no-install-recommends $need || echo "WARNUNG: Pakete liessen sich nicht installieren:$need"
+fi
+
+# DJI-Dienst: Die Bluetooth-Bibliothek bleak braucht ab Version 0.22 Python 3.8 (das System hat 3.6), also eine eigene Umgebung mit Python 3.8 (braucht Internet).
+# Schlägt das fehl, läuft alles andere; nur die DJI-Kameras gehen dann nicht.
+if ! /opt/pipbox/venv-dji/bin/python -c "import bleak" 2>/dev/null; then
+  echo "Richte die Bluetooth-Umgebung für die DJI-Kameras ein (Python 3.8, bleak)"
+  mkdir -p "$APP"
+  if rm -rf "$APP/venv-dji" && python3.8 -m venv "$APP/venv-dji" > /var/tmp/venv-dji.log 2>&1 \
+     && "$APP/venv-dji/bin/python" -m pip install --disable-pip-version-check -q --upgrade pip setuptools wheel >> /var/tmp/venv-dji.log 2>&1 \
+     && "$APP/venv-dji/bin/python" -m pip install --disable-pip-version-check "bleak>=0.22,<1.0" >> /var/tmp/venv-dji.log 2>&1; then
+    echo "bleak eingerichtet."
+  else
+    echo "WARNUNG: Die Bluetooth-Umgebung für die DJI-Kameras liess sich nicht einrichten (Internet? Protokoll: /var/tmp/venv-dji.log). Die DJI-Kameras gehen erst nach einer erneuten Installation."
+  fi
 fi
 
 echo "JPIP-STEP dienst"
@@ -66,7 +82,7 @@ cp -a "$HERE/pipbox/." "$APP/"
 cp "$HERE/VERSION" "$APP/VERSION"
 chown -R root:root "$APP"
 chmod -R u=rwX,go=rX "$APP"
-python3 -m compileall -q "$APP" >/dev/null 2>&1 || true
+python3 -m compileall -q -x 'venv-dji' "$APP" >/dev/null 2>&1 || true
 install -m 644 "$HERE/install/pipbox.service" "$UNIT"
 for h in $HELPERS; do
   install -m 755 "$HERE/install/pipbox-$h.py" "$APP/pipbox-$h.py"
@@ -77,6 +93,8 @@ done
 install -m 644 "$HERE/install/pipbox-send.service" /etc/systemd/system/pipbox-send.service
 install -m 644 "$HERE/install/pipbox-send-ctl.service" /etc/systemd/system/pipbox-send-ctl.service
 install -m 644 "$HERE/install/pipbox-send-ctl.path" /etc/systemd/system/pipbox-send-ctl.path
+# DJI-Kameras per Bluetooth (Dienst mit Python 3.8 aus /opt/pipbox/venv-dji)
+install -m 644 "$HERE/install/pipbox-dji.service" /etc/systemd/system/pipbox-dji.service
 # Vorschau des gesendeten Bildes: Socket, der Dienst startet erst bei Bedarf (liest den lokalen SRT-Strom mit und dekodiert ihn mit der Video-Hardware)
 install -m 644 "$HERE/install/pipbox-preview.socket" /etc/systemd/system/pipbox-preview.socket
 install -m 644 "$HERE/install/pipbox-preview.service" /etc/systemd/system/pipbox-preview.service
@@ -115,6 +133,8 @@ systemctl enable pipbox.service >/dev/null 2>&1 || echo "WARNUNG: Der Dienst pip
 for h in $HELPERS send-ctl; do
   systemctl enable --now "pipbox-$h.path" >/dev/null 2>&1 || echo "WARNUNG: Der Helfer pipbox-$h.path liess sich nicht einschalten."
 done
+systemctl enable pipbox-dji.service >/dev/null 2>&1 || echo "WARNUNG: Der DJI-Dienst liess sich nicht fuer den Autostart eintragen."
+systemctl restart pipbox-dji.service >/dev/null 2>&1 || echo "WARNUNG: Der DJI-Dienst liess sich nicht starten (journalctl -u pipbox-dji)."
 systemctl enable --now pipbox-preview.socket >/dev/null 2>&1 || echo "WARNUNG: Der Anschluss der Vorschau liess sich nicht einschalten (pipbox-preview.socket)."
 systemctl try-restart pipbox-preview.service >/dev/null 2>&1 || true       # neuer Programmstand (der Dienst endet sonst nach einer Minute ohne Zuschauer von selbst)
 systemctl restart pipbox.service || echo "WARNUNG: Der Dienst pipbox liess sich nicht starten (journalctl -u pipbox)."
