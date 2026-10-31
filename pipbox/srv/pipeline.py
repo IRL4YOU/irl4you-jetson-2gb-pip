@@ -5,6 +5,7 @@ import os
 import threading
 import pipbox_live
 
+from srv import pipeline_jetson
 from srv.cameras import KEY_RE
 from srv.datenschutz import PBPIXEL_BOXES, PBPIXEL_TAP, datenschutz_aktiv
 from srv.plugin import CAM_LIVE, FEED_AUDIO_CAPS, FEED_FILL_VIDEO, FEED_PORT, FEED_VIDEO_CAPS, FREE, PIP_CORNERS, SEND_STATUS, feeder_tool, pip_corners, plugin_fill, plugin_multi, plugin_style, plugin_swap, plugin_view
@@ -500,6 +501,8 @@ class PipelineStore:
         q = self.Q
         base = f"rtmp://127.0.0.1:{rtmp_port}/{rtmp_app}"
         pip, pip2, pip3, multi = self._layout(c)
+        if pipeline_jetson.is_jetson():                   # Jetson: Nvidia-Kette mit nvcompositor statt der Rockchip-Kette
+            return pipeline_jetson.build(c, base, pip, pip2, pip3)
         if pipbox_live.enabled(c):
             return pipbox_live.build(c, base, ds=self.datenschutz(), ds_files=(PBPIXEL_TAP, PBPIXEL_BOXES))
 
