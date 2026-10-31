@@ -125,8 +125,10 @@ rc="$TMP/rc2"; : > "$rc"
 } | while IFS= read -r line; do
   printf '%s\n' "$line" >> "$LOG"
   case "$line" in
-    "JPIP-STEP pakete")  bar 30 "Benötigte Pakete installieren" ;;
-    "JPIP-STEP dateien") bar 80 "Dateien einrichten" ;;
+    "JPIP-STEP pakete")  bar 15 "Benötigte Pakete installieren" ;;
+    "JPIP-STEP dienst")  bar 40 "Benutzer und Daten einrichten" ;;
+    "JPIP-STEP dateien") bar 60 "Programme und Oberfläche kopieren" ;;
+    "JPIP-STEP start")   bar 85 "Dienst starten" ;;
   esac
 done
 bar 100 "Fertig"; bar_end
@@ -135,7 +137,10 @@ say ""
 
 # --- Ergebnis -----------------------------------------------------------------------------------------------------------------------------------
 HINTS=$(sed -n '/===== install\/install.sh =====/,$p' "$LOG" | grep -E '^(WARNUNG|FEHLER)' || true)
-if [ "$RC2" = 0 ] && [ -z "$HINTS" ]; then
+BAD=""
+for s in pipbox belaUI nginx; do systemctl is-active --quiet "$s.service" 2>/dev/null || BAD="$BAD $s"; done
+IP=$(hostname -I 2>/dev/null | cut -d' ' -f1)
+if [ "$RC2" = 0 ] && [ -z "$HINTS" ] && [ -z "$BAD" ]; then
   say "${C_OK}Alles fehlerfrei installiert.${C_RST}"
   say "Jetson 2GB PIP Version $VERSION ist eingerichtet."
   RESULT=0
@@ -144,8 +149,11 @@ else
   say "Die Installation ist durchgelaufen, aber es gibt Hinweise:"
   [ "$RC2" = 0 ] || say "  - install.sh endete mit Fehlercode $RC2."
   [ -z "$HINTS" ] || printf '%s\n' "$HINTS" | sed 's/^/  - /'
+  [ -z "$BAD" ] || say "  - Diese Dienste laufen nicht:$BAD"
   say "Bitte das Protokoll schicken: $LOG"
 fi
+say ""
+say "Die Oberfläche der Jetson 2GB PIP:  http://${IP:-<Adresse des Jetson>}:8780"
 if [ "$NEED_REBOOT" = 1 ] || [ -f /var/run/reboot-required ]; then
   say ""
   say "${C_WARN} NEUSTART NÖTIG ${C_RST}"
