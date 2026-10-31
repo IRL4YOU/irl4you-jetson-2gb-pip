@@ -1430,7 +1430,9 @@ class Daemon:
         if cmd == "state":
             return self.snapshot()
         if cmd == "wifi_options":
-            opts = await asyncio.get_event_loop().run_in_executor(None, self.wifi_options)
+            # Die Oberfläche fragt bei jeder Statusabfrage; jede Abfrage kostet rund sieben nmcli-Aufrufe (polkit, NetworkManager und dbus-daemon zusammen etwa ein Drittel eines Kerns
+            # auf dem Jetson, gemessen), die Anzeige darf darum 30 s alt sein. Beim Verbinden einer Kamera wird mit höchstens 3 s Alter frisch gelesen (siehe oben).
+            opts = await asyncio.get_event_loop().run_in_executor(None, self.wifi_options, 30.0)
             return {"wifi_options": [public_option(o) for o in opts]}
         if cmd == "adapters":
             return await asyncio.get_event_loop().run_in_executor(None, self.adapter_info)
