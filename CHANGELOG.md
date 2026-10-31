@@ -1,5 +1,8 @@
 # Änderungen
 
+## 0.1.13
+- Bildaufbau, Karte „Aussehen“: Eine Änderung an Beschnitt, Rahmen oder Sichtbarkeit ging verloren, wenn die Oberfläche zwischen Eingabe und „Bildaufbau speichern“ die Einstellung neu abfragte (alle paar Sekunden). Jetzt gilt die Eingabe als ungespeichert („Nicht gespeichert: …“) und bleibt bis zum Speichern stehen. Betrifft auch das andere Paket. Die Eckenrundung wird auf dem Jetson jetzt zuverlässig ausgeblendet.
+
 ## 0.1.12
 - Aussehen der kleinen Bilder auf dem Jetson: **Beschnitt** (links, rechts, oben, unten, wie bei einem Bild von 1920x1080) und **Rahmen** (Dicke, Farbe, Deckkraft) gehen jetzt, beides im Betrieb ohne Neustart. Der Beschnitt läuft über den nvvidconv des Platzes (feste Ausgabegröße 1920x1080, so ändert sich das Format zum Compositor nie; er wird auf die Bildgröße der Kamera umgerechnet, und die 8 Füllzeilen der Osmo Action 6 fallen dabei an jedem Platz weg, auch nach einem Tausch), der Rahmen ist eine Farbfläche hinter dem kleinen Bild (eigenes Pad im Compositor, Ebene zwischen Hauptbild und Bild). Die Eckenrundung gibt es auf dem Jetson nicht (der Compositor kennt keine Rundung); die Oberfläche blendet sie aus. Dafür versteht die Steuerdatei von belacoder jetzt auch Element-Eigenschaften („vc1 left 64“, „frame1 foreground-color …“); belacoder wird beim Update einmal neu gebaut.
 - Update-Helfer: keine Reste der Datenschutz-Beta des anderen Pakets mehr.
