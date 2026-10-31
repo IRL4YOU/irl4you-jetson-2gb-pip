@@ -1,0 +1,74 @@
+diff --git a/belacoder.c b/belacoder.c
+index fc6de47..7779fb8 100644
+--- a/belacoder.c
++++ b/belacoder.c
+@@ -646,6 +646,59 @@ static gboolean write_stats(gpointer data) {
+   return TRUE;
+ }
+ 
++#include <string.h>
++// IRL4YOU: Steuerdatei für Bild-Kacheln des Compositors (Umgebungsvariable BELACODER_PADCTL_FILE; ohne sie passiert nichts). Jede Zeile heißt
++// "Element.Pad Eigenschaft Wert", zum Beispiel "comp.sink_1 alpha 0" (Kachel ausblenden) oder "comp.sink_1 alpha 1". Erlaubt sind alpha, xpos, ypos, width, height
++// und zorder (Compositor) sowie volume und mute (Pads des audiomixer). Die Datei wird alle 300 ms gelesen und nur bei einer Änderung angewendet; Zeilen für
++// unbekannte Elemente oder Pads werden übersprungen.
++static const char *padctl_file = NULL;
++
++static gboolean padctl_poll(gpointer data) {
++  static char last[4096] = "";
++  char buf[4096];
++  FILE *fp = fopen(padctl_file, "r");
++  if (!fp)
++    return TRUE;
++  size_t n = fread(buf, 1, sizeof(buf) - 1, fp);
++  fclose(fp);
++  buf[n] = 0;
++  if (strcmp(buf, last) == 0)
++    return TRUE;
++  char prev[sizeof(last) + 2];
++  snprintf(prev, sizeof(prev), "\n%s\n", last);              // zuletzt angewendete Zeilen: nur Zeilen setzen, die neu oder geändert sind
++  strcpy(last, buf);
++  char *save = NULL;
++  for (char *line = strtok_r(buf, "\n", &save); line; line = strtok_r(NULL, "\n", &save)) {
++    char el[64], pad[64], prop[16], key[sizeof(last)];
++    double v;
++    snprintf(key, sizeof(key), "\n%s\n", line);
++    if (strstr(prev, key))
++      continue;
++    if (sscanf(line, "%63[^. ].%63s %15s %lf", el, pad, prop, &v) != 4)
++      continue;
++    GstElement *e = gst_bin_get_by_name(GST_BIN(gst_pipeline), el);
++    if (!e)
++      continue;
++    fprintf(stderr, "padctl: %s.%s %s %g\n", el, pad, prop, v);
++    GstPad *p = gst_element_get_static_pad(e, pad);
++    if (p) {
++      if (!strcmp(prop, "alpha"))
++        g_object_set(G_OBJECT(p), "alpha", v < 0 ? 0.0 : (v > 1 ? 1.0 : v), NULL);
++      else if (!strcmp(prop, "volume"))
++        g_object_set(G_OBJECT(p), "volume", v < 0 ? 0.0 : (v > 10 ? 10.0 : v), NULL);
++      else if (!strcmp(prop, "mute"))
++        g_object_set(G_OBJECT(p), "mute", v != 0 ? TRUE : FALSE, NULL);
++      else if (!strcmp(prop, "zorder"))
++        g_object_set(G_OBJECT(p), "zorder", (guint)(v < 0 ? 0 : v), NULL);
++      else if (!strcmp(prop, "xpos") || !strcmp(prop, "ypos") || !strcmp(prop, "width") || !strcmp(prop, "height"))
++        g_object_set(G_OBJECT(p), prop, (gint)v, NULL);
++      gst_object_unref(p);
++    }
++    gst_object_unref(e);
++  }
++  return TRUE;
++}
++
+ int main(int argc, char** argv) {
+   int opt;
+   char *srt_host = NULL;
+@@ -852,6 +905,9 @@ int main(int argc, char** argv) {
+   g_timeout_add(2000, stall_check, NULL); // check every second
+   if (stats_file)
+     g_timeout_add(1000, write_stats, NULL);                          // IRL4YOU: Kennzahlen für die Oberfläche
++  padctl_file = getenv("BELACODER_PADCTL_FILE");
++  if (padctl_file && *padctl_file)
++    g_timeout_add(300, padctl_poll, NULL);                           // IRL4YOU: Kacheln im Betrieb ein- und ausblenden
+ 
+   // Everything good so far, start the gstreamer pipeline
+   gst_element_set_state((GstElement*)gst_pipeline, GST_STATE_PLAYING);

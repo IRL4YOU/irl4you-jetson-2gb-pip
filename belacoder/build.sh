@@ -3,6 +3,7 @@
 #   jitter-tolerant  toleranterer Bitraten-Regler
 #   stall-output     Wächter, der einen hängenden Encoder erkennt
 #   stats            Kennzahlen-Datei (BELACODER_STATS_FILE) für die Anzeige "Live" in der Oberfläche
+#   padctl           Steuerdatei (BELACODER_PADCTL_FILE): kleine Bilder des Compositors im Betrieb aus- und einblenden
 # Installiert nach /opt/pipbox/bin/belacoder; das Original aus dem BELABOX-Paket bleibt unter /usr/bin und dient als Rückfall.
 # Braucht gcc, git, patch und Internet. Die Header für GStreamer und GLib lädt das Skript in ein temporäres Verzeichnis (apt-get download und
 # dpkg -x, ohne die Entwicklerpakete zu installieren); die Header für SRT bringt das BELABOX-Paket libsrt mit. Als root ausführen.
@@ -24,10 +25,10 @@ trap 'rm -rf "$D"' EXIT
 git clone --quiet https://github.com/BELABOX/belacoder "$D/belacoder"
 cd "$D/belacoder"
 git checkout --quiet "$COMMIT"
-for p in jitter-tolerant stall-output stats; do
+for p in jitter-tolerant stall-output stats padctl; do
   patch -p1 --quiet < "$HERE/belacoder-$p.patch"
 done
-gcc -O2 -Wall -DVERSION=\"${COMMIT%${COMMIT#???????}}-jt-so-st\" belacoder.c -o belacoder.new \
+gcc -O2 -Wall -DVERSION=\"${COMMIT%${COMMIT#???????}}-jt-so-st-pc\" belacoder.c -o belacoder.new \
   -I"$R/usr/include/gstreamer-1.0" -I"$R/usr/lib/aarch64-linux-gnu/gstreamer-1.0/include" \
   -I"$R/usr/include/glib-2.0" -I"$R/usr/lib/aarch64-linux-gnu/glib-2.0/include" -I/usr/include/srt \
   -l:libgstapp-1.0.so.0 -l:libgstbase-1.0.so.0 -l:libgstreamer-1.0.so.0 -l:libgobject-2.0.so.0 -l:libglib-2.0.so.0 -lsrt -ldl
