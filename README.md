@@ -33,6 +33,14 @@ Ohne Systemupdate: `sudo sh install/setup.sh --ohne-systemupdate`. Rückweg: `su
 
 Die Oberfläche erreichst du danach unter `http://<Adresse des Jetson>:8780`.
 
+## Fehler melden
+
+Wenn etwas nicht geht, hilft die Protokolldatei der Box am meisten:
+
+1. In der Oberfläche die Karte **Protokolle** öffnen und **Protokolle herunterladen** drücken. Die Box sammelt etwa eine halbe Minute lang (Journal der Dienste, Zustand der Sendekette, Kameras, Netzwerk, Jetson-Werte wie Video-Hardware und Takte, die Berichte unerwarteter Enden von belacoder) und liefert eine Textdatei `irl4you-protokolle-<Datum>.txt`.
+2. Die Datei ist bereinigt: Passwörter, Stream-ID, Serveradressen, WLAN-Namen, IP- und MAC-Adressen, Kamera-Schlüssel, Tailscale-Namen und Zugangsschlüssel sind durch Platzhalter ersetzt (gleiche Werte haben gleiche Nummern). Eigene Bezeichnungen (Name des Servers, Name einer Kamera) bleiben lesbar; bitte vor dem Weitergeben kurz durchsehen.
+3. Die Datei an ein [Issue auf GitHub](https://github.com/IRL4YOU/irl4you-jetson-2gb-pip/issues) anhängen, mit Uhrzeit des Problems (die Zeiten in der Datei sind UTC) und einem Satz, was zu sehen war.
+
 ## Lizenz
 
 MIT, siehe [LICENSE](LICENSE).

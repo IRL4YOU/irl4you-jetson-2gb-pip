@@ -1,5 +1,9 @@
 # Änderungen
 
+## 0.1.17
+- Protokolle: Die Lastliste der Video-Hardware nennt nur noch Einheiten mit lesbarem Wert (vic, nvdec, nvenc, nvjpg, gpu). Geprüft an einer Datei vom 31.10.: keine Serveradresse, keine Stream-ID, keine Heimnetz- oder MAC-Adressen, Kamera-Schlüssel und WLAN-Namen ersetzt; der Name des eigenen Hotspot-Profils („pipbox-hotspot-…“) und selbst vergebene Bezeichnungen (Server, Kamera) bleiben lesbar.
+- README: Abschnitt „Fehler melden“ (Protokolldatei erzeugen, was darin ersetzt ist, wohin damit).
+
 ## 0.1.16
 - „Bildaufbau speichern“ startet die Sendung auf dem Jetson nicht mehr neu, wenn sich nur Lage, Größe, Ecke, Beschnitt, Rahmen, Ton oder Sichtbarkeit ändern: Das alles setzt der Sende-Dienst im Betrieb über die Steuerdatei. Neu gebaut wird nur bei anderer Art oder anderer Zahl kleiner Bilder; eine neue Kamera an einem Platz startet der Sende-Dienst selbst gezielt neu. Vorher galt die Regel des Rockchip-Bausteins (Stile und Größen = Neustart).
 - Protokolle (Karte „Protokolle“, Datei für die Fehlersuche): neue Abschnitte für den Jetson: L4T-Stand, Last der Video-Hardware (VIC, NVDEC, NVENC, GPU), Takte, Lüfter, tegrastats; die Steuerdatei der Kette, Ansicht (gewünscht/bestätigt), Zubringer und Weichen mit ihren Kernen; die Berichte unerwarteter Enden von belacoder (belacoder-ende.txt) und der Pipeline-Text der letzten Sendekette. Dienste pipbox-hdmi, pipbox-preview und pipbox-send-ctl stehen mit in der Dienstliste und im Journal. Alles läuft durch dieselbe Bereinigung (Adressen, Schlüssel, Namen).
