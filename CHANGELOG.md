@@ -1,5 +1,8 @@
 # Änderungen
 
+## 0.1.15
+- Dringende Korrektur: Seit 0.1.11 fehlte in der Antwort der Bildaufbau-Schnittstelle die Kameraliste (eine Zeile war versehentlich auskommentiert). Folge: Fehler in der Karte „Bildaufbau“ (Vorschau, Kamerawahl, Speichern von Aussehen-Einstellungen), die Eckenrundung blieb sichtbar. 0.1.11 bis 0.1.14 bitte überspringen.
+
 ## 0.1.14
 - Korrektur zu 0.1.13: Ein Fehler in der Oberfläche (Zugriff auf eine noch nicht angelegte Variable) hätte die Karte „Bildaufbau“ lahmgelegt; 0.1.13 bitte überspringen.
 
