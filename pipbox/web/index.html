@@ -389,48 +389,6 @@
     <details class="sens"><summary class="muted">Technische Beschreibung ansehen (für die Fehlersuche)</summary><pre id="pipeprev"></pre></details>
   </details>
 
-  <details class="card wide" id="c_ds"><summary><span class="sumh">Datenschutz (DSGVO): Köpfe und Kennzeichen verpixeln</span><span id="ds_badge" class="badge" hidden></span></summary>
-    <div class="ph" style="margin-top:0">Die Box erkennt mit KI-Unterstützung (künstliche Intelligenz, die Erkennung basiert auf neuronalen Netzen) im Bild der Hauptkamera Köpfe und Kennzeichen und verpixelt sie, bevor das Bild gesendet wird. Die Erkennung läuft nur auf der Box, es werden keine Bilder übertragen. Kleine Bilder (zum Beispiel die eigene Kamera) bleiben unverändert. Die Sendung wird um die eingestellte Verzögerung später ausgegeben. Die Erkennung ist ein Add-on: Wer sie nutzen will, richtet sie hier ein. Sie ist nicht zu 100 % zuverlässig: Sie findet nicht jeden Kopf und nicht jedes Kennzeichen und kann Fehlalarme melden. Der Einsatz geschieht auf eigene Verantwortung. Das Verpixeln funktioniert auch mit „Alle Kameras immer bereit“ (Bildaufbau). Das braucht mehr Leistung: Bitte für ausreichend Kühlung sorgen.</div>
-    <div id="ds_state" class="ph" role="status"></div>
-    <div class="actions"><button type="button" id="ds_restart" hidden>Sendung jetzt neu starten</button></div>
-    <details class="subsec" id="ds_lic"><summary>Lizenz der Erkennung</summary>
-      <div class="ph" style="margin-top:0">Die Erkennung steht nicht unter der MIT-Lizenz der Box. Kurz: Privatpersonen und Streamer dürfen sie kostenlos für den Eigengebrauch benutzen, auch mit Einnahmen aus ihren Streams. Unternehmen dürfen sie in keiner Form nutzen (nur nach Rückfrage und ausdrücklicher Zustimmung), und sie darf nicht verkauft oder weitergegeben werden. Bitte den vollständigen Text lesen.</div>
-      <pre id="ds_lictext" class="lictext" translate="no"></pre>
-      <label class="chk"><input type="checkbox" id="ds_lic_ok"> Ich habe die Lizenz der Erkennung gelesen, nehme sie an und setze die Erkennung auf eigene Verantwortung ein.</label>
-      <div id="ds_lic_info" class="ph" role="status"></div>
-    </details>
-    <div id="ds_setup" hidden>
-      <div class="ph">Beim Einrichten lädt die Box einige Pakete aus dem Internet und braucht dafür beim ersten Mal einige Minuten. Die Sendung darf dabei nicht laufen.</div>
-      <div class="actions"><button type="button" id="ds_install">Erkennung einrichten</button></div>
-    </div>
-    <div id="ds_prog" class="ph" hidden><progress id="ds_bar" max="100" value="0" style="width:100%"></progress><div id="ds_prog_txt" role="status"></div></div>
-    <div id="ds_ctl" hidden>
-      <label class="chk"><input type="checkbox" id="ds_on"> Verpixeln einschalten (gilt ab dem nächsten Start der Sendung)</label>
-      <div class="dsrow">
-        <label><input type="checkbox" id="ds_kopf"> Köpfe</label>
-        <label><input type="checkbox" id="ds_kennz"> Kennzeichen</label>
-        <label><input type="checkbox" id="ds_zweit"> Zweite Prüfung der Köpfe (weniger Fehlalarme)</label>
-      </div>
-      <div class="dlrow" style="margin-top:8px"><label for="n_dsdelay">Verzögerung (ms)</label><input id="p_dsdelay" type="range" min="2000" max="12000" step="100"><input id="n_dsdelay" type="number" min="2000" max="12000" step="100" aria-label="Verzögerung (ms)"></div>
-      <div class="ph">2000 ms reichen meist. Mehr Zeit hilft bei schnellen Schwenks, verzögert aber die Sendung.</div>
-      <details class="subsec" id="ds_zones"><summary>Zonen ohne Verpixelung</summary>
-        <div class="ph" style="margin-top:0">In diesen Bereichen wird nie verpixelt, zum Beispiel am eigenen Tacho oder an der Halterung des Handys auf dem Motorrad. Rechteck im Bild aufziehen (Maus oder Finger), zum Verschieben in das Rechteck ziehen, zum Ändern der Größe an einer Ecke ziehen. Läuft die Sendung, zeigt das Bild die Vorschau, sonst ein Raster. Kleine Bilder, etwa eine Facecam, werden ohnehin nicht verpixelt. Ist die Facecam aber Teil des Hauptbilds (fest eingeblendet oder selbst als Hauptbild gewählt), bitte ihren Bereich hier eintragen, sonst wird sie mit verpixelt.</div>
-        <div class="zonebox" id="ds_zonebox"><img id="ds_zoneimg" alt="" hidden><canvas id="ds_zonecv" width="640" height="360" aria-label="Zonen zeichnen"></canvas></div>
-        <div class="actions" style="margin-top:6px;flex-wrap:wrap">
-          <button type="button" class="sec small" data-zv="0.30,0.55,0.70,1.00">Vorlage: Unten Mitte (Tacho, Halterung)</button>
-          <button type="button" class="sec small" data-zv="0.35,0.30,0.65,0.70">Vorlage: Bildmitte</button>
-          <button type="button" class="sec small" data-zv="0.00,0.00,0.12,1.00">Vorlage: Linker Rand</button>
-          <button type="button" class="sec small" data-zv="0.88,0.00,1.00,1.00">Vorlage: Rechter Rand</button>
-        </div>
-        <div id="ds_zonelist" class="optlist"></div>
-        <div class="actions"><button type="button" id="ds_zone_clear" class="sec">Alle Zonen entfernen</button></div>
-      </details>
-      <div class="ph">Änderungen werden automatisch gespeichert.</div>
-      <div class="actions"><button type="button" id="ds_cancel" class="sec" hidden>Abbrechen</button> <button type="button" id="ds_remove" class="sec">Erkennung entfernen</button></div>
-    </div>
-    <div id="ds_info" class="ph" role="status"></div>
-    <div id="ds_err" class="err"></div>
-  </details>
   <details class="card wide" id="c_ctl" hidden><summary><span class="sumh">Controller-Tasten</span></summary>
     <div class="ph" style="margin-top:0" data-hlp>Hier legen Sie fest, was die Tasten eines gekoppelten Controllers tun. Drücken Sie eine Taste am Controller, dann wird sie in der Liste markiert. Die vier Bild-Funktionen tauschen immer das Hauptbild: Die Kamera im gewählten kleinen Bild wird zum Hauptbild, die bisherige Hauptkamera nimmt ihren Platz ein, ein zweiter Druck tauscht zurück. „Hauptbild“ holt die Hauptkamera aus der Kameraliste zurück.</div>
     <div id="ctl_list"></div>
@@ -673,7 +631,6 @@
 <script src="/js/deck.js?v=__V__"></script>
 <script src="/js/preview.js?v=__V__"></script>
 <script src="/js/support.js?v=__V__"></script>
-<script src="/js/privacy.js?v=__V__"></script>
 <script src="/js/extras.js?v=__V__"></script>
 <script src="/js/layout.js?v=__V__"></script>
 <script src="/js/backup.js?v=__V__"></script>
