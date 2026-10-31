@@ -23,6 +23,7 @@ BACK_S = 3.0                # so lange muss die eigentliche Hauptkamera wieder B
 KEY_RE = re.compile(r"^[a-z0-9_-]{1,40}$")
 
 
+FEED_MTU = 8192             # Größe der RTP-Pakete der Zubringer auf Loopback (statt 1400): nur ein Fünftel der Pakete, die Weiche (Python) brauchte dabei in der Messung die Hälfte der CPU
 PRIV_PORT = 9440            # Jetson: private Eingänge der Weiche (pipbox_relay.py) je Platz: PRIV_PORT + 3*Platz Bild der Kamera, +1 Ton der Kamera, +2 Füllbild
 FEED_CPUS = (1, 2, 3)       # Kern je Platz (Platz mod 3) für Zubringer und Füllbild: nur ein Sender mit festem Kern hält auf Loopback die Reihenfolge (siehe pipbox_relay)
 
@@ -47,7 +48,7 @@ def feeder_cmd(key, slot, rtmp_port=1935, rtmp_app="publish", gst="gst-launch-1.
     vp, ap = ports if ports else (FEED_PORT + 2 * slot, FEED_PORT + 2 * slot + 1)
     chain = (f"rtmpsrc location=rtmp://127.0.0.1:{int(rtmp_port)}/{rtmp_app}/{key} do-timestamp=true ! flvdemux name=d "
              f"d.video ! queue max-size-time=2000000000 max-size-buffers=0 max-size-bytes=0 ! h264parse config-interval=-1 ! "
-             f"rtph264pay config-interval=1 pt=96 ! udpsink host=127.0.0.1 port={vp} sync=false "
+             f"rtph264pay config-interval=1 pt=96 mtu={FEED_MTU} ! udpsink host=127.0.0.1 port={vp} sync=false "
              f"d.audio ! queue max-size-time=2000000000 max-size-buffers=0 max-size-bytes=0 ! aacparse ! avdec_aac ! audioconvert ! audioresample ! "
              f"audio/x-raw,format=S16LE,rate=48000,channels=2,layout=interleaved ! audiobuffersplit output-buffer-duration=1024/48000 ! "
              f"udpsink host=127.0.0.1 port={ap} sync=false")
