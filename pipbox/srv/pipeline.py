@@ -57,7 +57,7 @@ class PipelineStore:
             with open(path) as f:
                 self.cfg.update(json.load(f))
         except FileNotFoundError:
-            self.cfg["always_ready"] = not pipeline_jetson.is_jetson()   # neue Installation: "Alle Kameras immer bereit" ist Standard (auf dem Jetson noch nicht verfügbar); wer schon gespeichert hat, behält seine Wahl
+            self.cfg["always_ready"] = True   # neue Installation: "Alle Kameras immer bereit" ist Standard (auch auf dem Jetson: Weichen, Füllbild, Tausch, Ansicht, Verzögerung und Aussehen gibt es nur dort); wer schon gespeichert hat, behält seine Wahl
         except (OSError, ValueError):
             pass
         self.cfg["styles"] = clean_styles(self.cfg.get("styles"))        # ältere Dateien kennen sie noch nicht

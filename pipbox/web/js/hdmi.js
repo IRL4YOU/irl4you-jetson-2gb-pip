@@ -1,7 +1,7 @@
 // HDMI- und USB-Kameras
 // ---- HDMI-Kamera (Karte "Kameras", Abschnitt "HDMI- und USB-Kameras"): der HDMI-Dienst der Box speist den HDMI-Eingang als Kamera "HDMI" ein
 let hdmiData=null, hdmiDirty=false, hdmiBusy=false;
-function hdmiIsUsb(d){ return !!(d&&d.settings&&d.settings.source==="usb"); }
+function hdmiIsUsb(d){ return !!(d&&d.settings&&d.settings.source==="usb")||!!(d&&d.hdmi_input===false); }       // ohne HDMI-Eingang (Jetson) gibt es nur die USB-Kamera
 function hdmiSignalText(d){
   if(!d.service) return d.message||"";
   if(hdmiIsUsb(d)){
@@ -29,10 +29,14 @@ function hdmiFill(d){
   e.textContent=st; e.style.color=d.state==="streaming"?"var(--ok)":(d.state==="error"||!d.service?"var(--crit)":"");
   $("hdmi_signal").textContent=hdmiSignalText(d);
   const s=d.settings||{}, usb=hdmiIsUsb(d);
-  $("hdmi_name").textContent=usb?"USB-Webcam":"HDMI-Eingang";
+  const noHdmi=d.hdmi_input===false;                                                          // Jetson: kein HDMI-Eingang, nur USB (Webcam oder HDMI-USB-Grabber)
+  $("hdmi_name").textContent=usb?"USB-Kamera":"HDMI-Eingang";
+  $("hdmi_source").querySelector('option[value="hdmi"]').hidden=noHdmi; $("hdmi_source").querySelector('option[value="hdmi"]').disabled=noHdmi;
+  $("hdmi_source").closest("label").hidden=noHdmi;
+  const sum=$("hdmi_sec").querySelector(":scope>summary"); if(sum) sum.textContent=noHdmi?"USB-Kameras":"HDMI- und USB-Kameras";
   $("hdmi_audio").options[0].textContent=usb?"Ton der Kamera":"HDMI-Ton";
   $("hdmi_vsum").textContent=`${usb?"":s.fps+" fps · "}${(s.bitrate/1000).toFixed(1).replace(/\.0$/,"")} Mbit/s · ${s.audio==="none"?"ohne Ton":(usb?"Ton der Kamera":"HDMI-Ton")}`;
-  if(!hdmiDirty){ $("hdmi_source").value=s.source||"hdmi"; $("hdmi_on").checked=!!s.enabled; $("hdmi_fps").value=String(s.fps); $("hdmi_br").value=String(s.bitrate/1000); $("hdmi_audio").value=s.audio; $("hdmi_fmt").value=s.usb_format||"auto"; }
+  if(!hdmiDirty){ $("hdmi_source").value=noHdmi?"usb":(s.source||"hdmi"); $("hdmi_on").checked=!!s.enabled; $("hdmi_fps").value=String(s.fps); $("hdmi_br").value=String(s.bitrate/1000); $("hdmi_audio").value=s.audio; $("hdmi_fmt").value=s.usb_format||"auto"; }
   $("hdmi_fmtrow").hidden=!usb;                                                                  // das Bildformat gibt es nur bei der USB-Webcam
   const err=$("hdmi_err"); if(d.state==="error"&&d.message){ err.textContent=d.message; err.style.color=""; } else if(err.dataset.keep!=="1") err.textContent="";
   hdmiButtons();

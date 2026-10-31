@@ -1,5 +1,9 @@
 # Änderungen
 
+## 0.1.19
+- **Neue Installation startet gleich mit „Alle Kameras immer bereit“.** Bisher stand der Schalter auf dem Jetson bei einer frischen Installation noch aus („auf dem Jetson noch nicht verfügbar“, ein Rest aus der Anfangszeit): Die Sendung lief dann im alten Einzelmodus ohne Weichen, ohne Füllbild, ohne Verzögerung, Rahmen und Beschnitt im Betrieb und mit Neustart bei jedem Tausch. Wer schon einen Bildaufbau gespeichert hat, behält seine Wahl. Geprüft: der Kettentext für eine Kamera, Bild-in-Bild mit einem und mit drei kleinen Bildern; am Gerät ist die Betriebsart „eine Kamera“ noch nicht gesendet worden.
+- **Karte „Kameras“, Abschnitt „USB-Kameras“:** Der Jetson hat keinen HDMI-Eingang. Der Kameradienst meldet das jetzt (hdmi_input), die Oberfläche zeigt nur die USB-Kamera (Webcam oder HDMI-USB-Grabber) ohne die Auswahl „HDMI-Eingang“, und der Dienst lehnt die Quelle „HDMI“ auf dem Jetson mit einer klaren Meldung ab.
+
 ## 0.1.18
 - **Verzögerung je Kamera** (Bildaufbau, „Verzögerung: … ms“) wirkt jetzt auf dem Jetson. Bisher nahm die Oberfläche den Wert an („gilt sofort“), er hatte aber keine Wirkung: Der Regler stammte vom Rockchip-Baustein, den es hier nicht gibt. Jetzt hält die Weiche des Platzes die Pakete der Kamera (Bild und Ton zusammen) um die gewählte Zeit zurück, höchstens 750 ms wie im anderen Paket. Die Verzögerung gehört zur Kamera: Tauscht du Haupt- und kleines Bild, geht sie mit. Bis das erste verzögerte Bild ankommt, läuft das Füllbild weiter (der Platz ist nie leer), der Ton bis dahin als Stille. Eine Änderung im Betrieb hält den Strom einmalig um den Unterschied an (größer) oder gibt Aufgestautes auf einmal frei (kleiner). Der Endbericht nennt die Verzögerung je Platz.
 - Geprüft mit simulierter Uhr und echten UDP-Sockets (300 ms: erstes Kamerabild nach 0,31 s, Reihenfolge erhalten, Kamera weg: Warteschlange leer). Am Gerät mit echten Kameras noch nicht gemessen.

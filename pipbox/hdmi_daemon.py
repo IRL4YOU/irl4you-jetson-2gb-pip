@@ -130,6 +130,8 @@ def clean_settings(d, current=None):
     if "source" in d:
         if d["source"] not in SOURCE_CHOICES:
             raise ValueError("Quelle: HDMI-Eingang oder USB-Webcam")
+        if d["source"] == "hdmi" and not os.path.exists(HDMI_DEVICE) and os.path.exists("/etc/nv_tegra_release"):
+            raise ValueError("Diese Box hat keinen HDMI-Eingang: bitte die USB-Kamera nehmen (auch ein HDMI-USB-Grabber)")
         out["source"] = d["source"]
     if "usb_format" in d:
         if d["usb_format"] not in USB_FORMAT_CHOICES:
@@ -417,6 +419,11 @@ class Daemon:
 
     # -- Hardware
     @property
+    def hdmi_input(self):
+        """Hat die Box einen HDMI-Eingang (Rockchip: /dev/hdmirx)? Der Jetson Nano hat keinen: dort gibt es nur die USB-Kamera (Webcam oder HDMI-USB-Grabber)."""
+        return os.path.exists(self.device)
+
+    @property
     def available(self):
         if self.cfg.get("source") == "usb":
             return True                                       # eine USB-Kamera darf fehlen: das ist "wartet", nicht "nicht vorhanden"
@@ -669,7 +676,7 @@ class Daemon:
 
     # -- Schnittstelle
     def status(self):
-        s = {"ok": True, "available": self.available, "state": self.state, "message": self.message, "settings": dict(self.cfg), "usb": dict(self.usb),
+        s = {"ok": True, "available": self.available, "hdmi_input": self.hdmi_input, "state": self.state, "message": self.message, "settings": dict(self.cfg), "usb": dict(self.usb),
              "signal": {k: self.signal[k] for k in ("plugged", "locked", "width", "height", "fps", "interlaced", "format", "depth")},
              "signal_known": self.signal_known, "publishing": self.published, "restarts": self.restarts}
         return s
