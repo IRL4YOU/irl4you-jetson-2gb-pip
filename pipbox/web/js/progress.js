@@ -25,7 +25,7 @@ function renderUpdate(u){
   const v=u.versions||{}, busy=u.state==="running"||u.state==="rebooting";
   const lines=[
     ["Kernel (läuft)",esc(u.kernel_running||"–")],
-    ["Kernelpaket installiert",esc(v["belabox-linux-rk3588"]||"–")],
+    ["Kernelpaket installiert",esc(v["belabox-linux-tegra"]||"–")],
     ["belaui / belacoder",esc((v["belaui"]||"–")+" / "+(v["belacoder"]||"–"))],
     ["Zuletzt geprüft",fmtT(u.last_check)]];
   if(u.available!=null) lines.push(["Verfügbar",u.download&&u.download!=="0 B"?`${u.available} Pakete (${esc(u.download)})`:`${u.available} Pakete`]);

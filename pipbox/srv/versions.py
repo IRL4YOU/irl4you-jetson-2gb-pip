@@ -6,7 +6,7 @@ import re
 from srv.util import _TTL, read
 
 
-KEY_PACKAGES = ("belabox-linux-rk3588", "belaui", "belacoder", "belabox-rk3588")
+KEY_PACKAGES = ("belabox-linux-tegra", "belaui", "belacoder", "belabox-tegra")
 
 
 def belacoder_running():

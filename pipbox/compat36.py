@@ -20,7 +20,7 @@ except ImportError:                                     # Python 3.6
     class ThreadingHTTPServer(socketserver.ThreadingMixIn, HTTPServer):
         daemon_threads = True
 
-_ISO = re.compile(r"^(\d{4}-\d\d-\d\d)[T ](\d\d:\d\d:\d\d)(\.\d+)?(?:([+-]\d\d):?(\d\d)|Z)?$")
+_ISO = re.compile(r"^(\d{4}-\d\d-\d\d)[T ](\d\d:\d\d:\d\d)(?:[.,](\d+))?(?:([+-]\d\d):?(\d\d)|Z)?$")      # Bruchteil mit Punkt oder Komma, Zeitzone mit oder ohne Doppelpunkt
 
 
 def fromiso(s):
@@ -29,7 +29,7 @@ def fromiso(s):
     if not m:
         raise ValueError("kein ISO-Zeitstempel: %r" % s)
     day, clock, frac, tzh, tzm = m.groups()
-    us = int(((frac or ".0")[1:] + "000000")[:6])
+    us = int(((frac or "0") + "000000")[:6])
     t = datetime.datetime.strptime("%s %s" % (day, clock), "%Y-%m-%d %H:%M:%S").replace(microsecond=us)
     if tzh is not None:
         sign = -1 if tzh.startswith("-") else 1

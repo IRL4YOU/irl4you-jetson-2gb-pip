@@ -2,14 +2,14 @@
 
 Bild-in-Bild für den **Jetson Nano 2GB** (BELABOX-Image, JetPack 4.6.4 / L4T 32.7.4). Eigenständiges Projekt.
 
-> **Beta 0.1.0:** Frühe Testversion, Änderungen sind jederzeit möglich. Bisher gibt es die Einrichtung und die Weboberfläche (Port 8780, ohne Senden und ohne Bild-in-Bild). Das Bild-in-Bild selbst folgt. Noch nicht auf dem Jetson ausgeführt.
+> **Beta 0.1.0:** Frühe Testversion, Änderungen sind jederzeit möglich. Bisher gibt es die Einrichtung und die Weboberfläche (Port 8780, ohne Senden und ohne Bild-in-Bild). Das Bild-in-Bild selbst folgt. Getestet nur auf dem Jetson Nano 2GB (JetPack 4.6.4); das 4-GB-Modell ist noch nicht getestet.
 
 ## Installation
 
 Voraussetzung: Jetson Nano 2GB mit BELABOX-Image, Internet und ein Terminal (SSH). **Nicht während einer Übertragung.**
 
 ```sh
-cd /tmp && rm -rf jetson-2gb-pip-main jetson-2gb-pip.tar.gz && wget -q -O jetson-2gb-pip.tar.gz https://github.com/IRL4YOU/jetson-2gb-pip/archive/refs/heads/main.tar.gz && tar xzf jetson-2gb-pip.tar.gz && cd jetson-2gb-pip-main && sudo sh install/setup.sh
+cd /tmp && rm -rf irl4you-jetson-2gb-pip-main irl4you-jetson-2gb-pip.tar.gz && wget -q -O irl4you-jetson-2gb-pip.tar.gz https://github.com/IRL4YOU/irl4you-jetson-2gb-pip/archive/refs/heads/main.tar.gz && tar xzf irl4you-jetson-2gb-pip.tar.gz && cd irl4you-jetson-2gb-pip-main && sudo sh install/setup.sh
 ```
 
 Das Skript

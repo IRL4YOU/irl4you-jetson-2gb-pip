@@ -26,7 +26,12 @@ BC_STATS_FILE = "/run/pipbox-send/belacoder-stats.json"        # vom Sender (bel
 
 
 THERMAL_NAMES = {"soc-thermal": "SoC", "bigcore0-thermal": "Große Kerne 4–5", "bigcore1-thermal": "Große Kerne 6–7",
-                 "littlecore-thermal": "Kleine Kerne 0–3", "center-thermal": "Mitte", "gpu-thermal": "GPU", "npu-thermal": "NPU"}
+                 "littlecore-thermal": "Kleine Kerne 0–3", "center-thermal": "Mitte", "gpu-thermal": "GPU", "npu-thermal": "NPU",
+                 # Jetson (Tegra)
+                 "CPU-therm": "CPU", "GPU-therm": "GPU", "AO-therm": "Dauerbetrieb (AO)", "PLL-therm": "Taktgeber (PLL)",
+                 "PMIC-Die": "Spannungsregler (PMIC)", "thermal-fan-est": "Lüfter-Schätzung"}
+# Zonen, die nicht in die Gesamttemperatur eingehen: der PMIC meldet beim Jetson Nano einen festen Wert, die Lüfter-Schätzung ist abgeleitet
+THERMAL_NO_MAX = ("PMIC-Die", "thermal-fan-est")
 
 
 NPU_FILE = "/run/pipbox-npu"
@@ -51,7 +56,7 @@ def devfreq_loads():
     try:
         names = sorted(os.listdir("/sys/class/devfreq"))
     except OSError:
-        return out
+        names = []
     for n in names:
         if "gpu" not in n and "npu" not in n:
             continue
@@ -65,6 +70,15 @@ def devfreq_loads():
             real = npu_load()
             if real:
                 out["npu"] = {"load_pct": real["load_pct"], "mhz": int(m.group(2)) // 1000000, "cores": real["cores"]}
+    if "gpu" not in out:                  # Jetson (Tegra): Last in Promille unter /sys/devices/gpu.0/load, Takt als cur_freq (Hz) in devfreq
+        raw = (read("/sys/devices/gpu.0/load", "") or "").strip()
+        if raw.isdigit():
+            mhz = 0
+            for n in names:
+                if "gpu" in n:
+                    f = (read(f"/sys/class/devfreq/{n}/cur_freq", "") or "").strip()
+                    mhz = int(f) // 1000000 if f.isdigit() else 0
+            out["gpu"] = {"load_pct": max(0, min(100, int(round(int(raw) / 10.0)))), "mhz": mhz}
     return out
 
 
@@ -112,7 +126,9 @@ class UsbWatch:
     GRACE = 120.0
     EVERY = 20.0
     KEEP = 20
-    RE_LINE = re.compile(r"^(\d{4}-\d\d-\d\dT[\d:.,]+[+-]\d\d:\d\d) (.*)$")
+    RE_LINE = re.compile(r"^(\d{4}-\d\d-\d\dT[\d:.,]+[+-]\d\d:?\d\d) (.*)$")      # Zeitzone mit oder ohne Doppelpunkt (util-linux 2.31 auf dem Jetson schreibt +0000)
+    RE_OC = re.compile(r"(?i)(?:soctherm.*OC ALARM|OC ALARM 0x|throttled due to over-?current|system throttled)")      # Überlast der Stromversorgung am Prozessor (Jetson)
+    OC_GAP = 60.0                                                              # Meldungen einer Überlast-Serie zählen als ein Ereignis
     RE_PROD = re.compile(r"^usb (\d+-[\d.]+): Product: (.{1,80})$")
     RE_NEW = re.compile(r"^usb (\d+-[\d.]+): new .*USB device number \d+")
     RE_ID = re.compile(r"^usb (\d+-[\d.]+): New USB device found, idVendor=([0-9a-fA-F]{4}), idProduct=([0-9a-fA-F]{4})")
@@ -197,6 +213,12 @@ class UsbWatch:
                 if boot is None or t >= boot + self.GRACE:                                  # in den ersten Sekunden nach dem Start melden sich Geräte oft mehrmals neu an
                     out.append({"t": round(t, 1), "port": g.group(1), "cat": self.category(prod.get(g.group(1), "")), "why": "gone",
                                 "name": prod.get(g.group(1), ""), "ids": ids.get(g.group(1), "")})
+                continue
+            if self.RE_OC.search(msg):
+                if boot is None or t >= boot + self.GRACE:
+                    last = max((e["t"] for e in out if e["port"] == "soc"), default=None)
+                    if last is None or t - last >= self.OC_GAP:
+                        out.append({"t": round(t, 1), "port": "soc", "cat": "power", "why": "oc", "name": "", "ids": ""})
                 continue
             h = self.RE_HUB.match(msg)
             if h:
@@ -468,9 +490,12 @@ class Sampler:
         try:
             for d in sorted(os.listdir("/sys/class/hwmon")):
                 base = f"/sys/class/hwmon/{d}"
-                if read(base + "/name", "").strip() == "pwmfan":
-                    v = read(base + "/pwm1")
-                    return int(v) if v is not None and 0 <= int(v) <= 255 else None
+                if "pwmfan" in (read(base + "/name", "") or "").strip():          # "pwmfan" (Rockchip) oder "tegra_pwmfan" (Jetson)
+                    for fn in ("pwm1", "cur_pwm"):
+                        v = read(base + "/" + fn)
+                        if v is not None and 0 <= int(v) <= 255:
+                            return int(v)
+                    return None
         except (OSError, ValueError):
             pass
         return None
@@ -561,11 +586,14 @@ class Sampler:
         for line in (read("/proc/stat", "") or "").splitlines():
             if line.startswith("procs_blocked"):
                 blocked = int(line.split()[1])
-        zones = []
+        zones, counted = [], []
         for zi in range(len(temps)):
             zt = (read(f"/sys/class/thermal/thermal_zone{zi}/type", "") or "").strip()
             zones.append({"name": THERMAL_NAMES.get(zt, zt or f"Zone {zi}"), "c": round(temps[zi], 1)})
-        out = self.finish(cores, freqs, max(temps) if temps else None,
+            if zt not in THERMAL_NO_MAX:
+                counted.append(temps[zi])
+        hottest = max(counted) if counted else (max(temps) if temps else None)
+        out = self.finish(cores, freqs, hottest,
                           total, avail, rates, blocked, self.fan_pwm(), self.blocked_threads() if blocked > 0 else None)
         send = send_stats()
         out["details"] = {"temps": zones, "accel": devfreq_loads(), "disk": disk_usage("/"), "send": send}
