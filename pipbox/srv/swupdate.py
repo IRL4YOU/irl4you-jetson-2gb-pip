@@ -24,8 +24,8 @@ class SwUpdate:
     RETRY_AFTER_ERROR = 30 * 60   # ein Fehlversuch (kein Internet) wird früher wiederholt
     EARLY_SECONDS = 30 * 60       # in der ersten halben Stunde nach dem Start (Router und Mobilfunk brauchen oft einige Minuten) ...
     RETRY_EARLY = 3 * 60          # ... wird ein Fehlversuch schon nach 3 Minuten wiederholt
-    RAW = "https://raw.githubusercontent.com/IRL4YOU/jetson-2gb-pip/%s/"
-    API = "https://api.github.com/repos/IRL4YOU/jetson-2gb-pip/releases?per_page=30"
+    RAW = "https://raw.githubusercontent.com/IRL4YOU/irl4you-jetson-2gb-pip/%s/"
+    API = "https://api.github.com/repos/IRL4YOU/irl4you-jetson-2gb-pip/releases?per_page=30"
     STATUS = "/run/pipbox-swupdate/status.json"
     BACKUP = "/var/lib/pipbox-backup"
     STAGE = ""
@@ -45,7 +45,7 @@ class SwUpdate:
         self.fake = {}
         self.fake_t0 = 0.0
 
-    CONTENTS = "https://api.github.com/repos/IRL4YOU/jetson-2gb-pip/contents/%s?ref=%s"
+    CONTENTS = "https://api.github.com/repos/IRL4YOU/irl4you-jetson-2gb-pip/contents/%s?ref=%s"
 
     @property
     def channel(self):
@@ -409,7 +409,7 @@ class Updates:
     def status(self):
         if self.demo:
             st = dict(self.fake) or {"state": "never"}
-            versions = {"belabox-linux-rk3588": "20241120-2", "belaui": "20250518-5",
+            versions = {"belabox-linux-tegra": "20241120-2", "belaui": "20250518-5",
                         "belacoder": "20250518-1"}
             log = st.pop("log", "")
             kernel = "5.10.160-belabox (Demo)"
@@ -593,6 +593,6 @@ class Updates:
             f.update(state="rebooting", message="Neustart wird eingeleitet. (Demo)")
         else:
             f.update(state="done", mode=mode, available=224, download="412 MB",
-                     packages=["belaui", "belacoder", "belabox-linux-rk3588", "libc6"],
-                     belabox=["belaui", "belacoder", "belabox-linux-rk3588"],
+                     packages=["belaui", "belacoder", "belabox-linux-tegra", "libc6"],
+                     belabox=["belaui", "belacoder", "belabox-linux-tegra"],
                      would_reboot=True, last_check=int(time.time()), held=[])

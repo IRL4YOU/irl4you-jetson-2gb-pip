@@ -55,6 +55,9 @@ function alertWhen(t){
   return today?`um ${hm}`:`gestern um ${hm}`;
 }
 function alertParts(a){                                                                              // {main: Zeile als HTML, info: Text hinter dem "i" oder ""}
+  if(a.kind==="usb"&&a.cat==="power")                                                                // Jetson: der Prozessor meldet Überlast der Stromversorgung
+    return {main:`<span>Stromversorgung: Überlast gemeldet</span> · <span>${alertWhen(a.t)}</span>`,
+            info:"Der Prozessor hat eine Überlast der Stromversorgung gemeldet und den Takt gesenkt. Netzteil prüfen (5 V, mindestens 3 A) und ein gutes USB-C-Kabel verwenden, möglichst keine stromhungrigen Geräte am USB-Hub."};
   if(a.kind==="usb"){
     const power=a.why==="emi"||a.why==="over";
     const nm=a.name?` <b translate="no">${esc(a.name)}</b>`:"";                                         // Name des Geräts aus dem Kernel-Protokoll (nie übersetzt)
