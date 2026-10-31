@@ -195,6 +195,63 @@ class Feeders:
                 self._stop_locked(slot)
 
 
+def fill_cmd(slot, gst="gst-launch-1.0"):
+    """Jetson: Füllbild für einen Platz ohne Kamera. Ein kleiner schwarzer H.264-Stream (mit Stille als Ton, sonst wartet der audiomixer der Kette) (640x360, 30 Bilder/s, SPS/PPS alle halbe Sekunde) geht an denselben Port wie der
+    Zubringer der Kamera. So hat der Compositor an jedem Platz von Anfang an Bilder (ohne sie liefert nvcompositor beim Start keinen Ausgang, gemessen) und zeigt nach einem
+    Ausfall Schwarz statt des letzten Bildes der Kamera. Der Compositor skaliert das Bild auf die Größe des Platzes."""
+    if not 0 <= slot < SLOTS:
+        raise ValueError("Platz ungültig")
+    vp, ap = FEED_PORT + 2 * slot, FEED_PORT + 2 * slot + 1
+    chain = ("videotestsrc is-live=true pattern=black ! video/x-raw,width=640,height=360,framerate=30/1 ! nvvidconv ! video/x-raw(memory:NVMM),format=NV12 ! "
+             "nvv4l2h264enc bitrate=300000 iframeinterval=15 insert-sps-pps=true ! h264parse config-interval=-1 ! "
+             f"rtph264pay config-interval=1 pt=96 ! udpsink host=127.0.0.1 port={vp} sync=false "
+             "audiotestsrc is-live=true wave=silence ! audio/x-raw,format=S16LE,rate=48000,channels=2,layout=interleaved ! "
+             f"audiobuffersplit output-buffer-duration=1024/48000 ! udpsink host=127.0.0.1 port={ap} sync=false")
+    return [gst, "-q"] + chain.split()
+
+
+class JetsonFeeders(Feeders):
+    """Zubringer für den Jetson: je Platz entweder der Zubringer der Kamera (wenn sie am RTMP-Server sendet) oder das Füllbild. Wechselt, sobald die Kamera kommt oder geht;
+    der Encoder der Sendekette merkt davon nichts. live_fn liefert die Schlüssel der sendenden Kameras (oder None, wenn unbekannt: dann wird die Kamera versucht)."""
+
+    def __init__(self, live_fn=lambda: None, **kw):
+        super().__init__(**kw)
+        self.live_fn = live_fn
+        self.modes = {}                       # Platz -> "kamera" oder "fuell" (für Anzeige und Tests)
+
+    def _loop(self, slot, st):
+        key = st["key"]
+        while not st["stop"].is_set():
+            live = self.live_fn()
+            cam = bool(key) and (live is None or key in live)
+            try:
+                cmd = feeder_cmd(key, slot, self.rtmp_port, self.rtmp_app) if cam else fill_cmd(slot)
+                p = self.popen(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, start_new_session=True)
+            except (OSError, ValueError) as e:
+                if st.get("warned") != type(e).__name__:
+                    st["warned"] = type(e).__name__
+                    self.log(f"send: Zubringer {slot} nicht startbar ({type(e).__name__})")
+                if st["stop"].wait(5):
+                    return
+                continue
+            st["proc"] = p
+            self.modes[slot] = "kamera" if cam else "fuell"
+            self.starts[slot] += 1
+            while p.poll() is None and not st["stop"].is_set():
+                time.sleep(0.2)
+                now = self.live_fn()
+                if cam and now is not None and key not in now and p.poll() is None:
+                    time.sleep(1.0)                              # die Kamera ist weg: der Zubringer endet gleich selbst; sonst nach einer Sekunde beenden
+                    if p.poll() is None:
+                        self._kill(p)
+                elif not cam and now is not None and key in now:
+                    self._kill(p)                                # die Kamera ist da: Füllbild beenden, im nächsten Durchgang kommt der Zubringer
+            if st["stop"].is_set():
+                self._kill(p)
+                return
+            st["stop"].wait(0.3)
+
+
 class Controller:
     """Hält die Zubringer und die Belegung der Sendekette im Betrieb auf dem Stand der Einstellung und der Kameras mit Bild.
 
@@ -268,6 +325,53 @@ class Controller:
                 except OSError:
                     pass
         return {"slots": list(self.binder.slot_key), "alive": sorted(self.alive), "main": self.main_key, "line": self.last_line}
+
+    def stop(self):
+        self.feeders.stop_all()
+
+
+class SlotController:
+    """Jetson: "alle Kameras immer bereit" mit festen Plätzen. Platz 0 ist das Hauptbild, 1 bis 3 sind die kleinen Bilder, genau wie im Bildaufbau; die Kette
+    (srv/pipeline_jetson.py build_always) liest jeden Platz von udpsrc und hat einen schwarzen Untergrund, fällt also nie aus. Je belegtem Platz holt ein Zubringer
+    den Stream der Kamera aus dem RTMP-Server. Wird in der Oberfläche eine andere Kamera an einen Platz gelegt, startet nur dessen Zubringer neu, der Encoder läuft
+    weiter. Es gibt keinen automatischen Wechsel des Hauptbildes: fällt die Hauptkamera aus, bleibt ihr Platz schwarz, bis sie wiederkommt."""
+
+    def __init__(self, load_json, live_keys, feeders, log=print):
+        self.load_json, self.live_keys, self.feeders, self.log = load_json, live_keys, feeders, log
+        self.binder = Binder()
+        self.last_cfg_sig = None
+        self.alive = set()
+        self.live_set = None                  # Schlüssel aller Kameras am RTMP-Server (None = unbekannt); die Zubringer lesen es
+        if isinstance(feeders, JetsonFeeders):
+            feeders.live_fn = lambda: self.live_set
+
+    def reload(self):
+        cfg = self.load_json("pipeline.json")
+        sig = repr(sorted((k, repr(v)) for k, v in cfg.items()))
+        if sig == self.last_cfg_sig:
+            return False
+        self.last_cfg_sig = sig
+        keys = Controller.keys_of(cfg)
+        if keys != self.binder.slot_key:
+            self.binder.slot_key = list(keys)
+            self.feeders.set_keys(self.binder.slot_key)
+            return True
+        return False
+
+    def start(self):
+        self.last_cfg_sig = None
+        self.live_set = self.live_keys()
+        self.reload()
+        self.feeders.set_keys(self.binder.slot_key)
+
+    def tick(self):
+        self.reload()
+        live = self.live_keys()
+        self.live_set = live
+        if live is not None:
+            self.alive = {k for k in self.binder.slot_key if k and k in live}
+        slots = list(self.binder.slot_key)
+        return {"slots": slots, "alive": sorted(self.alive), "main": slots[0] or None, "line": ""}
 
     def stop(self):
         self.feeders.stop_all()
