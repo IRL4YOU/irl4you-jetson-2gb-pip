@@ -13,12 +13,9 @@ import subprocess
 SYSFS_USB = "/sys/bus/usb/devices"
 SYSFS_BT = "/sys/class/bluetooth"
 SYSFS_NET = "/sys/class/net"
-BTDRIVER_STATUS = "/run/pipbox-btdriver/status.json"     # schreibt der Root-Helfer pipbox-btdriver.py (Treiber für Realtek- und Barrot-Sticks)
 BARROT_VENDOR = "33fa"      # Barrot Technology (z. B. UGREEN Bluetooth 5.4 und 6.0, Modell CM748)
-BARROT_HINT = ("Dieser Stick hat einen BARROT-Chip (zum Beispiel UGREEN Bluetooth 5.4 oder 6.0). Der Kernel dieser BELABOX (5.10) startet ihn nicht von allein. "
-               "Die Box richtet dafür beim Einstecken selbst einen Treiber ein (dauert wenige Minuten, nie während einer Übertragung). "
-               "Steht diese Meldung danach noch da, ließ sich der Treiber nicht einrichten (siehe die Meldung zum Treiber): "
-               "Bitte einen Stick mit Realtek-Chip RTL8761B verwenden, zum Beispiel TP-Link UB500 oder ASUS USB-BT500.")
+BARROT_HINT = ("Dieser Stick hat einen BARROT-Chip (zum Beispiel UGREEN Bluetooth 5.4 oder 6.0). Der Kernel dieser Box (4.9) kennt ihn nicht, und ein Treiber lässt sich hier "
+               "nicht nachinstallieren. Bitte einen Stick mit Realtek-Chip RTL8761B verwenden, zum Beispiel TP-Link UB500 oder ASUS USB-BT500 (der läuft an dieser Box).")
 
 
 def _read1(path):
@@ -243,7 +240,7 @@ def bluez_device_state(addr, objects=None):
 
 def adapter_info(objects=None):
     """Welche Bluetooth-Adapter laufen (USB-Kennung, Adresse, an/aus), welche Sticks stecken, ohne einen Adapter zu ergeben,
-    und was der Treiber-Helfer meldet. objects: für Tests; sonst von BlueZ gelesen."""
+    objects: für Tests; sonst von BlueZ gelesen."""
     objs = bluez_objects() if objects is None else objects
     adapters, ids = [], []
     for path, ifs in sorted(objs.items(), key=lambda kv: str(kv[0])):
@@ -258,11 +255,4 @@ def adapter_info(objects=None):
                          "address": str(a.get("Address", "")), "powered": bool(a.get("Powered", False))})
         if uid:
             ids.append(uid)
-    drv = {}
-    try:
-        with open(BTDRIVER_STATUS) as f:
-            raw = json.load(f)
-        drv = {"state": str(raw.get("state", "")), "message": str(raw.get("message", ""))[:300]}
-    except (OSError, ValueError, AttributeError):
-        pass
-    return {"adapters": adapters, "adapter_problems": adapter_problems(ids, usb_bluetooth_devices()), "driver": drv}
+    return {"adapters": adapters, "adapter_problems": adapter_problems(ids, usb_bluetooth_devices()), "driver": {}}

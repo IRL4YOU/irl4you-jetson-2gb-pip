@@ -1,5 +1,9 @@
 # Änderungen
 
+## 0.1.31
+- **Bluetooth-Karte ohne den Treiber-Helfer des Rockchip-Pakets.** Unter Verbindungen, Bluetooth stand bei einem funktionierenden Stick (ASUS USB-BT500) in Rot „Der Treiber-Helfer ist auf dieser Box noch nicht installiert (install.sh erneut ausführen)“ und ein Knopf „Treiber jetzt einrichten“: Den Helfer `pipbox-btdriver` (baut Treiber für Realtek- und Barrot-Sticks nach) gibt es in diesem Paket nicht. Auf dem Jetson-Kernel 4.9 sind `btusb`, `btrtl` und `btbcm` schon eingebaut, es muss nichts nachinstalliert werden. Statt des Knopfes steht jetzt ein Hinweis: ein vom Kernel nicht unterstützter Stick wird als „nicht nutzbar“ angezeigt, bewährt ist der ASUS USB-BT500 (Realtek RTL8761B), Nachbauten des CSR8510 verbinden sich mit DJI-Kameras oft nicht zuverlässig, bei Überstrom einen USB-Hub mit eigenem Netzteil nehmen. Entfernt: `BtDriver` und `/api/btdriver` im Dienst, der Treiber-Fortschritt in der Oberfläche, der Hinweis auf den Kernel „5.10“ bei Barrot-Sticks (der Jetson hat 4.9), die Protokollabschnitte des Helfers.
+- (enthält 0.1.30: Protokollabschnitt „Bluetooth“ mit Stick, Chip, Firmware und Nachbau-Hinweis)
+
 ## 0.1.30
 - **Protokoll: Abschnitt „Bluetooth“ ausführlicher.** Zeigt je Adapter den Chiphersteller und die Versionen (HCI, LMP), das USB-Gerät (Kennung, Hersteller, Produkt, Anschluss, Treiber), die geladenen Bluetooth-Module, die vorhandene Firmware für Realtek-Sticks und die Meldungen des Kernels („hardware error“ gezählt). Bei einem CSR8510 (`0a12:0001`) oder einer Adresse, unter der sich Nachbauten melden, steht ein Hinweis: solche Sticks sind mit BLE-Verbindungen zu DJI-Kameras oft unzuverlässig. Anlass war ein Protokoll mit „hci0 hardware error 0x37“ und einem Stick, der sich am USB mehrfach trennte.
 

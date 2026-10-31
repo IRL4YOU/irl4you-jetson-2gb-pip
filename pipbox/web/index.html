@@ -121,12 +121,9 @@
   </div></div>
     </details>
     <details class="subsec" id="net_bt"><summary>Bluetooth</summary>
-    <div class="ph" style="margin-top:0">Die Bluetooth-Sticks dieser Box. Steht ein Stick als nicht nutzbar da, fehlt ihm der Treiber oder er wird nicht unterstützt.</div>
+    <div class="ph" style="margin-top:0">Die Bluetooth-Sticks dieser Box. Steht ein Stick als nicht nutzbar da, wird er vom Kernel nicht unterstützt.</div>
     <div id="btcard"><div class="ph">Wird geladen …</div></div>
-    <div id="btdrvprog" class="prog" hidden><div class="bar"><i></i></div><div class="progline"><span><b class="progpct"></b> <span class="progtxt"></span></span><span class="progel muted"></span></div></div>
-    <div id="btdrvmsg" class="ph" role="status"></div>
-    <div class="actions"><button id="btdrv_go" type="button" disabled>Treiber jetzt einrichten</button></div>
-    <div class="ph" data-hlp>Baut und lädt den Bluetooth-Treiber für Sticks, die der Kernel nicht kennt (zum Beispiel TP-Link UB500 oder UGREEN BT6.0). Das dauert einige Minuten, Bluetooth fehlt dabei kurz. Während einer Übertragung wartet die Box damit bis zum Ende. Auf der ROCK 5B Plus richtet der Knopf außerdem den Bluetooth-Chip des Boards ein, wenn er noch nicht läuft.</div>
+    <div class="ph" data-hlp>Die Treiber für Realtek- und Broadcom-Sticks sind im Kernel dieser Box enthalten, es muss nichts eingerichtet oder nachinstalliert werden. Steht ein Stick als „nicht nutzbar“ da, kennt der Kernel (4.9) ihn nicht: dann hilft nur ein anderer Stick, bewährt ist der ASUS USB-BT500 (Realtek RTL8761B). Nachbauten des CSR8510 (Kennung 0a12:0001) verbinden sich mit DJI-Kameras oft nicht zuverlässig. Bitte Stick und Kamera an einem USB-Hub mit eigenem Netzteil betreiben, wenn die Box Überstrom meldet.</div>
     <div class="sech">Handyverbindungen</div>
     <div class="ph" data-hlp>Zeigt den Akkustand gekoppelter Handys. Die Box fragt alle 10 Minuten kurz nach und trennt danach wieder, es gibt keine Dauerverbindung. Android meldet den Akku in Schritten von 20 %, ein iPhone in Schritten von etwa 10 %. Das Handy muss in der Nähe sein und Bluetooth an haben.</div>
     <div id="phonecard"></div>

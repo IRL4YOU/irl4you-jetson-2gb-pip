@@ -1237,7 +1237,7 @@ def sections():
             "Zugangsschlüssel sind durch Platzhalter ersetzt (gleiche Werte haben gleiche Nummern). Bitte trotzdem vor dem Weitergeben kurz durchsehen.\n"
             % (time.strftime("%Y-%m-%d %H:%M:%S", time.gmtime(now)), local, version))
     units = ["pipbox", "pipbox-dji", "pipbox-send", "pipbox-hdmi", "pipbox-preview", "pipbox-health", "bluetooth", "NetworkManager", "tailscaled", "nginx"]
-    helpers = ["pipbox-swupdate", "pipbox-update", "pipbox-wifi", "pipbox-btdriver", "pipbox-remote", "pipbox-power", "pipbox-logmode", "pipbox-send-ctl"]
+    helpers = ["pipbox-swupdate", "pipbox-update", "pipbox-wifi", "pipbox-remote", "pipbox-power", "pipbox-logmode", "pipbox-send-ctl"]
     out = [("Kopf", head),
            ("System", "Kernel: %s\nBetriebszeit: %s\nLast: %s\n%s" % (run(["uname", "-r"], 5).strip(), run(["uptime", "-p"], 5).strip(),
                                                                     read_small("/proc/loadavg"), run(["free", "-m"], 5))),
@@ -1277,7 +1277,7 @@ def sections():
            ("Zustand der Software-Updates", tail_file("/run/pipbox-swupdate/status.json", 40)),
            ("Protokoll der Software-Updates", collapse_repeats(tail_file("/var/log/pipbox-swupdate.log", 150))),
            ("Protokoll der System-Updates", collapse_repeats(tail_file(f"{STATE}/update.log", 80)))]
-    for u, n in (("pipbox-dji", 700), ("pipbox-send", 700), ("pipbox", 400), ("pipbox-hdmi", 150), ("pipbox-preview", 80), ("pipbox-wifi", 120), ("pipbox-btdriver", 120),
+    for u, n in (("pipbox-dji", 700), ("pipbox-send", 700), ("pipbox", 400), ("pipbox-hdmi", 150), ("pipbox-preview", 80), ("pipbox-wifi", 120),
                  ("pipbox-swupdate", 200), ("pipbox-update", 100), ("pipbox-remote", 100), ("pipbox-power", 40)):
         text = journal(u, n)
         out.append(("Journal %s" % u, collapse_repeats(drop_noise(text) if u == "pipbox-dji" else text)))

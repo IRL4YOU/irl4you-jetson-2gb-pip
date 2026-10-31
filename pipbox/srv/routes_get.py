@@ -80,8 +80,6 @@ class GetRoutes:
             return self.reply(200, {"mode": self.sampler.fan_mode(), "jetson": os.path.exists("/etc/nv_tegra_release")})
         if path == "/api/deck":
             return self.reply(200, self.deck.get())
-        if path == "/api/btdriver":
-            return self.reply(200, self.btdriver.status())
         if path == "/api/logs":
             return self.reply(200, self.logbundle.status())
         if path == "/api/settings/progress":
