@@ -70,7 +70,7 @@ class HdmiService:
     def _fake_status(self):
         f = self.fake
         usb = f.get("source") == "usb"
-        return {"ok": True, "available": True, "state": "streaming" if f["enabled"] else "off", "message": "", "settings": dict(f),
+        return {"ok": True, "available": True, "hdmi_input": True, "state": "streaming" if f["enabled"] else "off", "message": "", "settings": dict(f),
                 "signal": ({"plugged": True, "locked": True, "width": 1280, "height": 720, "fps": 30.0, "interlaced": False, "format": "", "depth": 0} if usb else
                            {"plugged": True, "locked": True, "width": 1920, "height": 1080, "fps": 60.0, "interlaced": False, "format": "RGB", "depth": 8}),
                 "usb": ({"present": True, "name": "Beispiel-Webcam", "node": "/dev/video2", "format": "MJPEG 1280x720@30", "audio": "plughw:CARD=Beispiel"} if usb else
@@ -104,7 +104,7 @@ class HdmiService:
                "usb": {}, "signal_known": False, "publishing": None, "restarts": 0}
         try:
             resp = self._fake_status() if self.demo else self._call({"cmd": "status"})
-            for k in ("available", "state", "message", "signal", "usb", "signal_known", "publishing", "restarts"):
+            for k in ("available", "hdmi_input", "state", "message", "signal", "usb", "signal_known", "publishing", "restarts"):
                 if k in resp:
                     out[k] = resp[k]
             st = resp.get("settings") if isinstance(resp.get("settings"), dict) else {}
