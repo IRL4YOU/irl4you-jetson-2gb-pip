@@ -1,5 +1,8 @@
 # Änderungen
 
+## 0.1.20
+- **Lüfterzeile (Karte „System“, Zeile „Lüfter: 0 % (Ansteuerung)“):** Auf dem Jetson erscheint sie nur noch, wenn die Box den Lüfter wirklich ansteuert (PWM-Ausgang größer als 0, die automatische Regelung des Kernels schaltet erst bei höherer Temperatur ein). Bleibt der Ausgang auf 0, zum Beispiel bei einem extern gespeisten Lüfter oder ohne Lüfter am Anschluss, ist die Zeile weg; Drehzahl und Steckererkennung gibt es beim Jetson Nano nicht. Sobald der Ausgang einmal angesteuert war, bleibt die Zeile bis zum Neustart des Dienstes sichtbar. Auch die Statistik-Seite zeigt den Lüfter dann nicht.
+
 ## 0.1.19
 - **Neue Installation startet gleich mit „Alle Kameras immer bereit“.** Bisher stand der Schalter auf dem Jetson bei einer frischen Installation noch aus („auf dem Jetson noch nicht verfügbar“, ein Rest aus der Anfangszeit): Die Sendung lief dann im alten Einzelmodus ohne Weichen, ohne Füllbild, ohne Verzögerung, Rahmen und Beschnitt im Betrieb und mit Neustart bei jedem Tausch. Wer schon einen Bildaufbau gespeichert hat, behält seine Wahl. Geprüft: der Kettentext für eine Kamera, Bild-in-Bild mit einem und mit drei kleinen Bildern; am Gerät ist die Betriebsart „eine Kamera“ noch nicht gesendet worden.
 - **Karte „Kameras“, Abschnitt „USB-Kameras“:** Der Jetson hat keinen HDMI-Eingang. Der Kameradienst meldet das jetzt (hdmi_input), die Oberfläche zeigt nur die USB-Kamera (Webcam oder HDMI-USB-Grabber) ohne die Auswahl „HDMI-Eingang“, und der Dienst lehnt die Quelle „HDMI“ auf dem Jetson mit einer klaren Meldung ab.

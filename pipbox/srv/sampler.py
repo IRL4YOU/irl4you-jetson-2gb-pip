@@ -562,6 +562,19 @@ class Sampler:
             pass
         return None
 
+    _fan_driven = False
+
+    def fan_shown(self, pwm):
+        """Jetson: Die Lüfterzeile erscheint nur, wenn die Box den Lüfter wirklich ansteuert. Der Jetson Nano meldet den PWM-Ausgang auch dann, wenn gar kein Lüfter
+        am Anschluss steckt oder ein externer Lüfter den Kühlkörper bläst; es gibt weder eine Drehzahl noch eine Steckererkennung. Bleibt der Ausgang auf 0 (die
+        automatische Regelung des Kernels schaltet erst bei höheren Temperaturen ein), ist die Zeile unnötig und verwirrt. Sobald er einmal größer als 0 war, bleibt
+        sie bis zum Neustart des Dienstes sichtbar. Rockchip: unverändert."""
+        if pwm is None or not os.path.exists("/etc/nv_tegra_release"):
+            return pwm
+        if pwm > 0:
+            self._fan_driven = True
+        return pwm if self._fan_driven else None
+
     @staticmethod
     def blocked_threads(proc="/proc", limit=20):
         """Threads im Kernel-Zustand D (nicht unterbrechbar) mit Wartestelle im Kernel: ["usb-storage@usb_sg_wait", ...]. Zeigt, WER hinter der Meldung
@@ -656,7 +669,7 @@ class Sampler:
                 counted.append(temps[zi])
         hottest = max(counted) if counted else (max(temps) if temps else None)
         out = self.finish(cores, freqs, hottest,
-                          total, avail, rates, blocked, self.fan_pwm(), self.blocked_threads() if blocked > 0 else None)
+                          total, avail, rates, blocked, self.fan_shown(self.fan_pwm()), self.blocked_threads() if blocked > 0 else None)
         send = send_stats()
         out["details"] = {"temps": zones, "accel": devfreq_loads(), "disk": disk_usage("/"), "send": send}
         out["payload_mbit"] = self.payload_rate(send)
