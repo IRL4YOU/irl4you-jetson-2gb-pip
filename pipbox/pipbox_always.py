@@ -23,6 +23,12 @@ KEY_RE = re.compile(r"^[a-z0-9_-]{1,40}$")
 
 
 PRIV_PORT = 9440            # Jetson: private Eingänge der Weiche (pipbox_relay.py) je Platz: PRIV_PORT + 3*Platz Bild der Kamera, +1 Ton der Kamera, +2 Füllbild
+FEED_CPUS = (1, 2, 3)       # Kern je Platz (Platz mod 3) für Zubringer und Füllbild: nur ein Sender mit festem Kern hält auf Loopback die Reihenfolge (siehe pipbox_relay)
+
+
+def pipbox_relay_pin(cpu):
+    import pipbox_relay
+    pipbox_relay.pin_cpu(cpu)
 
 
 def priv_ports(slot):
@@ -294,10 +300,14 @@ class JetsonFeeders:
             except OSError:
                 pass
 
-    def _spawn(self, st, name, cmd):
+    def _spawn(self, st, name, cmd, cpu=None):
+        """Zubringer oder Füllbild starten, auf Wunsch an einen Kern gebunden (cpu): UDP über Loopback hält die Reihenfolge nur bei festem Kern des Senders (siehe pipbox_relay)."""
+        kw = {}
+        if cpu is not None and hasattr(os, "sched_setaffinity"):
+            kw["preexec_fn"] = lambda: pipbox_relay_pin(cpu)
         try:
-            p = self.popen(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, start_new_session=True)
-        except (OSError, ValueError) as e:
+            p = self.popen(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, start_new_session=True, **kw)
+        except (OSError, ValueError, subprocess.SubprocessError) as e:
             if st.get("warned") != type(e).__name__:
                 st["warned"] = type(e).__name__
                 self.log(f"send: Zubringer nicht startbar ({type(e).__name__})")
@@ -313,7 +323,7 @@ class JetsonFeeders:
                 st["stop"].wait(0.5)         # die Kamera sendet nicht: nichts zu holen
                 continue
             pv, pa, _pf = priv_ports(slot)
-            p = self._spawn(st, "cam", feeder_cmd(key, slot, self.rtmp_port, self.rtmp_app, ports=(pv, pa)))
+            p = self._spawn(st, "cam", feeder_cmd(key, slot, self.rtmp_port, self.rtmp_app, ports=(pv, pa)), cpu=FEED_CPUS[slot % len(FEED_CPUS)])
             if p is None:
                 if st["stop"].wait(5):
                     return
@@ -336,7 +346,7 @@ class JetsonFeeders:
 
     def _fill_loop(self, slot, st, relay):
         while not st["stop"].is_set() and not relay.fill_done:
-            p = self._spawn(st, "fill", fill_cmd(slot))
+            p = self._spawn(st, "fill", fill_cmd(slot), cpu=FEED_CPUS[slot % len(FEED_CPUS)])
             if p is None:
                 if st["stop"].wait(5):
                     return
@@ -363,7 +373,8 @@ class JetsonFeeders:
         """Zustand und Ereignisse der Weichen für den Bericht bei einem unerwarteten Ende von belacoder: je Platz Tor, Füllbild und die letzten Ereignisse (nur Plätze und Uhrzeiten)."""
         out = []
         for slot, r in sorted(self.relays.items()):
-            out.append("Platz %d: Tor %s, Füllbild %s, fehlende Pakete vor der Weiche %d" % (slot, "offen" if r.gate else "zu", "beendet" if r.fill_done else "läuft", r.lost_in))
+            out.append("Platz %d: Tor %s, Füllbild %s, Lücken vor der Weiche %d Pakete, davon Nachzügler %d, Zubringer-Starts %d" % (
+                slot, "offen" if r.gate else "zu", "beendet" if r.fill_done else "läuft", r.lost_in, r.late_in, self.starts.get(slot, 0)))
             out += ["    " + e for e in list(r.events)[-8:]]
         return out
 
@@ -482,10 +493,16 @@ class SlotController:
     GRACE = 15.0                              # so lange gilt eine sendende Kamera, die noch auf ihren Keyframe wartet, als vorhanden (kein Hauptbild-Wechsel beim Start)
     CANVAS = (0, 0, 1920, 1080)
 
-    def __init__(self, load_json, live_keys, feeders, log=print, padctl_path=None, clock=time.monotonic, geometry_fn=None):
+    def __init__(self, load_json, live_keys, feeders, log=print, padctl_path=None, clock=time.monotonic, geometry_fn=None,
+                 view_file=None, view_state=None, view_values=None):
         self.load_json, self.live_keys, self.feeders, self.log = load_json, live_keys, feeders, log
         self.padctl_path, self.clock, self.geometry_fn = padctl_path, clock, geometry_fn
         self.padctl_last = None
+        # Ansicht im Betrieb wie beim Rockchip-Baustein: die Oberfläche schreibt "ausgeblendet Tonquelle stumm" in view_file und wartet, bis dieselbe Zeile in
+        # view_state zurückgemeldet ist; sonst startet sie die Sendung neu. Hier gehen alle drei über die Steuerdatei (alpha und volume der Pads).
+        self.view_file, self.view_state, self.view_values = view_file, view_state, view_values
+        self.view = None                      # (ausgeblendet: Bits für kleines Bild 1..3, Tonquelle: -1 Hauptbild oder 0..2, stumm) aus view_file
+        self.view_line_last = None
         self.binder = Binder()                # slot_key: welche Kamera an welchem Platz (Decoder) hängt
         self.chooser = Chooser(clock)
         self.cfg = {}
@@ -566,6 +583,7 @@ class SlotController:
             if s != 15 and s < 4 and slots[s] and r in geo and s not in pad_role:
                 pad_role[s] = r
         lines = []
+        hide, apos, mute = self._view_now()
         for s in sorted(set(range(len(geo))) | set(pad_role)):
             role = pad_role.get(s)
             if role is None or role not in geo:
@@ -573,13 +591,55 @@ class SlotController:
                 continue
             x, y, w, h = geo[role]
             z = 0 if role == 0 else role + 1
+            hidden = role >= 1 and bool(hide >> (role - 1) & 1)   # kleines Bild in der Ansicht ausgeblendet
             lines.append(f"comp.sink_{s} xpos {x}\ncomp.sink_{s} ypos {y}\ncomp.sink_{s} width {w}\ncomp.sink_{s} height {h}\ncomp.sink_{s} zorder {z}\n"
-                         f"comp.sink_{s} alpha {1 if s in shown_slots else 0}")
-        arole = {"main": 0, "pip": 1, "pip2": 2, "pip3": 3}.get(self.cfg.get("audio", "main"), 0)
+                         f"comp.sink_{s} alpha {1 if s in shown_slots and not hidden else 0}")
+        arole = apos + 1 if apos >= 0 else 0                       # Tonquelle: -1 Hauptbild, 0..2 kleines Bild an dieser Stelle
         a_slot = nums[arole] if arole < len(nums) and nums[arole] != 15 else None
         for s in sorted(set(range(len(geo))) | set(pad_role)):
-            lines.append(f"amix.sink_{s + 1} volume {1 if s == a_slot else 0}")
+            lines.append(f"amix.sink_{s + 1} volume {1 if s == a_slot and not mute else 0}")
         return "\n".join(lines) + "\n", main
+
+    def _view_now(self):
+        """(ausgeblendet, Tonquelle, stumm): aus der Datei der Oberfläche, sonst aus der Einstellung (stumm nur aus der Datei)."""
+        if self.view is not None:
+            return self.view
+        if self.view_values:
+            hide, apos = self.view_values(self.cfg)
+            return int(hide), int(apos), 0
+        return 0, {"main": -1, "pip": 0, "pip2": 1, "pip3": 2}.get(self.cfg.get("audio", "main"), -1), 0
+
+    def read_view(self):
+        """Die Zeile der Oberfläche lesen ("ausgeblendet Tonquelle stumm"); None, wenn es sie nicht gibt oder sie nicht passt."""
+        if not self.view_file:
+            return None
+        try:
+            with open(self.view_file) as f:
+                p = f.read().split()
+            hide, apos, mute = int(p[0]), int(p[1]), int(p[2]) if len(p) >= 3 else 0
+            if 0 <= hide <= 7 and -1 <= apos <= 2:
+                return hide, apos, 1 if mute else 0
+        except (OSError, ValueError, IndexError):
+            pass
+        return None
+
+    def report_view(self):
+        """Zurückmelden, was gilt (die Oberfläche wartet darauf): dieselbe Zeile wie gelesen. Nach jedem Start von belacoder ist die Datei weg und wird neu geschrieben."""
+        if not self.view_state:
+            return
+        hide, apos, mute = self._view_now()
+        line = f"{hide} {apos} {mute}\n"
+        if line == self.view_line_last and os.path.exists(self.view_state):
+            return
+        try:
+            tmp = self.view_state + ".tmp"
+            with open(tmp, "w") as f:
+                f.write(line)
+            os.chmod(tmp, 0o644)
+            os.replace(tmp, self.view_state)
+            self.view_line_last = line
+        except OSError:
+            pass
 
     def write_padctl(self):
         if not self.padctl_path or not self.geometry_fn:
@@ -624,12 +684,14 @@ class SlotController:
 
     def tick(self):
         self.reload()
+        self.view = self.read_view()
         live = self.live_keys()
         self.live_set = live
         if live is not None:
             self.alive = {k for k in self.binder.slot_key if k and k in live}
         slots = list(self.binder.slot_key)
         main = self.write_padctl()
+        self.report_view()
         if main is not None and main != self.main_key:
             if self.main_key is not None:
                 self.log(f"send: Hauptbild jetzt {main or '(keine Kamera)'} (eingestellt: {self.roles[0]})")

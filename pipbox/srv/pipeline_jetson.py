@@ -7,9 +7,23 @@ belacoder findet die Elemente über ihre Namen: v_delay, a_delay, venc_bps und a
 
 import os
 
-from pipbox_live import place
 from srv.plugin import FEED_AUDIO_CAPS, FEED_PORT, FEED_VIDEO_CAPS
 from srv.style import pip_size
+
+
+def place(corner, mw, mh, pw, ph, margin, fx, fy):
+    """Position des kleinen Bildes auf der Leinwand mw x mh: 0 oben links, 1 oben rechts, 2 unten links, 3 unten rechts, 4 unten Mitte,
+    5 frei (fx, fy in Promille des freien Wegs). Dieselbe Rechnung wie in der Oberfläche (Vorschau des Bildaufbaus)."""
+    if corner == 5:
+        fx, fy = max(0, min(1000, fx)), max(0, min(1000, fy))
+        x, y = (mw - pw) * fx // 1000, (mh - ph) * fy // 1000
+        return max(0, x), max(0, y)
+    if corner == 4:
+        x, y = (mw - pw) // 2, mh - ph - margin
+    else:
+        x = mw - pw - margin if corner & 1 else margin
+        y = mh - ph - margin if corner & 2 else margin
+    return max(0, min(x, mw - pw)), max(0, min(y, mh - ph))
 
 CANVAS_W, CANVAS_H = 1920, 1080
 Q_BIG = "queue max-size-time=3000000000 max-size-buffers=0 max-size-bytes=0 leaky=downstream"

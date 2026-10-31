@@ -16,7 +16,8 @@ function renderDetails(m){
   const bar=p=>`<div class="bar" style="margin:1px 0 3px"><i style="width:${Math.max(0,Math.min(100,p||0))}%"></i></div>`;
   $("det_cpu").innerHTML=cores.map((c,i)=>drow(`Kern ${i}`,`<b>${fmt(c,0)}</b> % <span class="muted">${fr[i]?(fr[i]>=1000?(fr[i]/1000).toFixed(1)+" GHz":fr[i]+" MHz"):""}</span>`)+bar(c)).join("")
     +(ac.npu?drow("NPU",`<b>${ac.npu.load_pct}</b> % <span class="muted">${ac.npu.mhz} MHz</span>`)+bar(ac.npu.load_pct):"")
-    +(ac.gpu?drow("GPU",`<b>${ac.gpu.load_pct}</b> % <span class="muted">${ac.gpu.mhz} MHz</span>`)+bar(ac.gpu.load_pct):"");
+    +(ac.gpu?drow("GPU",`<b>${ac.gpu.load_pct}</b> % <span class="muted">${ac.gpu.mhz} MHz</span>`)+bar(ac.gpu.load_pct):"")
+    +[["vic","Bildwandler (VIC)"],["nvdec","Video-Decoder"],["nvenc","Video-Encoder"]].map(([k,n])=>ac[k]?drow(n,`<b>${ac[k].load_pct}</b> %${ac[k].mhz!=null?` <span class="muted">${ac[k].mhz} MHz</span>`:""}`)+bar(ac[k].load_pct):"").join("");   // Jetson: Video-Hardware
   $("det_temp").innerHTML=(d.temps||[]).map(t=>drow(esc(t.name),`<b>${f1(t.c)}</b> °C`)).join("")||'<span class="muted">keine Daten</span>';
   const k=d.disk;
   $("det_disk").innerHTML=!k?'<span class="muted">keine Daten</span>':drow("Belegt",`<b>${f1(k.used_gb)}</b> GB <span class="muted">(${f1(k.used_pct)} %)</span>`)+bar(k.used_pct)
