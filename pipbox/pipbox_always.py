@@ -206,14 +206,14 @@ FILL_SIZE = (1920, 1080)    # Größe des Füllbildes: gleich der üblichen Kame
 
 
 def fill_cmd(slot, gst="gst-launch-1.0", size=None):
-    """Jetson: Füllbild für einen Platz, solange seine Kamera noch nicht da war. Ein schwarzer H.264-Stream (30 Bilder/s, SPS/PPS alle halbe Sekunde, wenig Datenrate) geht an den
+    """Jetson: Füllbild für einen Platz, solange seine Kamera noch nicht da war. Ein schwarzer H.264-Stream (30 Bilder/s, alle halbe Sekunde ein IDR mit SPS/PPS: ohne idrinterval sendet der Encoder nur alle 256 Bilder einen, ein später einsteigender Decoder wartete bis zu 8,5 s; wenig Datenrate) geht an den
     Füll-Eingang der Weiche. So hat der Compositor an jedem Platz von Anfang an Bilder (ohne sie liefert nvcompositor beim Start keinen Ausgang, gemessen)."""
     if not 0 <= slot < SLOTS:
         raise ValueError("Platz ungültig")
     w, h = size or FILL_SIZE
     fp = priv_ports(slot)[2]
     chain = (f"videotestsrc is-live=true pattern=black ! video/x-raw,width={int(w)},height={int(h)},framerate=30/1 ! nvvidconv ! video/x-raw(memory:NVMM),format=NV12 ! "
-             "nvv4l2h264enc bitrate=300000 iframeinterval=15 insert-sps-pps=true ! h264parse config-interval=-1 ! "
+             "nvv4l2h264enc bitrate=300000 iframeinterval=15 idrinterval=15 insert-sps-pps=true ! h264parse config-interval=-1 ! "
              f"rtph264pay config-interval=1 pt=96 ! udpsink host=127.0.0.1 port={fp} sync=false")
     return [gst, "-q"] + chain.split()
 
@@ -346,6 +346,18 @@ class JetsonFeeders:
             self._kill(p)
             if st["stop"].wait(0.3):
                 return
+
+    def wait_ready(self, timeout=12.0):
+        """Wartet, bis an jedem Platz Füllbild (oder die Kamera) ankommt. belacoder verbindet sich zum Server und wird dort nach wenigen Sekunden ohne Mediendaten
+        hinausgeworfen (der Empfänger meldet "never_received_data, first_data_timeout=14000ms"); startet er erst, wenn die Plätze Bilder liefern, kommen sie gleich nach dem Verbinden."""
+        end = self.clock() + timeout
+        while self.clock() < end:
+            with self.lock:
+                pending = [s for s, r in self.relays.items() if s in self.running and not (r.fill_seen or r.gate)]
+            if not pending:
+                return True
+            time.sleep(0.1)
+        return False
 
     def rearm(self):
         """belacoder startet neu: Weichen zurücksetzen und das Füllbild wieder starten, damit der neue Abnehmer sofort Bilder samt Keyframe bekommt."""
@@ -563,6 +575,8 @@ class SlotController:
         self.feeders.rearm()
         self.padctl_last = None
         self.write_padctl()
+        if not self.feeders.wait_ready():
+            self.log("send: Füllbild kam nicht rechtzeitig an, belacoder startet trotzdem")
 
     def start(self):
         self.last_cfg_sig = None

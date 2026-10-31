@@ -16,7 +16,7 @@ Q_BIG = "queue max-size-time=3000000000 max-size-buffers=0 max-size-bytes=0 leak
 Q_MUX = "queue max-size-time=10000000000 max-size-buffers=1000 max-size-bytes=41943040"
 RGBA = "video/x-raw(memory:NVMM),format=RGBA"      # ohne Hochkommas: belacoder gibt den Text direkt an gst_parse_launch (Hochkommas gelten nur in der Shell)
 NV12 = "video/x-raw(memory:NVMM),format=NV12"
-ENCODER = ('nvv4l2h265enc control-rate=1 qp-range="28,50:0,38:0,50" iframeinterval=60 preset-level=4 maxperf-enable=true '
+ENCODER = ('nvv4l2h265enc control-rate=1 qp-range="28,50:0,38:0,50" iframeinterval=60 idrinterval=60 preset-level=4 maxperf-enable=true '
            "EnableTwopassCBR=true insert-sps-pps=true name=venc_bps")
 
 

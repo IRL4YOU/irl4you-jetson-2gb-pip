@@ -67,6 +67,7 @@ class SlotRelay(threading.Thread):
         self.gate = False
         self.opened_at = 0.0
         self.fill_done = False                # die Kamera war schon einmal zu sehen: das Füllbild wird nicht mehr gebraucht
+        self.fill_seen = False                # seit dem letzten Zurücksetzen ist Füllbild angekommen (der Platz kann sofort Bilder liefern)
         self.params = []                      # zuletzt gesehene SPS/PPS-Pakete der Kamera
         self.last_cam = 0.0
         self.last_sil = clock()
@@ -89,6 +90,7 @@ class SlotRelay(threading.Thread):
         self.gate = False
         self.params = []
         self.fill_done = False
+        self.fill_seen = False
 
     def stop(self):
         self.stop_ev.set()
@@ -128,6 +130,7 @@ class SlotRelay(threading.Thread):
 
     def on_fill(self, pkt):
         if not self.fill_done and not self.gate:
+            self.fill_seen = True
             self.send_v(pkt)
 
     def tick(self, now):
