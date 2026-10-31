@@ -563,6 +563,32 @@ class Sampler:
         return None
 
     _fan_driven = False
+    FAN_FILE = None                         # Datei mit der Wahl "Lüfter am Anschluss der Box" (setzt server.py: <Zustandsordner>/fan.json)
+    FAN_MODES = ("auto", "yes", "no")
+
+    @classmethod
+    def fan_mode(cls):
+        """Wahl des Benutzers: "auto" (Zeile nur, wenn der Ausgang angesteuert wird), "yes" (Lüfter steckt am Anschluss: Zeile immer) oder "no" (Lüfter extern, zum
+        Beispiel über USB gespeist: Zeile nie). Ohne Datei "auto"."""
+        try:
+            with open(cls.FAN_FILE) as f:
+                m = json.load(f).get("mode")
+            return m if m in cls.FAN_MODES else "auto"
+        except (OSError, ValueError, TypeError, AttributeError):
+            return "auto"
+
+    @classmethod
+    def set_fan_mode(cls, mode):
+        if mode not in cls.FAN_MODES:
+            raise ValueError("Lüfter am Anschluss: automatisch, ja oder nein")
+        if not cls.FAN_FILE:
+            raise ValueError("Nicht verfügbar")
+        tmp = cls.FAN_FILE + ".tmp"
+        fd = os.open(tmp, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o640)
+        with os.fdopen(fd, "w") as f:
+            json.dump({"mode": mode}, f)
+        os.replace(tmp, cls.FAN_FILE)
+        return mode
 
     def fan_shown(self, pwm):
         """Jetson: Die Lüfterzeile erscheint nur, wenn die Box den Lüfter wirklich ansteuert. Der Jetson Nano meldet den PWM-Ausgang auch dann, wenn gar kein Lüfter
@@ -570,6 +596,11 @@ class Sampler:
         automatische Regelung des Kernels schaltet erst bei höheren Temperaturen ein), ist die Zeile unnötig und verwirrt. Sobald er einmal größer als 0 war, bleibt
         sie bis zum Neustart des Dienstes sichtbar. Rockchip: unverändert."""
         if pwm is None or not os.path.exists("/etc/nv_tegra_release"):
+            return pwm
+        mode = self.fan_mode()
+        if mode == "no":
+            return None                     # Lüfter extern (zum Beispiel USB): die Box steuert ihn nicht, die Zeile wäre irreführend
+        if mode == "yes":
             return pwm
         if pwm > 0:
             self._fan_driven = True

@@ -269,3 +269,15 @@ function hlpOwner(ph){                                             // die Übers
   if(!prev&&ph.parentElement&&ph.parentElement.tagName==="DIV") prev=ph.parentElement.previousElementSibling;
   return isHead(prev)?prev:null;
 }
+
+
+// ---- Lüfter: ist einer am Anschluss der Box? (nur Jetson; die Zeile in der Karte "System" folgt der Wahl) ----
+(async function(){
+  const sec=$("opt_fan"), sel=$("fan_mode"); if(!sec||!sel) return;
+  try{ const d=await srtlaCall("GET","/api/fan"); sec.hidden=!d.jetson; sel.value=d.mode||"auto"; }catch(e){ return; }
+  sel.addEventListener("change",async()=>{
+    const m=$("fan_msg"); m.textContent="";
+    try{ const d=await srtlaCall("POST","/api/fan",{mode:sel.value}); sel.value=d.mode; m.textContent="Gespeichert."; if(typeof tick==="function") tick(); }
+    catch(x){ m.textContent=x.message; }
+  });
+})();

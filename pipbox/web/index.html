@@ -578,6 +578,11 @@
       <div id="ord_list" class="optlist"></div>
       <div class="actions"><button type="button" id="lay_reset" class="sec">Reihenfolge zurücksetzen</button></div>
     </details>
+    <details class="subsec" id="opt_fan" hidden><summary>Lüfter</summary>
+      <div class="ph" style="margin-top:0">Der Jetson Nano kann nicht erkennen, ob ein Lüfter am Lüfteranschluss steckt, und liefert keine Drehzahl. Die Zeile „Lüfter: … % (Ansteuerung)“ in der Karte „System“ zeigt nur, womit die Box den Anschluss ansteuert. Wird der Lüfter extern versorgt (zum Beispiel über USB), wählen Sie „Nein“: Dann entfällt die Zeile.</div>
+      <label class="muted">Lüfter am Anschluss der Box<select id="fan_mode"><option value="auto">Automatisch (Zeile nur, wenn der Anschluss angesteuert wird)</option><option value="yes">Ja (Zeile immer zeigen)</option><option value="no">Nein, extern versorgt (Zeile ausblenden)</option></select></label>
+      <div id="fan_msg" class="ph" role="status"></div>
+    </details>
     <details class="subsec" id="opt_netaddr"><summary>Feste Zusatzadresse (LAN)</summary>
       <div class="ph" style="margin-top:0">Neben der Adresse vom Router (DHCP) bekommt die Box eine feste, zum Beispiel wenn sie am selben Router hängt wie andere Geräte. Die feste Adresse gehört zur MAC-Adresse der gewählten Netzkarte. Voraussetzung ist ein getrennter Adressraum: Sie darf sich nicht mit dem Netz einer anderen Netzkarte überschneiden, kein anderes Gerät darf sie benutzen, und sie sollte außerhalb des DHCP-Bereichs deines Routers liegen. Das gilt für die ganze Box, nicht nur für dieses Gerät.</div>
       <label class="chk"><input type="checkbox" id="na_on"> Feste Zusatzadresse verwenden</label>

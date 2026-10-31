@@ -44,6 +44,10 @@ class PostRoutes:
             if d.get("action") in ("stop", "start"):
                 self.autostart.cancel("Sendung wurde von Hand gestartet oder beendet")
             return self.reply(200, {"ok": True})
+        if path == "/api/fan":
+            mode = self.sampler.set_fan_mode(d.get("mode"))
+            self.sampler._last = None                       # die nächste Abfrage liest neu (sonst bleibt der Zwischenspeicher von 1,5 s)
+            return self.reply(200, {"mode": mode})
         if path == "/api/autostart":
             self.autostart.set_enabled(d.get("enabled"))
             return self.reply(200, self.autostart.status())

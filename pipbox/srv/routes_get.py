@@ -77,6 +77,8 @@ class GetRoutes:
             return self.reply(200, self.logmode.status())
         if path == "/api/layout":
             return self.reply(200, self.layout.get())
+        if path == "/api/fan":
+            return self.reply(200, {"mode": self.sampler.fan_mode(), "jetson": os.path.exists("/etc/nv_tegra_release")})
         if path == "/api/datenschutz":
             d = self.datenschutz.get()
             if "lizenz" in urllib.parse.parse_qs((self.path.split("?", 1) + [""])[1]):
