@@ -336,7 +336,7 @@ def prepare():
     auto = bool(cfg.get("auto_failover", True)) and len(keys) > 1 and not always      # mit nur einer Kamera gibt es nichts umzuschalten
     live = live_keys() if (auto or always) else None
     if always:
-        if live is not None and not (set(keys) & live) and not pipbox_live.enabled(server.PipelineStore._safe_cfg(cfg)):
+        if live is not None and not (set(keys) & live) and not pipbox_live.enabled(server.PipelineStore._safe_cfg(cfg)) and not pipeline_jetson.is_jetson():
             raise Refuse("Keine Kamera sendet gerade an die Box")      # nur die Zubringer-Engine; die Engine mit Compositor startet auch leer
         auto = False
     if always:
@@ -383,6 +383,10 @@ class Sender:
                 load_json=lambda name: load_json(f"{STATE}/{name}"), put_state_file=put_state_file, state_dir=STATE,
                 safe_cfg=server.PipelineStore._safe_cfg, view_values=server.PipelineStore.view_values, log=lambda m: print(m, flush=True),
                 start_cfg=plan["cfg"])                 # Puffer und Verzögerungen vom Start (dieselben Werte wie belacoder -A)
+        elif plan.get("always") and pipeline_jetson.is_jetson():
+            self.always = pipbox_always.SlotController(
+                load_json=lambda name: load_json(f"{STATE}/{name}"), live_keys=live_keys,
+                feeders=pipbox_always.JetsonFeeders(log=lambda m: print(m, flush=True)), log=lambda m: print(m, flush=True))
         elif plan.get("always"):
             self.always = pipbox_always.Controller(
                 load_json=lambda name: load_json(f"{STATE}/{name}"), put_state_file=put_state_file,

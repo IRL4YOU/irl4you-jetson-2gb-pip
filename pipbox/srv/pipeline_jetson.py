@@ -8,6 +8,7 @@ belacoder findet die Elemente über ihre Namen: v_delay, a_delay, venc_bps und a
 import os
 
 from pipbox_live import place
+from srv.plugin import FEED_AUDIO_CAPS, FEED_PORT, FEED_VIDEO_CAPS
 from srv.style import pip_size
 
 CANVAS_W, CANVAS_H = 1920, 1080
@@ -37,8 +38,45 @@ def _audio_other(demux, take):
     return f"{demux}.audio ! queue max-size-buffers=4 leaky=downstream ! fakesink sync=false async=false"
 
 
-def build(c, base, pip, pip2, pip3):
-    """c: geprüfte Einstellung (PipelineStore._safe_cfg), base: rtmp://127.0.0.1:<Port>/<Anwendung>, pip/pip2/pip3: welche kleinen Bilder es gibt."""
+def build_always(c, pip, pip2, pip3):
+    """"Alle Kameras immer bereit": jeder Platz (Hauptbild, kleine Bilder) liest von udpsrc auf Loopback, wohin ein Zubringer (pipbox_always.py) den Stream der Kamera
+    reicht. udpsrc fällt nie aus; fehlt eine Kamera, speist ein schwarzes Füllbild den Platz (pipbox_always.fill_cmd), so hat der Compositor immer an jedem Platz Bilder und der
+    Ausgang läuft auch ohne Kamera. Ton: stiller Untergrund plus Ton des gewählten Platzes, im audiomixer zusammengeführt."""
+    sel = c.get("audio", "main") if pip else "main"
+    if sel == "pip2" and not pip2 or sel == "pip3" and not pip3 or sel not in ("main", "pip", "pip2", "pip3"):
+        sel = "main"
+    out = []
+    props = [f"sink_0::xpos=0 sink_0::ypos=0 sink_0::width={CANVAS_W} sink_0::height={CANVAS_H} sink_0::zorder=0"]
+    udp_v = lambda slot: (f"udpsrc port={FEED_PORT + 2 * slot} address=127.0.0.1 buffer-size=8388608 do-timestamp=true caps=\"{FEED_VIDEO_CAPS}\" !\n"
+                          f"rtph264depay ! h264parse")
+    out.append(f"{udp_v(0)} ! identity name=v_delay signal-handoffs=TRUE ! {Q_BIG} ! nvv4l2decoder ! nvvidconv ! {RGBA} ! comp.sink_0\n")
+    margin = (CANVAS_W // 60) & ~1
+    present = {"pip": pip, "pip2": pip2, "pip3": pip3}
+    size_keys = {"pip": "size_pct", "pip2": "size_pct2", "pip3": "size_pct3"}
+    for n, key, sfx in ((1, "pip", ""), (2, "pip2", "2"), (3, "pip3", "3")):
+        if not present[key]:
+            continue
+        w, h = pip_size(c[size_keys[key]])
+        x, y = place(c["corner" + sfx], CANVAS_W, CANVAS_H, w, h, margin, c["x" + sfx], c["y" + sfx])
+        props.append(f"sink_{n}::xpos={x} sink_{n}::ypos={y} sink_{n}::width={w} sink_{n}::height={h} sink_{n}::zorder={n}")
+        out.append(f"{udp_v(n)} ! {Q_BIG} ! nvv4l2decoder ! nvvidconv ! {RGBA} ! comp.sink_{n}\n")
+    out.append("nvcompositor name=comp " + " ".join(props) + f" !\n{RGBA} ! nvvidconv ! {NV12} !\n"
+               f"{ENCODER} !\nh265parse config-interval=-1 ! {Q_MUX} ! mux.\n")
+    slot = {"main": 0, "pip": 1, "pip2": 2, "pip3": 3}[sel]
+    out.append(f"audiotestsrc is-live=true wave=silence ! {FEED_AUDIO_CAPS} ! amix.\n")
+    out.append(f"udpsrc port={FEED_PORT + 2 * slot + 1} address=127.0.0.1 buffer-size=1048576 do-timestamp=true caps=\"{FEED_AUDIO_CAPS}\" !\n"
+               f"queue max-size-time=2000000000 max-size-buffers=0 max-size-bytes=0 leaky=downstream ! amix.\n")
+    out.append("audiomixer name=amix ! audioconvert ! identity name=a_delay signal-handoffs=TRUE ! volume volume=1.0 ! "
+               f"voaacenc bitrate=128000 ! aacparse ! {Q_MUX} ! mux.\n")
+    out.append("mpegtsmux name=mux !\nappsink name=appsink")
+    return "\n".join(out)
+
+
+def build(c, base, pip, pip2, pip3, always=False):
+    """c: geprüfte Einstellung (PipelineStore._safe_cfg), base: rtmp://127.0.0.1:<Port>/<Anwendung>, pip/pip2/pip3: welche kleinen Bilder es gibt.
+    always: Modus "alle Kameras immer bereit" (build_always)."""
+    if always:
+        return build_always(c, pip, pip2, pip3)
     sel = c.get("audio", "main") if pip else "main"
     if sel == "pip2" and not pip2 or sel == "pip3" and not pip3 or sel not in ("main", "pip", "pip2", "pip3"):
         sel = "main"

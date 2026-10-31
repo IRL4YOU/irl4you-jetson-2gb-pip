@@ -8,4 +8,5 @@
 - Helfer für das SSH-Passwort, System- und Software-Updates, WLAN, Neustart, Protokolle, Fernzugriff und feste Adresse.
 - Senden mit Bild-in-Bild: eine große Kamera und bis zu 3 kleine Bilder, zusammengesetzt von der Video-Hardware des Jetson (nvcompositor), H.265 aus dem Hardware-Encoder.
 - belacoder und srtla_send werden bei der Einrichtung mit den Patches aus `belacoder/` und `srtla/` gebaut (Kennzahlen und Zustand der Wege für die Anzeige Live).
-- Noch nicht enthalten: die Kameras (DJI per Bluetooth, HDMI, USB) und „alle Kameras ständig aktiv“.
+- „Alle Kameras immer bereit“: Je Platz holt ein Zubringer den Stream der Kamera aus dem RTMP-Server, fehlt sie, speist ein schwarzes Füllbild den Platz. Die Sendung startet auch ohne Kamera und läuft weiter, wenn Kameras kommen und gehen (kurzer Aussetzer beim Umschalten). Noch ohne automatischen Wechsel des Hauptbildes.
+- Noch nicht enthalten: die Kameras (DJI per Bluetooth, HDMI, USB).
