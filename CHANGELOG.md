@@ -1,5 +1,8 @@
 # Änderungen
 
+## 0.1.25
+- **USB-Kamera (zum Beispiel DJI Osmo Action 4 über USB) lieferte nur etwa 4 bis 5 Bilder je Sekunde und rund 1 Mbit/s statt 30 fps und 8000 kbit/s.** Auslöser war ein Protokoll eines anderen Streamers (Thread `v4l2src` mit fast 100 %, Stream mit 3,8 fps). Der Fehler ließ sich mit der echten Kamera am Gerät nachstellen: Der MJPEG-Strom der Kamera kam mit 26 fps an (rund 210 KB je Bild), aber `nvjpegdec` brauchte für 120 Bilder 24 Sekunden, fast nur Systemzeit. Jetzt dekodiert der Hardware-Dekoder (`nvv4l2decoder mjpeg=1`): dieselben 120 Bilder in 4,4 Sekunden. Gilt für die Einspeisung und den Probelauf der USB-Kamera.
+
 ## 0.1.24
 - **0.1.23 war zu teuer, jetzt behoben:** Das dauernd laufende Füllbild (ein Encoder-Prozess je Platz) trieb die CPU von etwa 50 % auf fast 100 % und füllte den Arbeitsspeicher (vier Prozesse mit je rund 40 MB und 25 bis 50 % eines Kerns). Jetzt wird das schwarze Füllbild beim Start ein Mal aufgenommen (eine Gruppe von Bildern, 25 Pakete, einige Sekunden Encoder) und die Weiche jedes Platzes spielt es selbst ab, wenn ihre Kamera nichts liefert. Es läuft kein Prozess mehr dafür; der Ausfall einer Kamera lässt die Ausgabe trotzdem nicht stehen (Prüfstand: durchgehend rund 750 KB je 2 s, auch während des Ausfalls und bei der Rückkehr der Kamera).
 - Zeitstempel des abgespielten Füllbildes zählen lückenlos weiter, das Abspielen beginnt immer an der Gruppe mit SPS/PPS und IDR.

@@ -260,10 +260,11 @@ def usb_h264_padded(cand, name=""):
 
 
 def _usb_decode(kind):
-    """Teil der Pipeline hinter der Quelle bis zum rohen Bild (für den Probelauf und die Einspeisung). Jetson: MJPEG dekodiert nvjpegdec (rohes Bild im Systemspeicher), Rohbilder
-    wandelt videoconvert in I420; H.264 bleibt vorerst ein Strom (Dekoder und Kodierer folgen in der Einspeisung)."""
+    """Teil der Pipeline hinter der Quelle bis zum rohen Bild (für den Probelauf und die Einspeisung). Jetson: MJPEG dekodiert der Hardware-Dekoder (nvv4l2decoder mjpeg=1, Bild in NVMM). nvjpegdec
+    schaffte mit einer echten Kamera (Osmo Action 4, 1080p30 über USB 2.0) nur etwa 5 Bilder je Sekunde bei fast 100 % Systemzeit im Aufnahme-Thread, der Hardware-Dekoder über 28 (gemessen: 120 Bilder
+    in 24 s gegen 4,4 s). Rohbilder wandelt videoconvert in I420; H.264 bleibt vorerst ein Strom (Dekoder und Kodierer folgen in der Einspeisung)."""
     if kind == "mjpeg":
-        return ["jpegparse", "!", "nvjpegdec"]
+        return ["jpegparse", "!", "nvv4l2decoder", "mjpeg=1"]
     if kind == "h264":
         return ["h264parse", "config-interval=-1"]
     return ["videoconvert", "!", "video/x-raw,format=I420"]
@@ -273,7 +274,7 @@ NVMM_NV12 = "video/x-raw(memory:NVMM),format=NV12"
 
 
 def _nv_encode(cfg, fps):
-    """Hardware-Kodierer der Einspeisung (Jetson): Bild kommt als rohes Bild im Systemspeicher oder in NVMM, nvvidconv bringt es nach NVMM/NV12. Alle Sekunde ein IDR-Bild
+    """Hardware-Kodierer der Einspeisung (Jetson): Bild kommt als rohes Bild im Systemspeicher oder in NVMM (MJPEG: vom Hardware-Dekoder), nvvidconv bringt es nach NVMM/NV12. Alle Sekunde ein IDR-Bild
     (idrinterval; der Standard wäre alle 256 Bilder, ein Empfänger wartete dann bis zu 8,5 s auf sein erstes Bild)."""
     return ["nvvidconv", "!", NVMM_NV12, "!", "nvv4l2h264enc", "bitrate=%d" % (cfg["bitrate"] * 1000), "iframeinterval=%d" % fps, "idrinterval=%d" % fps,
             "insert-sps-pps=true", "!", "h264parse", "config-interval=-1"]
