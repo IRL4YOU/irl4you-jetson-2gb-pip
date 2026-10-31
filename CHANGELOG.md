@@ -1,5 +1,9 @@
 # Änderungen
 
+## 0.1.18
+- **Verzögerung je Kamera** (Bildaufbau, „Verzögerung: … ms“) wirkt jetzt auf dem Jetson. Bisher nahm die Oberfläche den Wert an („gilt sofort“), er hatte aber keine Wirkung: Der Regler stammte vom Rockchip-Baustein, den es hier nicht gibt. Jetzt hält die Weiche des Platzes die Pakete der Kamera (Bild und Ton zusammen) um die gewählte Zeit zurück, höchstens 750 ms wie im anderen Paket. Die Verzögerung gehört zur Kamera: Tauscht du Haupt- und kleines Bild, geht sie mit. Bis das erste verzögerte Bild ankommt, läuft das Füllbild weiter (der Platz ist nie leer), der Ton bis dahin als Stille. Eine Änderung im Betrieb hält den Strom einmalig um den Unterschied an (größer) oder gibt Aufgestautes auf einmal frei (kleiner). Der Endbericht nennt die Verzögerung je Platz.
+- Geprüft mit simulierter Uhr und echten UDP-Sockets (300 ms: erstes Kamerabild nach 0,31 s, Reihenfolge erhalten, Kamera weg: Warteschlange leer). Am Gerät mit echten Kameras noch nicht gemessen.
+
 ## 0.1.17
 - Protokolle: Die Lastliste der Video-Hardware nennt nur noch Einheiten mit lesbarem Wert (vic, nvdec, nvenc, nvjpg, gpu). Geprüft an einer Datei vom 31.10.: keine Serveradresse, keine Stream-ID, keine Heimnetz- oder MAC-Adressen, Kamera-Schlüssel und WLAN-Namen ersetzt; der Name des eigenen Hotspot-Profils („pipbox-hotspot-…“) und selbst vergebene Bezeichnungen (Server, Kamera) bleiben lesbar.
 - README: Abschnitt „Fehler melden“ (Protokolldatei erzeugen, was darin ersetzt ist, wohin damit).

@@ -17,6 +17,10 @@ Fester Kern: UDP über Loopback hält die Reihenfolge nur, solange der sendende 
 Sender den Kern mitten in einem Bild, überholen spätere Pakete frühere). Gemessen am Jetson: Lücken in der Folgenummer von 1 bis 91 Paketen an allen Plätzen,
 immer in fallenden Serien (49, 44, 40, 34 …), ohne dass der Kernel ein Paket verworfen hätte; danach "reference in DPB was never decoded" und ein Stillstand der
 Kette. Deshalb laufen jede Weiche (hier) und jeder Zubringer (pipbox_always) auf einem festen Kern.
+
+Verzögerung je Kamera: Der Benutzer kann jeder Kamera eine Wartezeit geben (Bild und Ton zusammen, zum Beispiel für eine Kamera mit längerer eigener Laufzeit). Die Weiche hält
+dazu die Pakete der Kamera um diese Zeit zurück (set_delay) und gibt sie in derselben Reihenfolge frei; die Kette stempelt die Pakete beim Eintreffen (udpsrc do-timestamp),
+so kommt die Kamera um die Wartezeit später im Bild an. Bis das erste verzögerte Bild ankommt, läuft das Füllbild weiter (der Platz ist nie leer).
 """
 import collections
 import os
@@ -29,6 +33,7 @@ ACTIVE_GAP = 0.7                  # so lange dürfen Bilder der Kamera ausbleibe
 SHOW_AFTER = 0.3                  # so lange muss das Tor offen sein, bevor die Kamera zu sehen sein darf
 SILENCE_STEP = 1024 / 48000.0     # Dauer eines Tonpakets (1024 Abtastwerte bei 48 kHz)
 SILENCE = bytes(1024 * 4)         # 1024 Abtastwerte, 2 Kanäle, 16 Bit
+MAX_DELAY_S = 0.75                # größte Verzögerung je Kamera (wie im anderen Paket: pipbox_live.MAX_DELAY_MS)
 SSRC = b"\x4a\x50\x49\x50"
 RELAY_CPUS = (1, 2, 3)            # Kern je Platz (Platz mod 3); Kern 0 bleibt für Unterbrechungen und den Rest frei
 
@@ -83,6 +88,9 @@ class SlotRelay(threading.Thread):
         self.gate = False
         self.opened_at = 0.0
         self.fill_done = False                # die Kamera war schon einmal zu sehen: das Füllbild wird nicht mehr gebraucht
+        self.started = False                  # das erste Bild der Kamera ist (nach einer Verzögerung) tatsächlich an der Kette angekommen
+        self.delay_s = 0.0                    # Verzögerung dieser Kamera (Bild und Ton)
+        self.q = collections.deque()          # zurückgehaltene Pakete: (Freigabezeit, Art "v"/"a", Daten)
         self.fill_seen = False                # seit dem letzten Zurücksetzen ist Füllbild angekommen (der Platz kann sofort Bilder liefern)
         self.params = []                      # zuletzt gesehene SPS/PPS-Pakete der Kamera
         self.last_cam = 0.0
@@ -103,7 +111,17 @@ class SlotRelay(threading.Thread):
 
     # --- Zustand ---------------------------------------------------------------------------------------------------------------------------
     def shown(self):
-        return self.gate and self.clock() - self.opened_at >= SHOW_AFTER
+        return self.gate and self.started and self.clock() - self.opened_at >= SHOW_AFTER
+
+    def set_delay(self, ms):
+        """Verzögerung der Kamera an diesem Platz in Millisekunden (0 bis 750). Eine Änderung hält den Strom um den Unterschied an (größer) oder gibt aufgestaute Pakete auf einmal frei (kleiner)."""
+        try:
+            d = max(0.0, min(MAX_DELAY_S, float(ms) / 1000.0))
+        except (TypeError, ValueError):
+            d = 0.0
+        if abs(d - self.delay_s) > 0.0005:
+            self.note("Verzögerung %d ms (vorher %d ms)" % (round(d * 1000), round(self.delay_s * 1000)))
+            self.delay_s = d
 
     def reset(self):
         """Andere Kamera auf diesem Platz oder neuer Abnehmer (belacoder startet neu): das Tor schließt und das Füllbild läuft wieder, bis der nächste IDR der Kamera kommt.
@@ -112,6 +130,8 @@ class SlotRelay(threading.Thread):
         self.params = []
         self.fill_done = False
         self.fill_seen = False
+        self.started = False
+        self.q.clear()
         self.note("zurückgesetzt (Tor zu, Füllbild wieder an)")
 
     def stop(self):
@@ -134,6 +154,36 @@ class SlotRelay(threading.Thread):
         except OSError:
             pass
 
+    def emit_v(self, pkt, now):
+        self._emit("v", pkt, now)
+
+    def emit_a(self, data, now):
+        self._emit("a", data, now)
+
+    def _emit(self, kind, data, now):
+        """Paket der Kamera an die Kette: sofort, oder (Verzögerung) in die Warteschlange. Die Reihenfolge bleibt immer erhalten."""
+        if self.delay_s <= 0 and not self.q:
+            self._out(kind, data, now)
+        else:
+            due = now + self.delay_s
+            if self.q and self.q[-1][0] > due:
+                due = self.q[-1][0]               # eine kleinere Verzögerung überholt nie schon Wartende
+            self.q.append((due, kind, data))
+
+    def _out(self, kind, data, now):
+        if kind == "v":
+            if not self.started:                  # das erste Bild der Kamera erreicht die Kette: ab hier kein Füllbild mehr, und die Kamera gilt als zu sehen
+                self.started, self.fill_done, self.opened_at = True, True, now
+                self.note("Kamera an der Kette (Verzögerung %d ms)" % round(self.delay_s * 1000))
+            self.send_v(data)
+        else:
+            self.send_a(data)
+
+    def flush(self, now):
+        while self.q and self.q[0][0] <= now:
+            _, kind, data = self.q.popleft()
+            self._out(kind, data, now)
+
     def on_video(self, pkt, now):
         self.last_cam = now
         if len(pkt) >= 4:                     # Folgenummer vom Zubringer: Lücke nach vorn = Pakete fehlen (oder kommen später), Nachzügler = Reihenfolge vertauscht
@@ -155,34 +205,37 @@ class SlotRelay(threading.Thread):
                         self.note("Nachzügler: Paket %d Plätze zu spät (Tor offen)" % (0xFFFF - gap))
         kind = classify(pkt)
         if self.gate:
-            self.send_v(pkt)
+            self.emit_v(pkt, now)
         elif kind == "param":
             self.params = (self.params + [pkt])[-4:]
         elif kind == "idr":
             self.note("Tor offen (Keyframe der Kamera, %d SPS/PPS davor)" % len(self.params))
-            self.gate, self.opened_at, self.fill_done = True, now, True
+            self.gate, self.opened_at = True, now
             for p in self.params:
-                self.send_v(p)
+                self.emit_v(p, now)
             self.params = []
-            self.send_v(pkt)
+            self.emit_v(pkt, now)
         # sonst: Bild ohne seinen Keyframe, verwerfen
 
     def on_audio(self, data):
         if self.gate:
-            self.send_a(data)
+            self.emit_a(data, self.clock())
 
     def on_fill(self, pkt):
-        if not self.fill_done and not self.gate:
+        if not self.fill_done:                # das Füllbild läuft, bis das erste Bild der Kamera (auch nach einer Verzögerung) an der Kette ankommt
             self.fill_seen = True
             self.send_v(pkt)
 
     def tick(self, now):
+        self.flush(now)
         if self.gate and now - self.last_cam > ACTIVE_GAP:
             self.note("Tor zu (seit %.1f s keine Bilder der Kamera)" % (now - self.last_cam))
             self.gate = False                 # die Kamera liefert nichts mehr
             self.params = []
             self.last_in = None
-        if not self.gate:                     # Stille im Takt eines Tonpakets, damit der audiomixer nie auf diesen Platz wartet
+            self.started = False              # kommt die Kamera zurück, zählt erst ihr erstes (verzögertes) Bild wieder als "zu sehen"
+            self.q.clear()                    # Zurückgehaltenes einer Kamera, die weg ist, gibt es nicht mehr frei
+        if not self.gate or not self.started:    # Stille im Takt eines Tonpakets, damit der audiomixer nie auf diesen Platz wartet (auch bis das erste verzögerte Bild da ist)
             if now - self.last_sil > 0.25:
                 self.last_sil = now
             while now - self.last_sil >= SILENCE_STEP:
