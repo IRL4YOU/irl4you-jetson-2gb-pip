@@ -1,5 +1,14 @@
 # Änderungen
 
+## 0.1.21
+- **Rockchip-Reste umgestellt oder entfernt** (aus dem anderen Paket übernommen, auf dem Jetson tot oder irreführend). Verhalten der Sendekette, der Pläne und der Kettentexte ist unverändert (Vergleich über 240 Einstellungen und 42 Änderungspaare vor und nach dem Umbau: keine Abweichung), dazu kommen die Korrekturen unten.
+  - Entfernt: die Engine mit Rockchip-Compositor (`pipbox_live.py`, 1100 Zeilen), die Rockchip-Zweige in `pipeline.py` (Umschalter, Überlagerungs-Baustein, Verpixeln-Zweig), die alten Zubringer-Klassen in `pipbox_always.py`, die Umschalter-Dateien und Prüfungen des Bausteins (`plugin.py`), `style_text`/`small_decode`, die NPU-Messung und die Rückmeldung der alten Kette im Sendedienst.
+  - **Tausch-Knöpfe:** Der Hinweistext am Knopf „Als Hauptbild verwenden“ sagte auf dem Jetson immer „der Encoder startet dafür neu, etwa 5 Sekunden ohne Bild“. Der Tausch geht aber ohne Unterbrechung (Rollen, jede Kamera behält ihren Decoder). Der Text stimmt jetzt.
+  - **DJI:** „Trennen“, „Neu verbinden“ und der Netzwechsel warteten 4,5 Sekunden auf einen Regler des anderen Pakets, den es hier nicht gibt (Zweig-Sperre `feed-hold.json`). Entfällt.
+  - **Auslastungsliste** (System, Statistik): Video-Hardware zuerst, die GPU zuletzt (sie bleibt bei der Videoverarbeitung auf 0 %, weil Decoder, Bildwandler und Encoder die Arbeit machen); die NPU-Zeile gibt es nicht mehr. Die Demo zeigt Jetson-Werte.
+  - Die Hauptverzögerung ist bei einer neuen Installation 0 ms (vorher 450 ms, das andere Paket braucht sie für seine langsameren kleinen Bilder; auf dem Jetson wirkt die Verzögerung seit 0.1.18 wirklich).
+  - Offen: Der HDMI-Teil des Kameradienstes (Quelle „HDMI-Eingang“ des anderen Boards) ist noch im Code, wird auf dem Jetson aber abgelehnt und ist in der Oberfläche ausgeblendet.
+
 ## 0.1.20
 - **Lüfterzeile (Karte „System“, Zeile „Lüfter: 0 % (Ansteuerung)“):** Der Jetson Nano kann nicht erkennen, ob ein Lüfter am Anschluss steckt, und liefert keine Drehzahl; der PWM-Ausgang wird auch ohne Lüfter oder bei einem extern gespeisten Lüfter (zum Beispiel über USB) gemeldet. Neue Einstellung **Optionen → Lüfter → „Lüfter am Anschluss der Box“**: *Automatisch* (Standard: die Zeile erscheint erst, wenn die Box den Ausgang wirklich ansteuert, also größer als 0, und bleibt dann bis zum Neustart des Dienstes), *Ja* (Zeile immer) oder *Nein, extern versorgt* (Zeile nie, auch nicht auf der Statistik-Seite). Die Wahl steht auf der Box (`fan.json`) und gilt für alle Geräte. Die Einstellung erscheint nur auf dem Jetson; auf dem Rockchip-Board ändert sich nichts.
 

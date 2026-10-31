@@ -559,10 +559,6 @@ class Camera:
         if state != self.state or detail != self.detail:
             log.info("%s: %s %s", self.addr, state, detail)
             self.state, self.detail = state, detail
-            if state == "streaming":
-                key = self.cfg.get("rtmp_key")
-                if key:
-                    self.daemon.feed_hold(key, 0)      # der neue Stream läuft: der Regler darf den Zweig wieder starten, sobald nginx die Kamera zeigt
 
     def public(self):
         c = dict(self.cfg)
@@ -1073,17 +1069,7 @@ class Camera:
             except Exception as e:
                 log.info("%s: Trennen beim Beenden fehlgeschlagen: %s", self.addr, e)
 
-    async def release_feed(self):
-        """Vor dem Beenden des Streams (Trennen, Neu verbinden, Wechsel des Netzes): den Zweig der Kamera aus der Sendekette nehmen lassen und kurz warten. Ein Zweig, dessen
-        Quelle mitten im Bild abbricht, hielt sonst alle Eingänge der Sendekette an."""
-        key = self.cfg.get("rtmp_key")
-        if not key or not (self.publishing or self.state in ("starting", "configuring", "streaming")):
-            return
-        if self.daemon.feed_hold(key, FEED_HOLD_S):
-            await asyncio.sleep(FEED_HOLD_WAIT_S)
-
     async def stop_session(self):
-        await self.release_feed()
         self.stop_requested = True
         self._resume_sig = None                  # "Trennen" und "Neu verbinden" richten die Kamera immer von vorn ein
         self.wake.set()
@@ -1110,10 +1096,7 @@ class Camera:
 
 # ------------------------------------------------------------------ Dienst ---
 
-FEED_HOLD_FILE = "feed-hold.json"      # {"keys": {Schlüssel: Ablaufzeit}}: der Regler der Sendekette (pipbox_live) nimmt den Zweig dieser Kamera aus der Sendekette
-FEED_HOLD_S = 45                        # so lange gilt die Bitte höchstens (die Kamera meldet sich vorher mit "streaming" wieder und gibt sie frei)
 SWITCH_LOCK_S = 120                     # nach einem Wechsel (Neu verbinden einer laufenden Kamera) ist für diese Kamera zwei Minuten lang kein weiterer Wechsel möglich
-FEED_HOLD_WAIT_S = 4.5                  # Zeit für den Regler (Takt 1 s, 3 s Abkühlzeit je Zweig), den Zweig zu stoppen, bevor die Kamera ihren Stream beendet
 
 SETTINGS_ALLOWED = {"name": str, "wifi_ifname": str, "ssid": str, "password": str, "ip": str,
                     "resolution": str, "fps": int, "bitrate": int, "stabilization": str, "autoconnect": bool, "status_only": bool}
@@ -1263,30 +1246,6 @@ class Daemon:
                     self._note_connection(cfg)
         if migrated:
             self.save()
-
-    def feed_hold(self, key, seconds):
-        """Den Zweig der Kamera `key` in der Sendekette für `seconds` Sekunden stoppen lassen (0 = freigeben). Der Regler liest die Datei jede Sekunde. Wahr, wenn sie
-        geschrieben wurde (ohne Sendekette ist sie harmlos)."""
-        path = os.path.join(self.state_dir, FEED_HOLD_FILE)
-        now = time.time()
-        keys = {k: t for k, t in (_read_json(path).get("keys") or {}).items()
-                if isinstance(k, str) and isinstance(t, (int, float)) and not isinstance(t, bool) and t > now}
-        if seconds > 0:
-            keys[key] = now + seconds
-        elif key not in keys:
-            return False                         # nichts zu tun, die Datei bleibt unberührt
-        else:
-            del keys[key]
-        try:
-            tmp = path + ".tmp"
-            with open(tmp, "w") as f:
-                json.dump({"keys": keys}, f)
-            os.chmod(tmp, 0o644)
-            os.replace(tmp, path)
-            return True
-        except OSError as e:
-            log.info("Zweig-Sperre nicht speicherbar: %s", e)
-            return False
 
     def pin_connection(self, cam):
         """Die gewählte Verbindung über ihre Hardware-Adresse festhalten (ein Name wie eth0 kann nach einem Neustart eine andere Karte meinen)."""

@@ -4,12 +4,10 @@ import json
 import os
 import subprocess
 import time
-import pipbox_live
 
-from srv import pipeline_jetson
 from srv.netinfo import net_conflict
 from srv.pipeline import PipelineStore
-from srv.plugin import SWAP_SELECT, SWAP_STATE, VIEW_FILE, VIEW_STATE
+from srv.plugin import VIEW_FILE, VIEW_STATE
 from srv.srtla import PENDING_LABELS, srtla_signature
 from srv.versions import belacoder_running
 
@@ -139,8 +137,6 @@ class SendControl:
                 for k in sorted(set(keys)):
                     if live.get(k) != "live":
                         r.append(f"Kamera {k} sendet gerade nicht")
-        if cfg.get("type") == "pip" and not pipeline_jetson.is_jetson() and not os.path.exists("/opt/pipbox/gst/libgstpbpip.so"):    # auf dem Jetson mischt nvcompositor
-            r.append("Bild-in-Bild: der Überlagerungs-Baustein ist noch nicht installiert")
         return r
 
     def status(self):
@@ -157,16 +153,13 @@ class SendControl:
         out["facecam_main"] = bool(fc and fmain == fc and PipelineStore.datenschutz())            # die Facecam ist gerade das Hauptbild und Verpixeln ist an: dann wird nichts verpixelt (Hinweis in der Live-Karte)
         out["view_live"], out["audio_live"], out["view"] = self.view_live(), self.audio_live(), self.view_state()
         out["footer"] = self.footer()
-        sw = d.get("swap") if active else None
-        out["swap_group"] = [k for k in sw["cams"][:int(sw.get("group", 0))] if isinstance(k, str)] if isinstance(sw, dict) and isinstance(sw.get("cams"), list) else []
+        # Kameras, zwischen denen Hauptbild und kleine Bilder ohne Unterbrechung tauschen (die Oberfläche schreibt sonst "Encoder startet neu"): alle Kameras der laufenden Kette;
+        # die Plätze der Kette behalten ihren Decoder, nur die Rollen wechseln (pipbox_always.SlotController)
+        lay = (d.get("failover") or {}).get("layout") if active and d.get("always") else None
+        out["swap_group"] = [k for k in lay if isinstance(k, str) and k] if isinstance(lay, list) else []
         applied = d.get("applied") if active else None
         cur = srtla_signature(self.srtla.data)
         out["pending"] = [lab for k, lab in PENDING_LABELS if isinstance(applied, dict) and k in applied and applied[k] != cur[k]]
-        running = d.get("buffer_ms") if active else None
-        if isinstance(running, int) and not isinstance(running, bool):                       # Verzögerungen geändert: der Puffer der laufenden Sendekette passt nicht mehr (hilft nur ein Neustart)
-            need = pipbox_live.buffer_need_ms(PipelineStore._safe_cfg(self.pipeline.cfg))
-            if pipbox_live.buffer_mismatch(running, need):
-                out["pending"].append("Verzögerung")
         out["reasons"] = [] if active else self.reasons()
         if not active and belacoder_running():
             out["reasons"].append("Es läuft schon ein belacoder (z. B. über die BELABOX-Oberfläche)")
@@ -200,59 +193,6 @@ class SendControl:
         with os.fdopen(fd, "w") as f:
             f.write(action + "\n")
 
-
-    def delay_live(self):
-        """Hat die laufende Sendekette den Steuerbaustein (Verzögerung des Hauptbildes ohne Neustart änderbar)?"""
-        d = self._detail()
-        # Im Notbetrieb (Anordnung weicht von der Einstellung ab) passen die Regler nicht zu den Plätzen: neu starten
-        return bool(self._active() and d.get("delay_live") and not (d.get("failover") or {}).get("degraded"))
-
-    def delay_live_pips(self):
-        """Dasselbe für die Verzögerung der kleinen Bilder (neuere Version des Steuerbausteins)."""
-        d = self._detail()
-        return bool(self._active() and d.get("delay_live_pips") and not (d.get("failover") or {}).get("degraded"))
-
-    def swap_live(self):
-        """Tausch des Hauptbilds in der laufenden Sendekette übernehmen lassen, ohne Neustart (nur im Tausch-Betrieb und wenn die
-        Anordnung der Kameras noch zum Aufbau passt). Wahr, wenn der Baustein den neuen Zustand zurückgemeldet hat; sonst bleibt der Neustart."""
-        if self.demo or not self._active():
-            return False
-        d = self._detail()
-        sw = d.get("swap")
-        if not isinstance(sw, dict) or not isinstance(sw.get("cams"), list) or (d.get("failover") or {}).get("degraded"):
-            return False
-        cfg = self.pipeline.cfg
-        slots = [cfg.get(k) for k in ("main", "pip", "pip2", "pip3")]
-        try:
-            line = PipelineStore.swap_line(slots, sw["cams"], int(sw.get("group", 0)))
-            if line is None:
-                return False
-            live = {c["key"]: c.get("state") for c in self.cams.listing("")}
-            if live.get(cfg.get("main")) != "live":          # die neue Hauptkamera sendet nicht: lieber neu starten (Notbetrieb)
-                return False
-        except (TypeError, ValueError, KeyError):
-            return False
-        folder = os.path.dirname(self.req)
-        tmp = os.path.join(folder, SWAP_SELECT + ".tmp")
-        t0 = time.time()
-        try:
-            with open(tmp, "w") as f:
-                f.write(line + "\n")
-            os.chmod(tmp, 0o644)
-            os.replace(tmp, os.path.join(folder, SWAP_SELECT))
-        except OSError:
-            return False
-        end = time.monotonic() + self.SWAP_WAIT
-        while time.monotonic() < end:                       # der Baustein liest alle 0,1 s und meldet den Zustand zurück
-            try:
-                if os.stat(SWAP_STATE).st_mtime >= t0 - 0.2:
-                    with open(SWAP_STATE) as f:
-                        if f.read().split() == line.split():
-                            return True
-            except OSError:
-                pass
-            time.sleep(0.1)
-        return False
 
     def reset_mute(self):
         """Stumm gilt nur für die laufende Sendung: vor dem Start die Ansicht-Datei ohne Stumm neu schreiben (der Sender liest sie beim Aufbau)."""
@@ -351,7 +291,7 @@ class SendControl:
 
     def apply_view(self, hide, audio, mute):
         """Ansicht in die laufende Sendekette übernehmen, ohne Neustart. Wahr, wenn der Baustein den neuen Zustand zurückgemeldet hat (so, wie er
-        wirklich gilt); sonst bleibt der Neustart. Die Zeile schreibt dieser Dienst, den Zustand meldet pbctl zurück."""
+        wirklich gilt); sonst bleibt der Neustart. Die Zeile schreibt dieser Dienst, den Zustand meldet der SlotController (pipbox_always.py) zurück."""
         line = f"{int(hide)} {int(audio)} {1 if mute else 0}"
         if self.demo:
             self._fake_view = {"hide": int(hide), "audio": int(audio), "mute": bool(mute)}

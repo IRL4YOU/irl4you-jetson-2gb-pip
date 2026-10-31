@@ -230,7 +230,7 @@ def blocked_tasks(proc="/proc", limit=12):
 
 def thread_table(pid, proc="/proc", sleep=time.sleep, interval=1.0):
     """Alle Threads des Prozesses: Name, Zustand (R läuft, S wartet, D wartet im Kernel), Wartestelle im Kernel, CPU-Ticks im Messzeitraum.
-    Namen kommen von GStreamer (<Element>:src), sie nennen die Zweige (sbf0_…) und enthalten keine Schlüssel."""
+    Namen kommen von GStreamer (<Element>:src), sie nennen die Zweige (udpsrc, nvv4l2decoder, nvcompositor …) und enthalten keine Schlüssel."""
     a = _thread_sample(pid, proc)
     sleep(interval)
     b = _thread_sample(pid, proc)

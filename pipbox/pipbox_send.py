@@ -25,7 +25,6 @@ sys.path.insert(0, "/opt/pipbox")
 import server  # noqa: E402  (nur Prüf- und Erzeugungsfunktionen, startet nichts)
 from srv import pipeline_jetson  # noqa: E402  (Jetson: Nvidia-Kette, kein Rockchip-Baustein nötig)
 import pipbox_always  # noqa: E402  (Zubringer und Auswahl im Modus "alle Kameras immer bereit")
-import pipbox_live  # noqa: E402  (Engine "immer bereit" mit Compositor und dynamischen Zweigen, Technik von streamingbox)
 try:
     import pipbox_watch  # noqa: E402  (Wächter: erkennt Hänger von belacoder, sichert ein Diagnosepaket, startet neu)
 except ImportError:        # ein Update, das die Datei nicht mitbringt, darf die Sendung nie verhindern: dann gibt es nur keinen Wächter
@@ -52,10 +51,6 @@ SOFT_FLOOR_S = 20.0           # ... dann darf der Regler steigen (rund 8 % je ha
 SOFT_FILE_WAIT_S = 90.0       # so lange wartet der weiche Start auf die erste Kennzahlen-Datei (belacoder schreibt sie erst nach dem Aufbau der SRT-Verbindung; ohne Verbindung wartet er in einer Schleife) ...
 SOFT_DATA_WAIT_S = 60.0       # ... und danach so lange auf einen gleichmäßigen Bildfluss; zuletzt wird die Bitrate trotzdem freigegeben, damit sie nie dauerhaft gedeckelt bleibt
 BC_MIN_BPS = 300000           # kleinste Bitrate, die belacoder annimmt (MIN_BITRATE); darunter weist er die Datei ab
-DELAY_LIVE = False        # hat die gestartete Pipeline den Steuerbaustein pbctl?
-DELAY_LIVE_PIPS = False   # und kann er auch die kleinen Bilder verzögern?
-SWAP_BASE = None          # Tausch ohne Neustart: {"cams": [...], "group": n} der gestarteten Pipeline, sonst None
-PLUGIN_DIR = "/opt/pipbox/gst"
 DOWN_S = 5        # so lange darf eine Kamera ausbleiben, bevor umgeschaltet wird
 UP_S = 60         # so lange muss eine zurückgekehrte Kamera stabil senden, bevor sie wieder zugeschaltet wird
 UP_FIRST_S = 5    # lief gar keine Kamera, genügt für die erste schon diese Zeit
@@ -300,42 +295,17 @@ def put_state_file(name, text):
 
 
 def write_pipeline(cfg):
-    """Pipeline-Text und Verzögerungsdatei für diese Einstellung schreiben. Gibt den Text zurück ('' bei Fehler)."""
+    """Pipeline-Text für diese Einstellung schreiben und den Anfangszustand der Ansicht setzen. Gibt den Text zurück ('' bei Fehler)."""
     text = server.PipelineStore(os.devnull).build(cfg)
     if not text:
         return ""
     ensure_work()
     with open(f"{WORK}/pipeline", "w") as f:
         f.write(text)
-    # Verzögerung des Hauptbildes: Steuerdatei für den laufenden Baustein (pbctl) passend zur Pipeline setzen
-    try:
-        vals = server.PipelineStore.delay_values(cfg)
-        put_state_file("main-delay-ms", " ".join(map(str, vals)) + "\n")
-    except OSError:
-        pass
-    global DELAY_LIVE, DELAY_LIVE_PIPS, SWAP_BASE, VIEW_LIVE, AUDIO_LIVE
-    DELAY_LIVE = "pbctl" in text
-    DELAY_LIVE_PIPS = "pip-queue=" in text or "cam1=" in text
-    plan = (server.PipelineStore.always_plan(cfg) or server.PipelineStore.swap_plan(cfg)) if "pbpipsel" in text else None
-    SWAP_BASE = {"cams": plan["cams"], "group": plan["group"]} if plan else None
-    try:
-        os.unlink(server.SWAP_STATE)              # Rückmeldung der letzten Sendekette ist veraltet
-    except OSError:
-        pass
-    try:
-        if plan:                                  # Anfangszustand des Umschalters: wie gebaut (Hauptbild = erste Kamera)
-            put_state_file(server.SWAP_SELECT, plan["line"] + "\n")
-    except OSError:
-        pass
-    # Ansicht im Betrieb (kleine Bilder ein-/ausblenden, Tonquelle, stumm): Anfangszustand wie gebaut; stumm bleibt bei einem Neustart der
-    # Sendekette erhalten (die Oberfläche setzt es beim Start einer neuen Sendung zurück)
-    VIEW_LIVE = "name=avol" in text and "pbctl" in text
-    AUDIO_LIVE = VIEW_LIVE and "pbpipsel name=asel" in text
-    if "name=sbf0_src" in text:             # Engine Compositor: Verzögerung, Ansicht, Ton und Stumm gehen im Betrieb über den Steuerkanal
-        DELAY_LIVE = DELAY_LIVE_PIPS = VIEW_LIVE = AUDIO_LIVE = True
-        SWAP_BASE = None
-    if pipeline_jetson.is_jetson() and server.PipelineStore.always_plan(cfg):
-        VIEW_LIVE = AUDIO_LIVE = True       # Jetson, alle Kameras immer bereit: Ansicht, Tonquelle und Stumm setzt der SlotController über die Steuerdatei (kein Neustart)
+    global VIEW_LIVE, AUDIO_LIVE
+    # Ansicht im Betrieb (kleine Bilder ein-/ausblenden, Tonquelle, stumm): Im Modus "alle Kameras immer bereit" setzt der SlotController sie über die Steuerdatei
+    # (kein Neustart). Anfangszustand wie gebaut; stumm bleibt bei einem Neustart der Sendekette erhalten (die Oberfläche setzt es beim Start einer neuen Sendung zurück)
+    VIEW_LIVE = AUDIO_LIVE = bool(server.PipelineStore.always_plan(cfg))
     try:
         os.unlink(server.VIEW_STATE)
     except OSError:
@@ -376,8 +346,6 @@ def prepare():
     if not pipe.get("main"):
         raise Refuse("Kein Bildaufbau gespeichert (Hauptkamera fehlt)")
     cfg = {**server.PipelineStore.DEFAULT, **pipe}
-    if cfg["type"] == "pip" and not pipeline_jetson.is_jetson() and not os.path.exists(f"{PLUGIN_DIR}/libgstpbpip.so"):      # auf dem Jetson mischt nvcompositor
-        raise Refuse("Bild-in-Bild braucht den Überlagerungs-Baustein, der noch nicht installiert ist")
     if not server.PipelineStore(os.devnull).build(cfg):
         raise Refuse("Der Bildaufbau konnte nicht erzeugt werden (Kamera-Schlüssel ungültig)")
     keys = configured_keys(cfg)
@@ -388,9 +356,7 @@ def prepare():
     auto = bool(cfg.get("auto_failover", True)) and len(keys) > 1 and not always      # mit nur einer Kamera gibt es nichts umzuschalten
     live = live_keys() if (auto or always) else None
     if always:
-        if live is not None and not (set(keys) & live) and not pipbox_live.enabled(server.PipelineStore._safe_cfg(cfg)) and not pipeline_jetson.is_jetson():
-            raise Refuse("Keine Kamera sendet gerade an die Box")      # nur die Zubringer-Engine; die Engine mit Compositor startet auch leer
-        auto = False
+        auto = False                      # die Plätze mit Weichen und Füllbild starten auch ohne Kamera
     if always:
         eff, used = cfg, tuple(keys)
     elif auto and live is not None:
@@ -428,26 +394,13 @@ class Sender:
         self.fo = Failover(plan["cfg"], plan["layout"]) if plan["auto"] else None
         self.layout = tuple(plan["layout"])
         self.always = None
-        self.live = bool(plan.get("always") and plan["cfg"] and pipbox_live.enabled(server.PipelineStore._safe_cfg(plan["cfg"])))
-        self.boost = pipbox_live.CpuBoost(log=lambda m: print(m, flush=True))
-        if self.live:
-            self.always = pipbox_live.LiveController(
-                load_json=lambda name: load_json(f"{STATE}/{name}"), put_state_file=put_state_file, state_dir=STATE,
-                safe_cfg=server.PipelineStore._safe_cfg, view_values=server.PipelineStore.view_values, log=lambda m: print(m, flush=True),
-                start_cfg=plan["cfg"])                 # Puffer und Verzögerungen vom Start (dieselben Werte wie belacoder -A)
-        elif plan.get("always") and pipeline_jetson.is_jetson():
+        if plan.get("always"):
             self.always = pipbox_always.SlotController(
                 load_json=lambda name: load_json(f"{STATE}/{name}"), live_keys=live_keys,
                 feeders=pipbox_always.JetsonFeeders(log=lambda m: print(m, flush=True)), log=lambda m: print(m, flush=True), padctl_path=PADCTL,
                 geometry_fn=lambda cfg: _jetson_geometry(cfg), crop_fn=pipeline_jetson.crop_edges,
                 delay_fn=lambda cfg, keys: server.PipelineStore.delay_values({**server.PipelineStore.DEFAULT, **cfg}, keys),
                 view_file=f"{STATE}/{server.VIEW_FILE}", view_state=server.VIEW_STATE, view_values=server.PipelineStore.view_values)
-        elif plan.get("always"):
-            self.always = pipbox_always.Controller(
-                load_json=lambda name: load_json(f"{STATE}/{name}"), put_state_file=put_state_file,
-                delay_values=server.PipelineStore.delay_values, cam_live_path=server.CAM_LIVE,
-                select_name=server.SWAP_SELECT, delay_name="main-delay-ms",
-                feeders=pipbox_always.Feeders(log=lambda m: print(m, flush=True)), log=lambda m: print(m, flush=True))
         self.always_state = {}
         self.waiting = False
         self.senv = None
@@ -643,8 +596,6 @@ class Sender:
             threading.Thread(target=self.soft_start_run, args=(p, soft, t0), daemon=True).start()
         if name == "belacoder" and self.watch is not None:
             self.watch.started_now()
-        if name == "belacoder" and self.live and self.always is not None:
-            self.always.on_restart()                  # der neue belacoder kennt die Live-Befehle des alten nicht
         threading.Thread(target=self.pump, args=(name, p), daemon=True).start()
         return p
 
@@ -720,15 +671,8 @@ class Sender:
         sv = self.sv
         if name == "srtla_send":
             return ["srtla_send", str(LISTEN_PORT), sv["host"], str(sv["port"]), f"{WORK}/ips"]
-        pre = []
-        if self.live:                               # Engine Compositor: auf die großen Kerne (dort läuft der Compositor schnell genug)
-            big = pipbox_live.big_cpus()
-            if big and shutil.which("taskset"):
-                pre = ["taskset", "-c", ",".join(map(str, big))]
-        a = pre + ["stdbuf", "-oL", "-eL", BELACODER if os.access(BELACODER, os.X_OK) else "belacoder", f"{WORK}/pipeline", "127.0.0.1", str(LISTEN_PORT), "-d", "0",
+        a = ["stdbuf", "-oL", "-eL", BELACODER if os.access(BELACODER, os.X_OK) else "belacoder", f"{WORK}/pipeline", "127.0.0.1", str(LISTEN_PORT), "-d", "0",
                    "-b", f"{WORK}/bitrate", "-l", str(self.lat)]
-        if self.live:
-            a += ["-C", pipbox_live.CTL_FIFO, "-S", pipbox_live.LIVE_STATS, "-A", str(pipbox_live.buffer_ms(server.PipelineStore._safe_cfg(self.plan["cfg"])))]
         if sv.get("streamid"):
             a += ["-s", sv["streamid"]]
         return a
@@ -738,21 +682,16 @@ class Sender:
         with self.lock:
             data = {"state": self.state, "since": self.since, "server": self.sv["name"],
                     "restarts": dict(self.restarts), "last": self.last, "last_age": int(time.time() - self.last_at) if self.last_at else None, "time": int(time.time()),
-                    "delay_live": DELAY_LIVE, "delay_live_pips": DELAY_LIVE_PIPS, "swap": SWAP_BASE,
                     "view_live": VIEW_LIVE, "audio_live": AUDIO_LIVE,
-                    "applied": self.plan.get("sig"), "always_note": self.plan.get("always_note"), "hang_restarts": self.hang_n,
-                    "buffer_ms": pipbox_live.buffer_ms(server.PipelineStore._safe_cfg(self.plan["cfg"])) if self.live else None}      # Ausrichtungspuffer der laufenden Sendekette (belacoder -A)
+                    "applied": self.plan.get("sig"), "always_note": self.plan.get("always_note"), "hang_restarts": self.hang_n}
         if self.always is not None:
             keys = configured_keys(self.plan["cfg"])
             st = self.always_state or {}
-            fps_slots = pipbox_live.read_fps() if self.live else {}
-            rates_slots = pipbox_live.read_rates() if self.live else {}
             slots = list(st.get("slots", []))
             data["failover"] = {"auto": True, "always": True, "layout": [k for k in slots if k], "configured": keys,
                                 "inactive": list(self.plan["cfg"].get("inactive") or []), "waiting": False, "degraded": False, "wait": {},
                                 "live": st.get("alive", []), "main": st.get("main"),
-                                "fps": {k: fps_slots[i] for i, k in enumerate(slots) if k and i in fps_slots},      # gemessene Bildrate je Kamera (für die Anzeige, wenn die Kamera sie nicht meldet)
-                                "rates": {k: list(rates_slots[i]) for i, k in enumerate(slots) if k and i in rates_slots}}      # was die Kamera liefert und der Dekoder schafft (für die Ampel)
+                                "fps": {}, "rates": {}}                                  # gemessene Bildraten je Kamera gibt es hier nicht (die Oberfläche nimmt dann die Angaben der Kamera)
             data["always"] = True
         if self.fo is not None:
             keys = configured_keys(self.plan["cfg"])
@@ -817,16 +756,11 @@ class Sender:
         return True
 
     def run(self):
-        env = dict(os.environ, GST_PLUGIN_PATH=PLUGIN_DIR)
+        env = dict(os.environ)
         env.setdefault("SB_CTL", "D")                    # Regler: bei starkem Stau (Sendepuffer über 600 ms) die Bitrate halbieren statt um 10 % senken (Issue #1: Aussetzer bei plötzlichem Einbruch der Verbindung)
         env["BELACODER_STATS_FILE"] = BC_STATS            # Kennzahlen für "Details" im Status (belacoder-stats.patch), sonst nichts
-        if self.always is not None and pipeline_jetson.is_jetson() and os.environ.get("PIPBOX_NO_PADCTL") != "1":     # PIPBOX_NO_PADCTL=1: nur für Tests auf der Box
+        if self.always is not None and os.environ.get("PIPBOX_NO_PADCTL") != "1":     # PIPBOX_NO_PADCTL=1: nur für Tests auf der Box
             env["BELACODER_PADCTL_FILE"] = PADCTL         # kleine Bilder ohne Kamera ausblenden (belacoder-padctl.patch)
-        if self.live:
-            if not pipeline_jetson.is_jetson():
-                env["GST_MPP_NO_RGA"] = "1"                   # der Encoder bekommt nur Bilder aus dem Compositor (Systemspeicher): Software-Kopie statt RGA über virtuelle Adresse
-            self.boost.off()                              # Rest eines abgestürzten Laufs zurückstellen, dann für diese Sendung hochnehmen
-            self.boost.on()
         senv = None
         if self.plan.get("spread") == "all":
             # Alle Wege gleichzeitig: auch Leitungen mit höherer Laufzeit mitnutzen (bis 300 ms schlechter als die beste); jeder geeignete Weg bekommt mindestens 10 Prozent der Pakete
@@ -840,7 +774,6 @@ class Sender:
             self.wait_links_ready()
         if self.always is not None:
             self.always.start()                     # Zubringer zuerst: die Eingänge der Kette (udpsrc) bekommen dann gleich Daten
-            self.sync_swap_base()
         self.spawn("belacoder", self.args("belacoder"), env=env)
         with self.lock:
             self.state = "running"
@@ -881,7 +814,6 @@ class Sender:
                     with self.lock:
                         self.state = "running"
             try:
-                self.sync_cfg()
                 self.refresh_inactive()
             except Exception as e:           # eine kaputte Datei darf die Übertragung nie beenden
                 print(f"send: Einstellung konnte nicht nachgeführt werden ({type(e).__name__})", flush=True)
@@ -900,7 +832,6 @@ class Sender:
                 # Anzeige und Statistik wie bisher alle 2 s
                 try:
                     self.always_state = self.always.tick()
-                    self.sync_swap_base()
                     if self.always_state.get("restart"):
                         self.restart_belacoder(env, "eine Kamera ist an einem Platz neu dazugekommen (der Decoder kann den Strom nicht wechseln)")
                 except Exception as e:                  # die Auswahl darf die Übertragung nie beenden
@@ -918,64 +849,9 @@ class Sender:
 
     def hang_check(self, env):
         """Wächter (Issue #51): steht belacoder still oder liefert eine sendende Kamera keine Bilder mehr, wird ein Diagnosepaket gesichert und belacoder neu gestartet.
-        Höchstens einmal je Sekunde geprüft, nur im Modus "alle Kameras immer bereit" mit Compositor (nur dort gibt es die Statistikdatei)."""
-        if pipeline_jetson.is_jetson() and self.always is not None:
+        Nur im Modus "alle Kameras immer bereit" (hang_check_jetson)."""
+        if self.always is not None:
             return self.hang_check_jetson(env)
-        if self.watch is None or not (self.live and self.always is not None) or time.monotonic() - self._hang_t < 1.0:
-            return
-        self._hang_t = time.monotonic()
-        p = self.procs.get("belacoder")
-        if p is None or p.poll() is not None:
-            return
-        try:
-            mt = os.stat(pipbox_live.LIVE_STATS).st_mtime
-        except OSError:
-            mt = None
-        try:
-            with open(pipbox_live.LIVE_STATS, errors="replace") as f:
-                text = f.read(12000)
-        except OSError:
-            text = ""
-        a = self.always
-        expected = {}
-        for slot, key in enumerate(a.binder.slot_key):
-            info = a.pub.get(key) if key else None
-            if info and info.get("w", 0) > 0 and a.states.get(slot) == 3 and not (key in a.inactive and key != a.desired[0]):
-                expected[slot] = True
-        hit = self.watch.check(mt, text.split("\n", 1)[0], expected, pipbox_watch.d_state_threads(p.pid))
-        if hit is None:
-            return
-        soft = self.watch.soft_ok(hit)
-        if not soft and not self.watch.allow():
-            return
-        slots = []
-        for slot, key in enumerate(a.binder.slot_key):
-            info = a.pub.get(key) if key else None
-            slots.append((slot, ("Bild %dx%d, Ton %s" % (info.get("w", 0), info.get("h", 0), "ja" if info.get("audio") else "nein")) if info else "sendet nicht", a.states.get(slot, "?")))
-        report = pipbox_watch.build_report(hit, p.pid, time.monotonic() - (self.watch.started or time.monotonic()), text,
-                                           [f"{t} {e}" for t, e in list(self.events)], slots)
-        saved = pipbox_watch.write_report(STATE, report)
-        if soft:
-            # Ein einzelner Zweig ohne Bilder, die anderen laufen: nur seinen Zweig zurücksetzen. Der Regler startet ihn wieder, sobald er gestoppt ist und nginx die Kamera zeigt.
-            self.watch.soft_done(hit["slot"])
-            print(f"send: Hänger erkannt ({hit['text']}); Diagnosepaket {'gesichert (hang-diagnose.txt)' if saved else 'nicht speicherbar'}, nur dieser Zweig wird zurückgesetzt", flush=True)
-            try:
-                a.control([" ".join(("feed", "sbf%d", "off")) % hit["slot"]])      # Steuerbefehl an belacoder (kein Anzeigetext)
-            except OSError as e:
-                print(f"send: Zweig konnte nicht zurückgesetzt werden ({type(e).__name__})", flush=True)
-            return
-        self.watch.acted_now()
-        self.hang_n += 1
-        print(f"send: Hänger erkannt ({hit['text']}); Diagnosepaket {'gesichert (hang-diagnose.txt)' if saved else 'nicht speicherbar'}, belacoder wird neu gestartet", flush=True)
-        try:
-            if hit["kind"] != "feed":
-                p.kill()                       # steht belacoder, nimmt er SIGTERM nicht mehr an
-            self.stop_proc("belacoder")
-            self.spawn("belacoder", self.args("belacoder"), env=env)
-            with self.lock:
-                self.state = "running"
-        except OSError as e:
-            print(f"send: Neustart nach Hänger nicht möglich ({type(e).__name__})", flush=True)
 
     def restart_belacoder(self, env, why):
         """Geplanter Neustart von belacoder (zum Beispiel weil ein Decoder-Platz eine andere Kamera bekommt). spawn() setzt die Weichen zurück und wartet auf das Füllbild."""
@@ -1032,12 +908,6 @@ class Sender:
         except OSError as e:
             print(f"send: Neustart nach Hänger nicht möglich ({type(e).__name__})", flush=True)
 
-    def sync_swap_base(self):
-        """Die Kameras je Platz (für die Verzögerungsdatei der Oberfläche) im Zustand der Sendekette führen: sie können sich im Betrieb ändern."""
-        global SWAP_BASE
-        if self.always is not None and SWAP_BASE is not None:
-            SWAP_BASE = {"cams": list(self.always.binder.slot_key), "group": SWAP_BASE["group"]}      # ein Schlüssel je Platz, "" = frei
-
     def refresh_inactive(self):
         """Wurde in der Oberfläche eine Kamera deaktiviert oder wieder aktiviert, gilt das sofort für die automatische Umschaltung, ohne Neustart der Sendung."""
         if self.fo is None:
@@ -1058,31 +928,6 @@ class Sender:
             self.plan["cfg"].pop("inactive", None)
         self.fo.cfg = self.plan["cfg"]
         print("send: deaktivierte Kameras geändert: " + (", ".join(new) or "keine"), flush=True)
-        return True
-
-    def sync_cfg(self):
-        """Nach einem Tausch ohne Neustart hat sich pipeline.json geändert, die Kameras sind dieselben: die Einstellung der automatischen
-        Umschaltung nachführen, sonst setzte ein späterer Kameraausfall das Hauptbild auf den alten Stand zurück."""
-        if self.fo is None or SWAP_BASE is None:
-            return False
-        try:
-            mt = os.stat(f"{STATE}/pipeline.json").st_mtime_ns
-        except OSError:
-            return False
-        if mt == self._cfg_mt:
-            return False
-        self._cfg_mt = mt
-        new = {**server.PipelineStore.DEFAULT, **load_json(f"{STATE}/pipeline.json")}
-        if new.get("type") != "pip" or set(configured_keys(new)) != set(self.fo.keys):
-            return False                          # andere Kameras: das regelt der normale Neustart
-        self.plan["cfg"] = new
-        self.fo.cfg, self.fo.keys = new, configured_keys(new)
-        # Die Reihenfolge der genutzten Kameras (Anordnung) folgt der neuen Einstellung. Sonst hielte die automatische Umschaltung die
-        # geänderte Reihenfolge beim nächsten Durchlauf für eine neue Anordnung und startete den Encoder neu (gemessen: 3 s nach dem Tausch).
-        def ordered(layout):
-            return tuple(k for k in self.fo.keys if k in set(layout))[:4]
-        self.fo.layout = ordered(self.fo.layout)
-        self.layout = ordered(self.layout)
         return True
 
     def wait_links_ready(self, timeout=20):
@@ -1137,9 +982,7 @@ class Sender:
                 time.sleep(0.2)
             if p.poll() is None:
                 p.kill()
-        if self.live:
-            self.boost.off()
-        for f in (STATUS, STATS, BC_STATS, f"{RUN}/srtla-links.txt", server.VIEW_STATE, server.CAM_LIVE):
+        for f in (STATUS, STATS, BC_STATS, f"{RUN}/srtla-links.txt", server.VIEW_STATE):
             try:
                 os.remove(f)
             except OSError:

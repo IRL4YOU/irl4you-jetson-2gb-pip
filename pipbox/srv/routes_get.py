@@ -180,7 +180,7 @@ class GetRoutes:
             return self.reply(200, {**self.srtla.public(), "interfaces": iface_ips(), "conn_names": self.conn_labels()})
         if path == "/api/pipeline":
             st = self.pipeline.status(self.cams.listing(""))
-            st["live"] = {"main": self.send.delay_live(), "pips": self.send.delay_live_pips()}
+            st["live"] = {"main": self.send.always_live(), "pips": self.send.always_live()}      # Verzögerung gilt im Betrieb ohne Neustart (Weichen), wenn "alle Kameras immer bereit" läuft
             return self.reply(200, st)
         if path == "/api/send":
             out = self.send.status()

@@ -143,7 +143,7 @@ def detect_codec(pipeline_text):
 
 
 def big_cpus(cpu_dir="/sys/devices/system/cpu"):
-    """Nummern der schnellen Kerne (big.LITTLE über cpu_capacity), [] wenn alle gleich schnell sind (wie pipbox_live.big_cpus, ohne dessen Abhängigkeiten)."""
+    """Nummern der schnellen Kerne (big.LITTLE über cpu_capacity), [] wenn alle gleich schnell sind (ohne weitere Abhängigkeiten)."""
     cap = {}
     try:
         for d in os.listdir(cpu_dir):

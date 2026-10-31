@@ -100,7 +100,7 @@ def scene_swap(pipeline, cams, send, with_key=None):
         raise ValueError("Diese Kamera ist nicht verbunden und lässt sich nicht zum Hauptbild machen.")
     old_audio = PipelineStore.view_values(pipeline.cfg)[1]
     shown = pipeline.swap_main_pip(with_key)
-    if send.always_live() or send.swap_live():
+    if send.always_live():
         note = "Getauscht, ohne Unterbrechung."
         moved = PipelineStore.view_values(pipeline.cfg)[1] != old_audio                  # eine Facecam nimmt ihren Ton mit
         if shown or moved:             # das kleine Bild der bisherigen Hauptkamera war ausgeblendet gespeichert und ist jetzt sichtbar

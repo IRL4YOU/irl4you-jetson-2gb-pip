@@ -33,7 +33,7 @@ ACTIVE_GAP = 0.7                  # so lange dürfen Bilder der Kamera ausbleibe
 SHOW_AFTER = 0.3                  # so lange muss das Tor offen sein, bevor die Kamera zu sehen sein darf
 SILENCE_STEP = 1024 / 48000.0     # Dauer eines Tonpakets (1024 Abtastwerte bei 48 kHz)
 SILENCE = bytes(1024 * 4)         # 1024 Abtastwerte, 2 Kanäle, 16 Bit
-MAX_DELAY_S = 0.75                # größte Verzögerung je Kamera (wie im anderen Paket: pipbox_live.MAX_DELAY_MS)
+MAX_DELAY_S = 0.75                # größte Verzögerung je Kamera (wie im anderen Paket)
 SSRC = b"\x4a\x50\x49\x50"
 RELAY_CPUS = (1, 2, 3)            # Kern je Platz (Platz mod 3); Kern 0 bleibt für Unterbrechungen und den Rest frei
 

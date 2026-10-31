@@ -211,10 +211,9 @@ function render(d) {
     $("s_cores").textContent = L.cores;
     const items = [], c = d.cores, fr = c.freq_mhz || [];
     (c.load || []).forEach((v, i) => items.push([row(L.core + " " + i, fmt(v, 0) + " %", loadClass(v || 0), fr[i] ? (fr[i] >= 1000 ? fmt(fr[i] / 1000, 1) + " GHz" : fr[i] + " MHz") : ""), v, loadClass(v || 0)]));
-    if (c.npu) items.push([row("NPU", c.npu.load_pct != null ? fmt(c.npu.load_pct, 0) + " %" : "–", c.npu.load_pct != null ? loadClass(c.npu.load_pct) : "", c.npu.mhz != null ? c.npu.mhz + " MHz" : ""), c.npu.load_pct, c.npu.load_pct != null ? loadClass(c.npu.load_pct) : ""]);
-    if (c.gpu) items.push([row(L.gpu, c.gpu.load_pct != null ? fmt(c.gpu.load_pct, 0) + " %" : "–", c.gpu.load_pct != null ? loadClass(c.gpu.load_pct) : "", c.gpu.mhz != null ? c.gpu.mhz + " MHz" : ""), c.gpu.load_pct, c.gpu.load_pct != null ? loadClass(c.gpu.load_pct) : ""]);
     // Jetson: Video-Hardware (Bildwandler VIC, Decoder NVDEC, Encoder NVENC)
     [["vic", L.vic], ["nvdec", L.nvdec], ["nvenc", L.nvenc]].forEach(([k, name]) => { const u = c[k]; if (u) items.push([row(name, u.load_pct != null ? fmt(u.load_pct, 0) + " %" : "–", u.load_pct != null ? loadClass(u.load_pct) : "", u.mhz != null ? u.mhz + " MHz" : ""), u.load_pct, u.load_pct != null ? loadClass(u.load_pct) : ""]); });
+    if (c.gpu) items.push([row(L.gpu, c.gpu.load_pct != null ? fmt(c.gpu.load_pct, 0) + " %" : "–", c.gpu.load_pct != null ? loadClass(c.gpu.load_pct) : "", c.gpu.mhz != null ? c.gpu.mhz + " MHz" : ""), c.gpu.load_pct, c.gpu.load_pct != null ? loadClass(c.gpu.load_pct) : ""]);
     fill("cores", rowsWithBars(items));
   }
   // Speicherplatz

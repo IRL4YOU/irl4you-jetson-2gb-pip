@@ -3,16 +3,15 @@
 import json
 import os
 import threading
-import pipbox_live
 
 from srv import pipeline_jetson
 from srv.cameras import KEY_RE
-from srv.datenschutz import PBPIXEL_BOXES, PBPIXEL_TAP, datenschutz_aktiv
-from srv.plugin import CAM_LIVE, FEED_AUDIO_CAPS, FEED_FILL_VIDEO, FEED_PORT, FEED_VIDEO_CAPS, FREE, PIP_CORNERS, SEND_STATUS, feeder_tool, pip_corners, plugin_fill, plugin_multi, plugin_style, plugin_swap, plugin_view
-from srv.style import SIZE_MAX, SIZE_MIN, STYLE_SLOTS, clean_styles, pip_size, small_decode, style_text
+from srv.datenschutz import datenschutz_aktiv
+from srv.plugin import FREE, PIP_CORNERS
+from srv.style import SIZE_MAX, SIZE_MIN, STYLE_SLOTS, clean_styles
 
 
-DEFAULT_MAIN_DELAY_MS = 450   # Ausgangswert (Schätzung, per Regler anpassbar): das Hauptbild wartet so lange, damit die kleinen Bilder zeitlich passen
+DEFAULT_MAIN_DELAY_MS = 0     # Ausgangswert der Verzögerung des Hauptbildes (per Regler anpassbar). Jetson: 0, alle Bilder gehen denselben Weg; das andere Paket braucht 450 ms, weil dort die kleinen Bilder später fertig sind
 
 
 DEFAULT_PIP_DELAY_MS = 0      # kleine Bilder: zusätzliche Wartezeit je Bild (Feinabgleich, wenn eine Kamera mehr hinterherhinkt)
@@ -68,28 +67,6 @@ class PipelineStore:
         with os.fdopen(fd, "w") as f:
             json.dump(self.cfg, f, indent=1)
         os.replace(tmp, self.path)
-        self.write_delay_file()
-
-    def write_delay_file(self):
-        """Wert für die laufende Sendekette (liest unser Baustein pbctl alle 0,3 s). Atomar ersetzen. Läuft die Sendekette im Tausch-Betrieb,
-        gilt die Reihenfolge der Kameras beim Aufbau (die Verzögerung gehört zur Kamera, nicht zum Platz)."""
-        if self.path == os.devnull:
-            return
-        d = os.path.join(os.path.dirname(os.path.abspath(self.path)), "main-delay-ms")
-        try:
-            base = None
-            try:
-                with open(SEND_STATUS) as f:
-                    base = (json.load(f).get("swap") or {}).get("cams")
-            except (OSError, ValueError, AttributeError):
-                pass
-            vals = self.delay_values(self.cfg, base if isinstance(base, list) else None)
-            with open(d + ".tmp", "w") as f:
-                f.write(" ".join(map(str, vals)) + "\n")
-            os.chmod(d + ".tmp", 0o644)
-            os.replace(d + ".tmp", d)
-        except OSError:
-            pass
 
     SLOT_DELAY = {"pip": "pip_delay_ms", "pip2": "pip2_delay_ms", "pip3": "pip3_delay_ms"}
 
@@ -213,7 +190,7 @@ class PipelineStore:
                 pct2, pct3 = int(req.get("size_pct2", pct)), int(req.get("size_pct3", pct))
             except (TypeError, ValueError):
                 raise ValueError("Ecke und Größe müssen Zahlen sein")
-            if corner not in range(len(pip_corners())) or not all(SIZE_MIN <= v <= SIZE_MAX for v in (pct, pct2, pct3)):
+            if corner not in range(len(PIP_CORNERS)) or not all(SIZE_MIN <= v <= SIZE_MAX for v in (pct, pct2, pct3)):
                 raise ValueError("Position aus der Liste wählen, Skalierung jedes kleinen Bildes %d bis %d Prozent" % (SIZE_MIN, SIZE_MAX))
             audio = req.get("audio", "main")
             if audio not in ("main", "pip", "pip2", "pip3"):
@@ -242,7 +219,7 @@ class PipelineStore:
                     raise ValueError("Ecke muss eine Zahl sein")
                 if pip2 not in camera_keys or pip2 in (main, pipk):
                     raise ValueError("Zweites kleines Bild: eine weitere vorhandene Kamera wählen")
-                if corner2 not in range(len(pip_corners())) or (corner2 == corner and corner != FREE):
+                if corner2 not in range(len(PIP_CORNERS)) or (corner2 == corner and corner != FREE):
                     raise ValueError("Zweites kleines Bild: eine andere Position als das erste wählen")
                 cfg.update(pip2=pip2, corner2=corner2)
             else:
@@ -255,7 +232,7 @@ class PipelineStore:
                     raise ValueError("Ecke muss eine Zahl sein")
                 if pip3 not in camera_keys or pip3 in (main, pipk, pip2):
                     raise ValueError("Drittes kleines Bild: eine weitere vorhandene Kamera wählen")
-                if corner3 not in range(len(pip_corners())) or (corner3 != FREE and corner3 in (corner, cfg["corner2"])):
+                if corner3 not in range(len(PIP_CORNERS)) or (corner3 != FREE and corner3 in (corner, cfg["corner2"])):
                     raise ValueError("Drittes kleines Bild: eine andere Position als die ersten beiden wählen")
                 cfg.update(pip3=pip3, corner3=corner3)
             else:
@@ -337,76 +314,30 @@ class PipelineStore:
         pip = c["type"] == "pip" and bool(KEY_RE.match(c.get("pip", "")))
         pip2 = bool(pip and c.get("pip2") and KEY_RE.match(c["pip2"]) and c.get("corner2") in range(len(PIP_CORNERS))
                     and (c["corner2"] != c["corner"] or c["corner"] == FREE))
-        multi = plugin_multi()
+        multi = True                                  # nvcompositor: ein Pad je Platz, bis zu drei kleine Bilder
         pip3 = bool(multi and pip2 and c.get("pip3") and KEY_RE.match(c["pip3"])
                     and c.get("corner3") in range(len(PIP_CORNERS)) and (c["corner3"] == FREE or c["corner3"] not in (c["corner"], c["corner2"])))
         return pip, pip2, pip3, multi
 
     @classmethod
     def swap_plan(cls, cfg):
-        """Tausch ohne Unterbrechung (Hauptbild gegen eine Kamera tauschen, ohne den Encoder neu zu starten): Plan oder None.
-        Jede Kamera der Tauschgruppe bekommt zwei Zweige (groß und klein), ein Umschalter wählt das Hauptbild. Gruppe: Hauptbild und
-        erstes kleines Bild (swap_cams = 2) oder alle (4). cams: Kameras in der Reihenfolge des Aufbaus (Hauptbild, kleine Bilder 1 bis 3);
-        state/line: Anfangszustand (Hauptkamera, dann Kamera an Stelle 1 bis 3, 15 = keine), audio_pos: -1 Ton folgt dem Hauptbild,
-        0 bis 2 Ton der Kamera an dieser Stelle; asel: Ton läuft ebenfalls über einen Umschalter."""
-        c = cls._safe_cfg(cfg)
-        if pipeline_jetson.is_jetson():                  # Jetson: Nvidia-Kette ohne Rockchip-Bausteine, kein Tausch im Betrieb
-            return None
-        if c["type"] != "pip" or c["swap_cams"] not in (2, 4) or not KEY_RE.match(c.get("main", "")) or not plugin_swap():
-            return None
-        pip, pip2, pip3, multi = cls._layout(c)
-        if not pip or not multi:
-            return None
-        cams = [c["main"], c["pip"]] + ([c["pip2"]] if pip2 else []) + ([c["pip3"]] if pip3 else [])
-        if len(set(cams)) != len(cams):
-            return None
-        group = min(c["swap_cams"], len(cams))
-        audio = c.get("audio", "main")
-        if audio == "pip2" and not pip2 or audio == "pip3" and not pip3 or audio not in ("main", "pip", "pip2", "pip3"):
-            audio = "main"
-        pos = {"main": -1, "pip": 0, "pip2": 1, "pip3": 2}[audio]
-        nums = [0, 1, 2 if pip2 else 15, 3 if pip3 else 15]
-        return {"cams": cams, "group": group, "audio_pos": pos, "asel": pos < 0 or pos + 1 < group,
-                "state": nums[0] | nums[1] << 4 | nums[2] << 8 | nums[3] << 12, "line": " ".join(map(str, nums))}
+        """Tausch über einen Umschalter in der Kette: Den gibt es auf dem Jetson nicht. Hauptbild und kleine Bilder tauschen dort über die Steuerdatei (Rollen, siehe
+        pipbox_always.SlotController), jede Kamera behält ihren Decoder. Bleibt als Schnittstelle erhalten (Aufrufer fragen nach einem Plan) und liefert immer None."""
+        return None
 
     @classmethod
     def always_plan(cls, cfg):
-        """Plan für "alle Kameras immer bereit" (Issue #19) oder None. Jede Kamera hat einen Platz (0 = Hauptbild beim Aufbau, 1 bis 3 = kleine Bilder), an
-        dem ein Zubringer (pipbox_always.py) ihren Stream aus dem RTMP-Server weiterreicht; die Sendekette selbst hat nie eine Quelle, die ausfällt. Alle Kameras
-        sind in der Tauschgruppe und alle Töne laufen über den Ton-Umschalter. cams: die Kameras beim Aufbau; ein Kamerawechsel an einem Platz braucht keinen
-        Neustart (der Zubringer holt dann den Stream der neuen Kamera)."""
+        """Plan für "alle Kameras immer bereit" oder None. Feste Plätze (0 = Hauptbild beim Aufbau, 1 bis 3 = kleine Bilder), je Platz ein Zubringer (pipbox_always.py)
+        mit Weiche, der den Stream der Kamera aus dem RTMP-Server weiterreicht; im Compositor liegt ein schwarzer Untergrund, die Sendekette selbst hat nie eine Quelle,
+        die ausfällt. Ein Kamerawechsel an einem Platz braucht nur einen gezielten Neustart (der Decoder kann den Strom nicht wechseln)."""
         c = cls._safe_cfg(cfg)
-        if pipeline_jetson.is_jetson():                  # Jetson: feste Plätze (Hauptbild, kleine Bilder), Zubringer je Platz, schwarzer Untergrund im Compositor
-            if c["type"] not in ("pip", "single") or c.get("always_ready") is not True or not KEY_RE.match(c.get("main", "")):
-                return None
-            pip, pip2, pip3, multi = cls._layout(c)
-            if c["type"] == "pip" and not pip:
-                return None
-            cams = [c["main"]] + ([c["pip"]] if pip else []) + ([c["pip2"]] if pip2 else []) + ([c["pip3"]] if pip3 else [])
-            return {"cams": cams, "group": len(cams), "audio_pos": -1, "asel": False, "always": True, "live": True, "state": 0, "line": ""}
-        if pipbox_live.enabled(c) and KEY_RE.match(c.get("main", "")):
-            # Engine Compositor: keine Zubringer, kein pbpipsel; alle Änderungen gehen im Betrieb über den Steuerkanal von belacoder
-            cams = [k for k in (c["main"], c.get("pip", ""), c.get("pip2", ""), c.get("pip3", "")) if k]
-            if len(set(cams)) != len(cams):
-                return None
-            audio = c.get("audio", "main")
-            pos = {"main": -1, "pip": 0, "pip2": 1, "pip3": 2}.get(audio, -1)
-            return {"cams": cams, "group": len(cams), "audio_pos": pos, "asel": True, "always": True, "live": True, "state": 0x3210, "line": "0 1 2 3"}
-        if c["type"] != "pip" or c.get("always_ready") is not True or not KEY_RE.match(c.get("main", "")) or not plugin_swap() or not plugin_fill() or not feeder_tool():
+        if c["type"] not in ("pip", "single") or c.get("always_ready") is not True or not KEY_RE.match(c.get("main", "")):
             return None
         pip, pip2, pip3, multi = cls._layout(c)
-        if not pip:
+        if c["type"] == "pip" and not pip:
             return None
-        cams = [c["main"], c["pip"]] + ([c["pip2"]] if pip2 else []) + ([c["pip3"]] if pip3 else [])
-        if len(set(cams)) != len(cams):
-            return None
-        audio = c.get("audio", "main")
-        if audio == "pip2" and not pip2 or audio == "pip3" and not pip3 or audio not in ("main", "pip", "pip2", "pip3"):
-            audio = "main"
-        pos = {"main": -1, "pip": 0, "pip2": 1, "pip3": 2}[audio]
-        nums = [0, 1, 2 if pip2 else 15, 3 if pip3 else 15]
-        return {"cams": cams, "group": len(cams), "audio_pos": pos, "asel": True, "always": True,
-                "state": nums[0] | nums[1] << 4 | nums[2] << 8 | nums[3] << 12, "line": " ".join(map(str, nums))}
+        cams = [c["main"]] + ([c["pip"]] if pip else []) + ([c["pip2"]] if pip2 else []) + ([c["pip3"]] if pip3 else [])
+        return {"cams": cams, "group": len(cams), "audio_pos": -1, "asel": False, "always": True, "live": True, "state": 0, "line": ""}
 
     @classmethod
     def always_blocker(cls, cfg):
@@ -414,15 +345,7 @@ class PipelineStore:
         c = cls._safe_cfg(cfg)
         if c.get("always_ready") is not True or cls.always_plan(cfg):
             return None
-        if pipeline_jetson.is_jetson():
-            return "Alle Kameras immer bereit ist nicht aktiv: Der Bildaufbau passt nicht dazu (Hauptbild fehlt oder Art unbekannt). Die Sendung läuft im normalen Modus."
-        if c["type"] != "pip":                    # eine Kamera: nur die Engine mit Compositor kennt das; fehlt sie (belacoder zu alt), gilt der normale Modus
-            return None if pipbox_live.supported() else "Alle Kameras immer bereit ist nicht aktiv: Der Sende-Baustein ist noch nicht auf dem neuen Stand. Die Sendung läuft im normalen Modus. Ein Software-Update baut ihn neu."
-        if not feeder_tool():
-            return "Alle Kameras immer bereit ist nicht aktiv: Das Programm gst-launch-1.0 fehlt (Paket gstreamer1.0-tools). Die Sendung läuft im normalen Modus. Ein Software-Update installiert das Paket."
-        if not plugin_swap() or not plugin_fill():
-            return "Alle Kameras immer bereit ist nicht aktiv: Der Überlagerungs-Baustein ist noch nicht auf dem neuen Stand. Die Sendung läuft im normalen Modus. Ein Software-Update baut ihn neu."
-        return "Alle Kameras immer bereit ist nicht aktiv: Die Kameras des Bildaufbaus passen nicht dazu (jede Kamera nur einmal, mindestens ein kleines Bild). Die Sendung läuft im normalen Modus."
+        return "Alle Kameras immer bereit ist nicht aktiv: Der Bildaufbau passt nicht dazu (Hauptbild fehlt oder Art unbekannt). Die Sendung läuft im normalen Modus."
 
     AUDIO_POS = {"main": -1, "pip": 0, "pip2": 1, "pip3": 2}
 
@@ -488,237 +411,37 @@ class PipelineStore:
 
     @staticmethod
     def delay_values(cfg, base=None):
-        """Verzögerungen in ms für die Steuerdatei, in der Reihenfolge der Kameras beim Aufbau der Sendekette (base: deren Schlüssel;
+        """Verzögerungen in ms je Platz (die Weiche des Platzes hält die Pakete der Kamera zurück, höchstens 750 ms), in der Reihenfolge der Kameras (base: ihre Schlüssel je Platz;
         sonst die Reihenfolge der Einstellung). Die Verzögerung gehört zur Kamera, nicht zum Platz."""
         if cfg.get("type") != "pip":
             return [0, 0, 0, 0]
         slots = ("main", "pip", "pip2", "pip3")
         by_key = {cfg[s]: cfg.get(d, 0) for s, d in zip(slots, DELAY_KEYS) if cfg.get(s)}
         order = list(base) if base else [cfg.get(s) for s in slots]
-        ds = PipelineStore.datenschutz() if not pipbox_live.enabled(PipelineStore._safe_cfg(cfg)) else None      # Engine Compositor: Wartezeit hinter dem Mischer, nicht in der Steuerdatei
-        pd = int(ds["delay_ms"]) if ds else 0           # Datenschutz: die Steuerdatei trägt die Wartezeit mit, sonst nähme pbctl sie beim Nachstellen weg
         vals = []
         for k in (order + [None] * 4)[:4]:
             try:
-                vals.append((max(0, min(3000, int(by_key.get(k, 0) or 0))) if k else 0) + pd)
+                vals.append(max(0, min(3000, int(by_key.get(k, 0) or 0))) if k else 0)
             except (TypeError, ValueError):
-                vals.append(pd)
+                vals.append(0)
         return vals
 
     def build(self, cfg=None, rtmp_port=1935, rtmp_app="publish"):
-        """Pipeline-Text für belacoder. Die Schlüssel sind geprüft (a-z, 0-9, -, _)."""
+        """Pipeline-Text für belacoder (Nvidia-Kette mit nvcompositor, siehe pipeline_jetson). Die Schlüssel sind geprüft (a-z, 0-9, -, _)."""
         c = self._safe_cfg(cfg or self.cfg)
         if not KEY_RE.match(c.get("main", "")):
             return ""
-        q = self.Q
         base = f"rtmp://127.0.0.1:{rtmp_port}/{rtmp_app}"
         pip, pip2, pip3, multi = self._layout(c)
-        if pipeline_jetson.is_jetson():                   # Jetson: Nvidia-Kette mit nvcompositor statt der Rockchip-Kette
-            return pipeline_jetson.build(c, base, pip, pip2, pip3, always=bool(self.always_plan(c)))
-        if pipbox_live.enabled(c):
-            return pipbox_live.build(c, base, ds=self.datenschutz(), ds_files=(PBPIXEL_TAP, PBPIXEL_BOXES))
-
-        def xy(cfg_, kx, ky, corner_):
-            if corner_ != FREE:
-                return ""
-            return f" {kx}={int(cfg_.get(kx, 500))} {ky}={int(cfg_.get(ky, 500))}"
-        sty = self._style_props(c)
-        out = []
-        # Hauptbild (samt Ton) verzögern: die kleinen Bilder treffen dann zeitlich besser auf das Hauptbild.
-        # Die Wartezeit sitzt NACH dem Auspacken (dort haben die Pakete die Zeitstempel der Kamera) und gilt für
-        # Bild und Ton gleich, damit beide zueinander synchron bleiben (gemessen: Abweichung unter einem Bild).
-        delay = 0
-        if c["type"] == "pip":
-            try:
-                delay = max(0, min(3000, int(c.get("main_delay_ms", DEFAULT_MAIN_DELAY_MS))))
-            except (TypeError, ValueError):
-                delay = 0
-        ds = self.datenschutz()                                               # Karte Datenschutz: Verpixeln der Hauptkamera (die Engine Compositor baut es oben selbst ein)
-        pd = int(ds["delay_ms"]) if ds else 0                                # alle Zweige (Bild und Ton) warten zusätzlich so lange, damit die Rechtecke vor der Ausgabe bereit sind
-        delay += pd
-        qa = q + (f" min-threshold-time={delay * 1000000}" if delay else "")
-        qv = q + (f" min-threshold-time={(delay + FRAME_MS) * 1000000}" if delay else "")
-        if pip:
-            qv, qa = qv + " name=mainq_v", qa + " name=mainq_a"
-        self._pd = pd
-
-        def small(name, key):
-            d = 0
-            try:
-                d = max(0, min(3000, int(c.get(key, DEFAULT_PIP_DELAY_MS) or 0)))
-            except (TypeError, ValueError):
-                d = 0
-            d += pd
-            th = d + FRAME_MS if d else 0
-            return (f"queue name={name} max-size-time={(th + 500) * 1000000} max-size-buffers={0 if d else 30} "
-                    f"leaky=downstream" + (f" min-threshold-time={th * 1000000}" if d else ""))
-        plan = (self.always_plan(c) or self.swap_plan(c)) if pip else None
-        if plan:
-            return self._build_dual(c, plan, base, small, xy, pip2, pip3, sty)
-        out.append(f"rtmpsrc location={base}/{c['main']} do-timestamp=true !\nflvdemux name=demux\n")
-        # Datenschutz: das Bild der Hauptkamera geht zweimal durch den Dekoder: sofort in die Analyse (pbpixeltap, Dienst liest die Tap-Datei) und
-        # verzögert in die Ausgabe (pbpixelmask liest die Rechtecke). Die kleinen Bilder bleiben unverpixelt (zum Beispiel die eigene Kamera).
-        vsrc = "demux.video !\n"
-        mask = ""
-        if ds:
-            out.append("demux.video !\ntee name=ptee\n"
-                       "ptee. !\nqueue max-size-time=3000000000 max-size-buffers=0 max-size-bytes=0 leaky=downstream !\nh264parse ! mppvideodec !\n"
-                       f"pbpixeltap shm={PBPIXEL_TAP} interval-ms=100 !\nfakesink sync=false async=false\n")
-            vsrc = "ptee. !\n"
-            mask = f"pbpixelmask boxes={PBPIXEL_BOXES} !\n"
-        if pip:
-            # Kein videorate/textoverlay: sie halten das Hauptbild fest, dann wäre das Hineinschreiben
-            # nicht mehr in-place (gemessen: bremst). Die Kameras liefern ohnehin 30 fps.
-            v = (f"{vsrc}{qv} !\nidentity name=v_delay signal-handoffs=TRUE ! h264parse ! mppvideodec !\n"
-                 f"{mask}video/x-raw,format=NV12 !\n"
-                 f"pbpipmix name=pipmix corner={c['corner']}{xy(c, 'x', 'y', c['corner'])} width-pct={c['size_pct']}{sty(0, 1)}"
-                 + (f" slot2=1 corner2={c['corner2']}{xy(c, 'x2', 'y2', c['corner2'])}{sty(1, 2)}" if pip2 and multi else "")
-                 + (f" slot3=2 corner3={c['corner3']}{xy(c, 'x3', 'y3', c['corner3'])}{sty(2, 3)}" if pip3 else "") + " !\n"
-                 + (f"pbpipmix name=pipmix2 slot=1 corner={c['corner2']}{xy(c, 'x', 'y', c['corner2'])} width-pct={c['size_pct']}{sty(1, 1)} !\n" if pip2 and not multi else "") +
-                 "queue max-size-time=500000000 max-size-buffers=4 leaky=downstream !\n")
-        else:
-            v = (f"{vsrc}{qv if ds else q} !\nidentity name=v_delay signal-handoffs=TRUE ! h264parse ! mppvideodec !\n"
-                 f"{mask}videorate ! video/x-raw,framerate=30/1,format=NV12 ! queue !\n")
-        v += ("mpph265enc zero-copy-pkt=0 qp-max=51 gop=60 name=venc_bps !\n"
-              f"h265parse config-interval=-1 ! {q} ! mux.\n")
-        out.append(v)
-        vol = "volume name=avol ! " if pip and plugin_view() else ""             # Stummschalten im Betrieb (pbctl, siehe gst/gstpbpip.c)
-        opus = f"audioconvert ! audioresample quality=10 sinc-filter-mode=1 ! {vol}opusenc bitrate=128000 ! opusparse"
-        audio_sel = c.get("audio", "main") if pip else "main"
-        if audio_sel == "pip2" and not pip2 or audio_sel == "pip3" and not pip3 or audio_sel not in ("main", "pip", "pip2", "pip3"):
-            audio_sel = "main"
-        main_audio = audio_sel == "main"
-        mute = "queue max-size-buffers=4 leaky=downstream ! fakesink sync=false async=false\n"
-        def small_audio(demux, sel):
-            if audio_sel == sel:
-                return (f"{demux}.audio !\n{q} !\naacparse ! avdec_aac ! identity name=a_delay signal-handoffs=TRUE !\n"
-                        f"{opus} ! {q} ! mux.\n")
-            return f"{demux}.audio !\n{mute}"
-        if main_audio:
-            out.append(f"demux.audio !\n{qa} !\naacparse ! avdec_aac ! identity name=a_delay signal-handoffs=TRUE !\n"
-                       f"{opus} ! {q} ! mux.\n")
-        else:
-            out.append("demux.audio !\nqueue max-size-buffers=4 leaky=downstream ! fakesink sync=false async=false\n")
-        if pip:
-            # Jedes kleine Bild hat seine eigene Größe (Prozent der Bildbreite); der Hardware-Decoder verkleinert auf genau diese Größe
-            (w, h), (w2, h2), (w3, h3) = pip_size(c["size_pct"]), pip_size(c["size_pct2"]), pip_size(c["size_pct3"])
-            out.append(f"rtmpsrc location={base}/{c['pip']} do-timestamp=true !\nflvdemux name=pdemux\n")
-            out.append(f"pdemux.video !\n{small('pipq_v', 'pip_delay_ms')} !\n"
-                       f"h264parse ! {small_decode(w, h)}"
-                       "queue max-size-time=300000000 max-size-buffers=2 leaky=downstream ! pbpipsink\n")
-            if pip2:
-                out.append(f"rtmpsrc location={base}/{c['pip2']} do-timestamp=true !\nflvdemux name=p2demux\n")
-                out.append(f"p2demux.video !\n{small('pip2q_v', 'pip2_delay_ms')} !\n"
-                           f"h264parse ! {small_decode(w2, h2)}"
-                           "queue max-size-time=300000000 max-size-buffers=2 leaky=downstream ! pbpipsink slot=1\n")
-                out.append(small_audio("p2demux", "pip2"))
-            if pip3:
-                out.append(f"rtmpsrc location={base}/{c['pip3']} do-timestamp=true !\nflvdemux name=p3demux\n")
-                out.append(f"p3demux.video !\n{small('pip3q_v', 'pip3_delay_ms')} !\n"
-                           f"h264parse ! {small_decode(w3, h3)}"
-                           "queue max-size-time=300000000 max-size-buffers=2 leaky=downstream ! pbpipsink slot=2\n")
-                out.append(small_audio("p3demux", "pip3"))
-            out.append(small_audio("pdemux", "pip"))
-        if pip:
-            # Steuerung: liest die Verzögerung aus /var/lib/pipbox/main-delay-ms und stellt die beiden Queues im Betrieb um
-            out.append("pbctl name=pbctl video-queue=mainq_v audio-queue=mainq_a pip-queue=pipq_v"
-                       + (" pip2-queue=pip2q_v" if pip2 else "") + (" pip3-queue=pip3q_v" if pip3 else "") + "\n")
-        out.append("mpegtsmux name=mux !\nappsink name=appsink\n")
-        return "\n".join(out)
-
-    @staticmethod
-    def _style_props(c):
-        """Funktion (Stelle 0 bis 2, Nummer der Eigenschaft) -> Text " styleN=\"...\"" für pbpipmix, leer bei Standardaussehen oder wenn der
-        installierte Baustein die Eigenschaft nicht kennt."""
-        texts = [style_text(c["styles"][k]) for k in STYLE_SLOTS] if plugin_style() else ["", "", ""]
-
-        def sty(pos, n):
-            return f' style{n}="{texts[pos]}"' if texts[pos] else ""
-        return sty
-
-    def _build_dual(self, c, plan, base, small, xy, pip2, pip3, sty):
-        """Pipeline für den Tausch ohne Unterbrechung (siehe swap_plan). Jede Kamera der Gruppe liefert ihr Bild zweimal: groß in den
-        Umschalter vsel (Hauptbild), klein in einen eigenen Platz des Bild-in-Bild (Platz = Kamera + 3 mod 4: Kamera 0 -> 3, 1 -> 0 ...).
-        Welche Kamera gerade Hauptbild ist und wo die anderen kleiner erscheinen, schreibt vsel in jedes Bild; pbpipmix liest es dort.
-        Der Ton läuft bei Bedarf über einen zweiten Umschalter asel, den pbctl im selben Schritt mitstellt. Die Wartezeit gehört je
-        Kamera zu allen ihren Warteschlangen (vfq = Bild groß, vsq = Bild klein, aq = Ton)."""
-        q = self.Q
-        cams, group, ap = plan["cams"], plan["group"], plan["audio_pos"]
-        always = bool(plan.get("always"))          # Eingänge von den Zubringern (udpsrc, enden nie) statt rtmpsrc ! flvdemux
-        # Größe des kleinen Bildes je Kamera: die der Stelle, an der sie beim Aufbau steht (Stelle 1 bis 3); die Hauptkamera bekommt die der Stelle 1.
-        # Beim Tausch folgt die Größe der Kamera, nicht der Stelle (der Decoder verkleinert fest auf diese Größe).
-        sizes = [pip_size(c["size_pct"]), pip_size(c["size_pct2"]), pip_size(c["size_pct3"])]
-        out = []
-        fillv = f' fill-caps="{FEED_FILL_VIDEO}"' if always else ""
-        filla = f' fill-caps="{FEED_AUDIO_CAPS}"' if always else ""
-        out.append(f"pbpipsel name=vsel tag-offset=true force-key=true state={plan['state']}{fillv} !\n"
-                   "identity name=v_delay signal-handoffs=TRUE !\nvideo/x-raw,format=NV12 !\n"
-                   f"pbpipmix name=pipmix follow-tag=true corner={c['corner']}{xy(c, 'x', 'y', c['corner'])} width-pct={c['size_pct']}{sty(0, 1)}"
-                   + (f" slot2=1 corner2={c['corner2']}{xy(c, 'x2', 'y2', c['corner2'])}{sty(1, 2)}" if pip2 else "")
-                   + (f" slot3=2 corner3={c['corner3']}{xy(c, 'x3', 'y3', c['corner3'])}{sty(2, 3)}" if pip3 else "") + " !\n"
-                   "queue max-size-time=500000000 max-size-buffers=4 leaky=downstream !\n"
-                   "mpph265enc zero-copy-pkt=0 qp-max=51 gop=60 name=venc_bps !\n"
-                   f"h265parse config-interval=-1 ! {q} ! mux.\n")
-        vol = "volume name=avol ! " if plugin_view() else ""                      # Stummschalten im Betrieb (pbctl, siehe gst/gstpbpip.c)
-        opus = f"audioconvert ! audioresample quality=10 sinc-filter-mode=1 ! {vol}opusenc bitrate=128000 ! opusparse"
-        mute = "queue max-size-buffers=4 leaky=downstream ! fakesink sync=false async=false\n"
-        queues = []
-        pd = getattr(self, "_pd", 0)              # Datenschutz: zusätzliche Wartezeit aller Zweige (siehe build)
-        for i, key in enumerate(cams):
-            d = int(c.get(DELAY_KEYS[i], 0) or 0) + pd
-            items = [f"vsq{i}:s"]
-            vport, aport = FEED_PORT + 2 * i, FEED_PORT + 2 * i + 1
-            if always:
-                vsrc = (f'udpsrc port={vport} address=127.0.0.1 buffer-size=8388608 do-timestamp=true caps="{FEED_VIDEO_CAPS}" !\n'
-                        "rtph264depay ! h264parse config-interval=-1 !\n")
-            else:
-                out.append(f"rtmpsrc location={base}/{key} do-timestamp=true !\nflvdemux name=dm{i}\n")
-                vsrc = f"dm{i}.video !\n"
-            w, h = sizes[max(i - 1, 0)]
-            small_chain = (f"{small(f'vsq{i}', DELAY_KEYS[i])} !\nh264parse ! {small_decode(w, h)}"
-                           f"queue max-size-time=300000000 max-size-buffers=2 leaky=downstream ! pbpipsink slot={(i + 3) % 4}\n")
-            if i < group:
-                qv = f"{q} name=vfq{i}" + (f" min-threshold-time={(d + FRAME_MS) * 1000000}" if d else "")
-                out.append(f"{vsrc}tee name=vt{i}\n")
-                mask = ""
-                if pd and i == 0:                  # Datenschutz: die beim Aufbau als Hauptbild gewählte Kamera wird analysiert und verpixelt
-                    out.append(f"vt{i}. !\nqueue max-size-time=3000000000 max-size-buffers=0 max-size-bytes=0 leaky=downstream !\nh264parse ! mppvideodec !\n"
-                               f"pbpixeltap shm={PBPIXEL_TAP} interval-ms=100 !\nfakesink sync=false async=false\n")
-                    mask = f"pbpixelmask boxes={PBPIXEL_BOXES} !\n"
-                out.append(f"vt{i}. !\n{qv} !\nh264parse ! mppvideodec !\n{mask}video/x-raw,format=NV12 !\nvsel.sink_{i}\n")
-                out.append(f"vt{i}. !\n{small_chain}")
-                items.insert(0, f"vfq{i}:v")
-            else:
-                out.append(f"{vsrc}{small_chain}")
-            qa = f"{q} name=aq{i}" + (f" min-threshold-time={d * 1000000}" if d else "")
-            if plan["asel"] and i < group:
-                if always:                                           # der Zubringer liefert den Ton schon als PCM (48 kHz, Stereo)
-                    out.append(f'udpsrc port={aport} address=127.0.0.1 buffer-size=1048576 do-timestamp=true caps="{FEED_AUDIO_CAPS}" !\n{qa} !\nasel.sink_{i}\n')
-                else:
-                    out.append(f"dm{i}.audio !\n{qa} !\naacparse ! avdec_aac ! audioconvert ! audioresample quality=10 sinc-filter-mode=1 !\n"
-                               f"audio/x-raw,format=S16LE,rate=48000,channels=2,layout=interleaved ! asel.sink_{i}\n")
-                items.append(f"aq{i}:a")
-            elif not plan["asel"] and i == ap + 1:
-                out.append(f"dm{i}.audio !\n{qa} !\naacparse ! avdec_aac ! identity name=a_delay signal-handoffs=TRUE !\n{opus} ! {q} ! mux.\n")
-                items.append(f"aq{i}:a")
-            else:
-                out.append(f"dm{i}.audio !\n{mute}")
-            queues.append(f" cam{i}={','.join(items)}")
-        if plan["asel"]:
-            out.append(f"pbpipsel name=asel state={0 if ap < 0 else ap + 1}{filla} !\nidentity name=a_delay signal-handoffs=TRUE !\n"
-                       f"{vol}opusenc bitrate=128000 ! opusparse ! {q} ! mux.\n")
-        out.append("pbctl name=pbctl selector=vsel" + (" audio-selector=asel" if plan["asel"] else "") + f" audio-pos={ap}" + "".join(queues)
-                   + (f" live-file={CAM_LIVE}" if always else "") + "\n")
-        out.append("mpegtsmux name=mux !\nappsink name=appsink\n")
-        return "\n".join(out)
+        return pipeline_jetson.build(c, base, pip, pip2, pip3, always=bool(self.always_plan(c)))
 
     def status(self, cams):
         keys = [c["key"] for c in cams]
-        return {"config": dict(self.cfg, styles=clean_styles(self.cfg.get("styles"))), "plugin_style": plugin_style(),
-                "style_radius": not pipeline_jetson.is_jetson(),            # Eckenrundung: nur der Rockchip-Baustein zeichnet sie (nvcompositor kennt keine Rundung)
+        return {"config": dict(self.cfg, styles=clean_styles(self.cfg.get("styles"))), "plugin_style": True,
+                "style_radius": False,                                      # Eckenrundung gibt es nicht (nvcompositor kennt keine Rundung); die Oberfläche blendet sie aus
                 "cameras": [{"key": c["key"], "name": c["name"], "state": c.get("state", "unknown"), "w": c.get("w", 0), "h": c.get("h", 0)} for c in cams],
-                "corners": list(pip_corners()), "preview": self.build() if self.cfg.get("main") in keys else "",
-                "needs_plugin": self.cfg.get("type") == "pip", "plugin_present": pipeline_jetson.is_jetson() or os.path.exists("/opt/pipbox/gst/libgstpbpip.so")}
+                "corners": list(PIP_CORNERS), "preview": self.build() if self.cfg.get("main") in keys else "",
+                "needs_plugin": self.cfg.get("type") == "pip", "plugin_present": True}
 
 
 def view_only_change(a, b):
@@ -736,26 +459,9 @@ def view_only_change(a, b):
 
 
 def always_compatible(a, b):
-    """Unterscheiden sich zwei Bildaufbau-Einstellungen nur in Dingen, die die Sendekette im Modus "alle Kameras immer bereit" ohne Neustart übernimmt?
-    Das sind: welche Kamera an welchem Platz ist (die Zahl der kleinen Bilder muss gleich bleiben), Verzögerungen, Tonquelle, "Bild einblenden",
-    deaktivierte Kameras, automatisches Umschalten. Alles andere (Art, Ecken, Größen, Stile, Schalter selbst) ändert den Aufbau."""
-    def norm(c):
-        c = dict(c)
-        for k in ("main", "pip", "pip2", "pip3"):
-            c[k] = bool(c.get(k))
-        for k in DELAY_KEYS:
-            c.pop(k, None)
-        for k in ("audio", "inactive", "auto_failover", "swap_cams", "facecam"):
-            c.pop(k, None)
-        c["styles"] = clean_styles(c.get("styles"))
-        for k in STYLE_SLOTS:
-            c["styles"][k] = dict(c["styles"][k], visible=True)
-        return c
+    """Gilt eine Änderung der Bildaufbau-Einstellung im Modus "alle Kameras immer bereit" ohne Neustart der Sendekette? Lage, Größe, Ecke, Beschnitt, Rahmen,
+    Verzögerung, Ton, Ansicht und welche Kamera an welchem Platz ist, gehen über die Steuerdatei und die Weichen. Nur die Art (eine Kamera, Bild-in-Bild) und die Zahl
+    der kleinen Bildern (Pads des Compositors) ändern den Aufbau; eine neue Kamera an einem Platz startet der Sende-Dienst selbst gezielt neu (SlotController.reload).
+    Ohne den Schalter bei beiden Einstellungen gilt die Regel nicht."""
     both = a.get("type") in ("pip", "single") and b.get("type") in ("pip", "single") and a.get("always_ready") is True and b.get("always_ready") is True
-    if pipbox_live.supported() and both:
-        return True                       # Engine Compositor: Zuordnung, Größen, Ecken, Stile, Zuschnitt, Rahmen, Verzögerung, Ton: alles live (eine Kamera oder mit kleinen Bildern)
-    if pipeline_jetson.is_jetson() and both:
-        # Jetson-Kette: Lage, Größe, Ecke, Beschnitt, Rahmen, Ton und Ansicht gehen über die Steuerdatei. Nur die Art und die Zahl der kleinen Bilder (Pads des
-        # Compositors) ändern den Aufbau; eine neue Kamera an einem Platz startet der Sende-Dienst selbst gezielt neu (SlotController.reload).
-        return a.get("type") == b.get("type") and all(bool(a.get(k)) == bool(b.get(k)) for k in ("pip", "pip2", "pip3"))
-    return both and a.get("type") == b.get("type") and norm(a) == norm(b)
+    return bool(both and a.get("type") == b.get("type") and all(bool(a.get(k)) == bool(b.get(k)) for k in ("pip", "pip2", "pip3")))

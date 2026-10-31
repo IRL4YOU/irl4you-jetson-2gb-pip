@@ -22,7 +22,6 @@ from compat36 import ThreadingHTTPServer  # noqa: F401  (Python 3.6)
 import controller_keys            # Tasten gekoppelter Bluetooth-Controller und ihre Funktionen
 import dji                         # Namen von USB-Sticks (WLAN, Bluetooth) aus /sys, liegt neben dieser Datei
 import hdmi_daemon                 # Prüfung der HDMI-Einstellungen (dieselbe wie im HDMI-Dienst), liegt neben dieser Datei
-import pipbox_live                 # Engine "alle Kameras immer bereit" mit Compositor und dynamischen Zweigen (Technik von streamingbox), liegt neben dieser Datei
 from tw.emotes import (ThirdPartyEmotes)  # noqa: E402,F401
 from tw.events import (TwitchEvents, WebSocketLite)  # noqa: E402,F401
 from tw.irc import (ChatPaths, TwitchChat, _IrcLines, _ascii_digits)  # noqa: E402,F401
@@ -49,16 +48,16 @@ from srv.hostctl import (AutoStart, BtDriver, Developer, LogBundle, LogMode, Pow
 from srv.httpd import (LimitedHTTPServer, PHONE_FRAME, controller_action, scene_swap)  # noqa: E402,F401
 from srv.layout import (DeckStore, LayoutStore)  # noqa: E402,F401
 from srv.netinfo import (ARP_STATUS, ARP_STATUS_MAX_AGE, FIXED_ALIAS, IFACE_NAME_RE, LINKS_FILE, NET_LABELS, NET_PREFIXES, NET_RE, NET_SKIP, _alert_text, _iface_ips_raw, fixed_ip, iface_ips, lan_ip, mac_suffix, net_conflict, net_label, uplink_states)  # noqa: E402,F401
-from srv.pipeline import (DEFAULT_MAIN_DELAY_MS, DEFAULT_PIP_DELAY_MS, DELAY_KEYS, FRAME_MS, PipelineStore, always_compatible, view_only_change)  # noqa: E402,F401
-from srv.plugin import (CAM_LIVE, FEED_AUDIO_CAPS, FEED_FILL_VIDEO, FEED_PORT, FEED_VIDEO_CAPS, FREE, PIP_CORNERS, PLUGIN_SO, SEND_STATUS, SWAP_SELECT, SWAP_STATE, VIEW_ENABLED, VIEW_FILE, VIEW_STATE, _CENTER, _FILL, _MULTI, _STYLE, _SWAP, _VIEW, feeder_tool, pip_corners, plugin_fill, plugin_multi, plugin_style, plugin_swap, plugin_view)  # noqa: E402,F401
+from srv.pipeline import (DEFAULT_MAIN_DELAY_MS, DEFAULT_PIP_DELAY_MS, DELAY_KEYS, PipelineStore, always_compatible, view_only_change)  # noqa: E402,F401
+from srv.plugin import (FEED_AUDIO_CAPS, FEED_PORT, FEED_VIDEO_CAPS, FREE, PIP_CORNERS, SEND_STATUS, VIEW_FILE, VIEW_STATE)  # noqa: E402,F401
 from srv.remote import (Remote)  # noqa: E402,F401
-from srv.sampler import (BC_STATS_FILE, LIMITS, NPU_FILE, OutageWatch, Sampler, THERMAL_NAMES, UsbWatch, devfreq_loads, disk_usage, npu_load, send_stats)  # noqa: E402,F401
+from srv.sampler import (BC_STATS_FILE, LIMITS, OutageWatch, Sampler, THERMAL_NAMES, UsbWatch, devfreq_loads, disk_usage, send_stats)  # noqa: E402,F401
 from srv.sendctl import (SendControl)  # noqa: E402,F401
 from srv.settings import (SETTINGS_FORMAT, SETTINGS_SECTIONS, SETTINGS_VERSION, SettingsTransfer, client_wifi_list)  # noqa: E402,F401
 from srv.srtla import (HOST_RE, PENDING_LABELS, SrtlaStore, srtla_signature)  # noqa: E402,F401
 from srv.stats import (FpsProbe, StatsServer, StatsShare, build_stats_snapshot)  # noqa: E402,F401
 from srv.status import (FpsMemory, IfaceMemory, NetChoice, UplinkMemory, status_light)  # noqa: E402,F401
-from srv.style import (CROP_KEEP, CROP_REF_H, CROP_REF_W, HW_MIN_H, HW_MIN_W, SIZE_MAX, SIZE_MIN, STYLE_COLOR_RE, STYLE_DEFAULT, STYLE_SLOTS, _style_copy, clean_style, clean_styles, pip_size, small_decode, style_text)  # noqa: E402,F401
+from srv.style import (CROP_KEEP, CROP_REF_H, CROP_REF_W, SIZE_MAX, SIZE_MIN, STYLE_COLOR_RE, STYLE_DEFAULT, STYLE_SLOTS, _style_copy, clean_style, clean_styles, pip_size)  # noqa: E402,F401
 from srv.swupdate import (SwUpdate, Updates)  # noqa: E402,F401
 from srv.util import (WEB_DIR, _TTL, read, ttl_cached, ttl_cached_drop)  # noqa: E402,F401
 from srv.vault import (Vault)  # noqa: E402,F401
