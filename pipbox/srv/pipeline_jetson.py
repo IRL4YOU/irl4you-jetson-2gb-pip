@@ -1,0 +1,83 @@
+"""Pipeline-Text für belacoder auf dem Jetson Nano (Nvidia-Hardware statt Rockchip).
+
+Aufbau wie die Jetson-Pipelines des BELABOX-Pakets (belacoder-pipelines-tegra): RTMP von nginx, Hardware-Decoder nvv4l2decoder, H.265 mit
+nvv4l2h265enc, MPEG-TS an den appsink. Bild-in-Bild macht nvcompositor (Mischen in der Videohardware, ohne dass die CPU die Bilder liest).
+belacoder findet die Elemente über ihre Namen: v_delay, a_delay, venc_bps und appsink.
+"""
+
+import os
+
+from pipbox_live import place
+from srv.style import pip_size
+
+CANVAS_W, CANVAS_H = 1920, 1080
+Q_BIG = "queue max-size-time=3000000000 max-size-buffers=0 max-size-bytes=0 leaky=downstream"
+Q_MUX = "queue max-size-time=10000000000 max-size-buffers=1000 max-size-bytes=41943040"
+RGBA = "video/x-raw(memory:NVMM),format=RGBA"      # ohne Hochkommas: belacoder gibt den Text direkt an gst_parse_launch (Hochkommas gelten nur in der Shell)
+NV12 = "video/x-raw(memory:NVMM),format=NV12"
+ENCODER = ('nvv4l2h265enc control-rate=1 qp-range="28,50:0,38:0,50" iframeinterval=60 preset-level=4 maxperf-enable=true '
+           "EnableTwopassCBR=true insert-sps-pps=true name=venc_bps")
+
+
+def is_jetson():
+    """Läuft das hier auf einem Jetson (L4T)? Dann baut PipelineStore.build() diese Kette statt der Rockchip-Kette."""
+    return os.path.exists("/etc/nv_tegra_release")
+
+
+def _audio_main(demux):
+    return (f"{demux}.audio ! aacparse ! avdec_aac ! identity name=a_delay signal-handoffs=TRUE ! volume volume=1.0 ! "
+            f"audioconvert ! voaacenc bitrate=128000 ! aacparse ! {Q_MUX} ! mux.")
+
+
+def _audio_other(demux, take):
+    """Ton einer zweiten Kamera: entweder in die Sendung (wenn gewählt) oder verwerfen, damit flvdemux nicht aufstaut."""
+    if take:
+        return (f"{demux}.audio ! aacparse ! avdec_aac ! identity name=a_delay signal-handoffs=TRUE ! volume volume=1.0 ! audioconvert ! "
+                f"voaacenc bitrate=128000 ! aacparse ! {Q_MUX} ! mux.")
+    return f"{demux}.audio ! queue max-size-buffers=4 leaky=downstream ! fakesink sync=false async=false"
+
+
+def build(c, base, pip, pip2, pip3):
+    """c: geprüfte Einstellung (PipelineStore._safe_cfg), base: rtmp://127.0.0.1:<Port>/<Anwendung>, pip/pip2/pip3: welche kleinen Bilder es gibt."""
+    sel = c.get("audio", "main") if pip else "main"
+    if sel == "pip2" and not pip2 or sel == "pip3" and not pip3 or sel not in ("main", "pip", "pip2", "pip3"):
+        sel = "main"
+    out = []
+
+    # Hauptbild
+    out.append(f"rtmpsrc location={base}/{c['main']} do-timestamp=true !\nflvdemux name=demux\n")
+    if pip:
+        out.append(f"demux.video ! identity name=v_delay signal-handoffs=TRUE ! {Q_BIG} ! h264parse ! nvv4l2decoder ! nvvidconv ! {RGBA} ! comp.sink_0\n")
+    else:
+        out.append(f"demux.video ! identity name=v_delay signal-handoffs=TRUE ! {Q_BIG} ! h264parse ! nvv4l2decoder ! nvvidconv ! {NV12} !\n"
+                   f"{ENCODER} !\nh265parse config-interval=-1 ! {Q_MUX} ! mux.\n")
+
+    # Kleine Bilder: jedes Bild bekommt seine Größe und Ecke; nvcompositor verkleinert und legt es über das Hauptbild
+    if pip:
+        props = [f"sink_0::xpos=0 sink_0::ypos=0 sink_0::width={CANVAS_W} sink_0::height={CANVAS_H} sink_0::zorder=0"]
+        margin = (CANVAS_W // 60) & ~1
+        slots = [(1, "pip", ""), (2, "pip2", "2"), (3, "pip3", "3")]
+        present = {"pip": pip, "pip2": pip2, "pip3": pip3}
+        size_keys = {"pip": "size_pct", "pip2": "size_pct2", "pip3": "size_pct3"}
+        for n, key, sfx in slots:
+            if not present[key]:
+                continue
+            w, h = pip_size(c[size_keys[key]])
+            x, y = place(c["corner" + sfx], CANVAS_W, CANVAS_H, w, h, margin, c["x" + sfx], c["y" + sfx])
+            props.append(f"sink_{n}::xpos={x} sink_{n}::ypos={y} sink_{n}::width={w} sink_{n}::height={h} sink_{n}::zorder={n}")
+            out.append(f"rtmpsrc location={base}/{c[key]} do-timestamp=true !\nflvdemux name=d{n}\n")
+            out.append(f"d{n}.video ! {Q_BIG} ! h264parse ! nvv4l2decoder ! nvvidconv ! {RGBA} ! comp.sink_{n}\n")
+        out.append("nvcompositor name=comp " + " ".join(props) + f" !\n{RGBA} ! nvvidconv ! {NV12} !\n"
+                   f"{ENCODER} !\nh265parse config-interval=-1 ! {Q_MUX} ! mux.\n")
+
+    # Ton: genau eine Quelle geht in die Sendung, die übrigen werden verworfen
+    out.append(_audio_main("demux") + "\n" if sel == "main" else
+               "demux.audio ! queue max-size-buffers=4 leaky=downstream ! fakesink sync=false async=false\n")
+    if pip:
+        out.append(_audio_other("d1", sel == "pip") + "\n")
+        if pip2:
+            out.append(_audio_other("d2", sel == "pip2") + "\n")
+        if pip3:
+            out.append(_audio_other("d3", sel == "pip3") + "\n")
+    out.append("mpegtsmux name=mux !\nappsink name=appsink")
+    return "\n".join(out)
