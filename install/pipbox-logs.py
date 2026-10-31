@@ -976,6 +976,65 @@ def network_report():
     return nl.join(out) + nl
 
 
+def v4l2_formats(node):
+    """Bildformate einer Videokamera laut Treiber (VIDIOC_ENUM_FMT/ENUM_FRAMESIZES, 64-Bit-Aufbau): [(Format, [Größen])]; leer, wenn nichts lesbar."""
+    import fcntl
+    import struct
+    out = []
+    try:
+        fd = os.open(node, os.O_RDWR | os.O_NONBLOCK | os.O_CLOEXEC)
+    except OSError as e:
+        return [("(nicht lesbar: %s)" % e.strerror, [])]
+    try:
+        i = 0
+        while i < 20:
+            b = bytearray(64)
+            struct.pack_into("II", b, 0, i, 1)
+            try:
+                fcntl.ioctl(fd, 0xC0405602, b)
+            except OSError:
+                break
+            fmt = bytes(b[44:48])
+            sizes, j = [], 0
+            while j < 20:
+                z = bytearray(44)
+                struct.pack_into("II", z, 0, j, struct.unpack("<I", fmt)[0])
+                try:
+                    fcntl.ioctl(fd, 0xC02C564A, z)
+                except OSError:
+                    break
+                w, h = struct.unpack_from("II", z, 12)
+                sizes.append("%dx%d" % (w, h))
+                j += 1
+            out.append((fmt.decode("ascii", "replace"), sizes))
+            i += 1
+    finally:
+        os.close(fd)
+    return out
+
+
+def usb_camera_report():
+    """USB-Kamera: Einstellung der Karte (ohne Schlüssel), Videoknoten mit Treiber und die Bildformate, die die Kamera anbietet. Zeigt, ob zum Beispiel H.264 gewählt ist und ob die Kamera es kann."""
+    lines = []
+    d = load_json("hdmi.json")
+    if isinstance(d, dict):
+        lines.append("Einstellung: " + json.dumps({k: v for k, v in d.items() if k != "key"}, ensure_ascii=False, sort_keys=True))
+    else:
+        lines.append("Einstellung: (nicht lesbar)")
+    nodes = sorted(n for n in os.listdir("/sys/class/video4linux") if re.match(r"^video\d{1,3}$", n)) if os.path.isdir("/sys/class/video4linux") else []
+    if not nodes:
+        lines.append("Keine Videoknoten (keine USB-Kamera am Treiber uvcvideo).")
+    for n in nodes:
+        base = "/sys/class/video4linux/" + n
+        drv = os.path.basename(os.path.realpath(base + "/device/driver"))
+        lines.append("/dev/%s: %s, Treiber %s, Index %s" % (n, read_small(base + "/name", 80), drv, read_small(base + "/index", 8)))
+        if read_small(base + "/index", 8) in ("", "0"):
+            for fmt, sizes in v4l2_formats("/dev/" + n):
+                lines.append("    %s: %s" % (fmt, " ".join(sizes) or "-"))
+    lines.append("Hinweis: H.264 kann der Kernel dieser Box bei Kameras nicht abholen, die für H.264 keine Puffergröße melden (Fehler \"did not suggest any buffer size\"): dann nimmt die Box MJPEG.")
+    return "\n".join(lines) + "\n"
+
+
 def usb_devices():
     """USB-Geräte aus /sys (lsusb gibt es auf der Box nicht): Anschluss, Hersteller-/Produktnummer, Name."""
     base = "/sys/bus/usb/devices"
@@ -1130,6 +1189,7 @@ def sections():
                                                                     read_small("/proc/loadavg"), run(["free", "-m"], 5))),
            ("Jetson: L4T, Video-Hardware, Takte, Lüfter, tegrastats", jetson_system() if is_jetson() else "(kein Jetson)\n"),
            ("Jetson-Kette: Steuerdatei, Ansicht, Zubringer und Weichen mit Kernen", jetson_chain() if is_jetson() else "(kein Jetson)\n"),
+           ("USB-Kamera: Einstellung und Bildformate der Kamera", usb_camera_report()),
            ("Dienste", "".join("%-22s %s\n" % (u, run(["systemctl", "is-active", u + ".service"], 5).strip()) for u in units)
             + "Einmalige Helfer (\"inactive\" ist normal, wenn sie nicht gerade arbeiten):\n"
             + "".join("%-22s %s\n" % (u, run(["systemctl", "is-active", u + ".service"], 5).strip()) for u in helpers)

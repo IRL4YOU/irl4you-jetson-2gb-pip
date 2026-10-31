@@ -473,6 +473,7 @@ class Daemon:
             if self._probe_run(argv) or (self._pause(PROBE_RETRY_PAUSE) or self._probe_run(argv)):      # ein zweiter Versuch, bevor auf ein schlechteres Format zurückgegriffen wird
                 self.usb_choice = (cam["node"], cand)
                 return cand
+            log.info("Das Bildformat %s lässt sich von dieser Kamera nicht abholen, die Box nimmt das nächste", usb_caps(cand)[0])
         self.usb_choice = None
         return None
 
