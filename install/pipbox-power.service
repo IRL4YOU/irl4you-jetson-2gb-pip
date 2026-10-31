@@ -2,6 +2,7 @@
 Description=IRL4YOU BOX Ein-/Ausschalt-Helfer (nur herunterfahren oder neu starten)
 
 [Service]
+Environment=LC_ALL=C.UTF-8 LANG=C.UTF-8
 Type=oneshot
 ExecStart=/usr/bin/python3 /opt/pipbox/pipbox-power.py
 TimeoutStartSec=2min
