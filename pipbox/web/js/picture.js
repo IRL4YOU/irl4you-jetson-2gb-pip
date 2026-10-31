@@ -51,9 +51,11 @@ document.querySelectorAll(".pvs").forEach(box=>{
     else if(f==="bw") st.border.width=clampN(el.value,1,40,6);
     else if(f==="bc") st.border.color=/^#[0-9a-fA-F]{6}$/.test(el.value)?el.value.toLowerCase():"#ffffff";
     else if(f==="bo") st.border.opacity=clampN(el.value,10,100,100);
+    pipeDirty=true; $("pipeerr").textContent="Nicht gespeichert: Mit „Bildaufbau speichern“ übernehmen.";   // sonst überschreibt die nächste Abfrage (pipeLoad) die Eingabe vor dem Speichern
     styleFill(k,ev.type==="change"); renderPreview();
   };
   box.addEventListener("input",edit); box.addEventListener("change",edit);
+  if(pipeData&&pipeData.style_radius===false) box.querySelectorAll('[data-o="radius"]').forEach(e=>e.hidden=true);   // Jetson: keine Eckenrundung (auch wenn die Karte vor diesem Block geladen wurde)
   styleFill(k,true);
 });
 let pipeData=null, pipeDirty=false, pipDelayDirty=false, pipLive={}, pipCams=[], pipCorners=[];
