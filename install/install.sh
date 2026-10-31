@@ -11,8 +11,8 @@ UNIT=/etc/systemd/system/pipbox.service
 
 case "${1:-install}" in
   uninstall)
-    systemctl disable --now pipbox.service pipbox-ssh.path >/dev/null 2>&1 || true
-    rm -f "$UNIT" /etc/systemd/system/pipbox-ssh.service /etc/systemd/system/pipbox-ssh.path
+    systemctl disable --now pipbox.service pipbox-ssh.path pipbox-update.path >/dev/null 2>&1 || true
+    rm -f "$UNIT" /etc/systemd/system/pipbox-ssh.service /etc/systemd/system/pipbox-ssh.path /etc/systemd/system/pipbox-update.service /etc/systemd/system/pipbox-update.path
     systemctl daemon-reload >/dev/null 2>&1 || true
     rm -rf "$APP" "$DEST"
     echo "Jetson 2GB PIP entfernt. Zustand in $STATE, Benutzer pipbox und nachinstallierte Pakete bleiben."
@@ -61,11 +61,16 @@ install -m 644 "$HERE/install/pipbox.service" "$UNIT"
 install -m 755 "$HERE/install/pipbox-ssh.py" "$APP/pipbox-ssh.py"
 install -m 644 "$HERE/install/pipbox-ssh.service" /etc/systemd/system/pipbox-ssh.service
 install -m 644 "$HERE/install/pipbox-ssh.path" /etc/systemd/system/pipbox-ssh.path
+# Root-Helfer fuer die System-Updates (Karte System-Updates): apt-get update und dist-upgrade wie bei belaUI, nur auf Anforderung der Oberflaeche
+install -m 755 "$HERE/install/pipbox-update.py" "$APP/pipbox-update.py"
+install -m 644 "$HERE/install/pipbox-update.service" /etc/systemd/system/pipbox-update.service
+install -m 644 "$HERE/install/pipbox-update.path" /etc/systemd/system/pipbox-update.path
 
 echo "JPIP-STEP start"
 systemctl daemon-reload
 systemctl enable pipbox.service >/dev/null 2>&1 || echo "WARNUNG: Der Dienst pipbox liess sich nicht fuer den Autostart eintragen."
 systemctl enable --now pipbox-ssh.path >/dev/null 2>&1 || echo "WARNUNG: Der SSH-Helfer pipbox-ssh.path liess sich nicht einschalten."
+systemctl enable --now pipbox-update.path >/dev/null 2>&1 || echo "WARNUNG: Der Update-Helfer pipbox-update.path liess sich nicht einschalten."
 systemctl restart pipbox.service || echo "WARNUNG: Der Dienst pipbox liess sich nicht starten (journalctl -u pipbox)."
 i=0
 while [ "$i" -lt 20 ]; do
