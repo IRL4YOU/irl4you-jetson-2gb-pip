@@ -1,5 +1,9 @@
 # Änderungen
 
+## 0.1.26
+- **Protokoll: neuer Abschnitt „USB-Kamera“** mit der Einstellung der Karte (Bildformat Automatisch, MJPEG oder H.264) und den Bildformaten, die die Kamera laut Treiber anbietet (zum Beispiel Action 4: MJPG und H264, je 1280x720 und 1920x1080). Daran sieht man bei einem Problem sofort, welches Format gewählt ist.
+- **Bildformat „H.264“ erklärt:** Die Action 4 bietet H.264 über USB an, der Kernel (4.9) kann es aber nicht abholen (die Kamera meldet für H.264 keine Puffergröße). Die Box nimmt dann automatisch MJPEG; der Hinweis steht an der Auswahl und die Meldung „Das Bildformat … lässt sich von dieser Kamera nicht abholen“ im Journal. Gemessen: Die direkte Abholung am Treiber vorbei (libusb) liefert H.264 mit 32 bis 37 Mbit/s und ist insgesamt deutlich teurer als MJPEG mit Hardware-Dekodierung und -Kodierung (rund 183 % gegenüber 117 % eines Kerns); sie wird deshalb nicht eingebaut.
+
 ## 0.1.25
 - **USB-Kamera (zum Beispiel DJI Osmo Action 4 über USB) lieferte nur etwa 4 bis 5 Bilder je Sekunde und rund 1 Mbit/s statt 30 fps und 8000 kbit/s.** Auslöser war ein Protokoll eines anderen Streamers (Thread `v4l2src` mit fast 100 %, Stream mit 3,8 fps). Der Fehler ließ sich mit der echten Kamera am Gerät nachstellen: Der MJPEG-Strom der Kamera kam mit 26 fps an (rund 210 KB je Bild), aber `nvjpegdec` brauchte für 120 Bilder 24 Sekunden, fast nur Systemzeit. Jetzt dekodiert der Hardware-Dekoder (`nvv4l2decoder mjpeg=1`): dieselben 120 Bilder in 4,4 Sekunden. Gilt für die Einspeisung und den Probelauf der USB-Kamera.
 
