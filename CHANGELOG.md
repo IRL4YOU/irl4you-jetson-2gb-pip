@@ -1,5 +1,10 @@
 # Änderungen
 
+## 0.1.9
+- Osmo Action 6: Das Bild kommt über WLAN mit 1920x1088 Zeilen an (die letzten 8 Zeilen sind Füllzeilen, schwarz). Die Sendekette schneidet sie jetzt ab (nvvidconv mit festem Ausschnitt 1920x1080) statt das Bild zu stauchen. Gemessen im Vorschaubild: unten kein schwarzer Streifen mehr. Der Zuschnitt gilt nur für eine Kamera, die beim Aufbau der Kette 1920x1088 meldet; beim Start von Live muss die Action 6 also schon senden (sonst greift er erst beim nächsten Neuaufbau).
+- Der Ausgang des Compositors ist jetzt fest 1920x1080 (vorher folgte er der Größe der Bilder).
+- Eine Kamera, die an einem Platz neu dazukommt, löst einen gezielten Neustart von belacoder aus (der Decoder kann den Strom nicht wechseln); gemessen mit einer Testkamera am dritten kleinen Platz: Neustart, danach 30 Bilder/s.
+
 ## 0.1.8
 - Tausch von Hauptbild und kleinen Bildern ohne Unterbrechung (Dialog „Bildaufbau speichern“, „Hauptbild wählen“, Controller-Tasten): Vorher bekam der Decoder eines Platzes beim Tausch plötzlich den Strom einer anderen Kamera; der Hardware-Decoder des Jetson verkraftet das nicht („reference in DPB was never decoded“), der Ausgang stand etwa 15 Sekunden, dann startete belacoder neu. Jetzt behält jede Kamera ihren Decoder-Platz (wie im anderen Paket: ein Schlüssel behält seinen Platz), und ein Tausch ändert nur Lage, Größe und Ebene der Bilder und die Tonquelle. Nur eine Kamera, die neu dazukommt, startet belacoder gezielt neu. Gemessen: 12 Tauschwechsel (cam-a mit cam-b und cam-a mit der Action 6) ohne Stillstand.
 - Bericht bei einem unerwarteten Ende von belacoder: Die letzten Ausgabezeilen (ohne Adressen und Schlüssel), der Zustand der Weichen je Platz mit Uhrzeiten und die UDP-Fehlerzähler stehen in /var/lib/pipbox/belacoder-ende.txt (die letzten 6 Berichte). Damit lassen sich seltene Ausfälle erklären.
