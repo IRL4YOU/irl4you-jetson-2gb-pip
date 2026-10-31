@@ -113,6 +113,18 @@ else
     fi
   fi
 fi
+if [ "$SKIP_SYS" != 1 ]; then
+  # Nicht mehr benötigte Pakete entfernen (zum Beispiel das leere BELABOX-Übergangspaket belaui-fix); die Liste steht vorher im Protokoll
+  RM_LIST=$(apt-get -s autoremove 2>/dev/null | sed -n 's/^Remv \([^ ]*\).*/\1/p' | tr '\n' ' ')
+  if [ -n "${RM_LIST# }" ]; then
+    { echo; echo "===== apt-get autoremove: $RM_LIST ====="; } >> "$LOG"
+    if apt-get -y autoremove >>"$LOG" 2>&1; then
+      say "  Nicht mehr benötigte Pakete entfernt: $RM_LIST"
+    else
+      say "  Das Aufräumen (autoremove) meldete einen Fehler. Details im Protokoll."
+    fi
+  fi
+fi
 say ""
 
 # --- Schritt 2: Zusatzpaket ---------------------------------------------------------------------------------------------------------------------
