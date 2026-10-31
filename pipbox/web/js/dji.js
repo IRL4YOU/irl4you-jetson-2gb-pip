@@ -111,51 +111,19 @@ function djiDynamic(){
   }
 }
 // Bluetooth-Sticks in der Karte "Verbindungen": jeder laufende Adapter, auch Sticks, die stecken, aber keinen Adapter ergeben
-// (kein Treiber, nicht unterstützt) mit ihrem Hinweis, und eine Meldung des Treiber-Helfers, solange er arbeitet oder scheitert.
+// (nicht unterstützt) mit ihrem Hinweis.
 function btRender(d){
   const el=$("btcard"); if(!el) return;
-  const ad=d.available?(d.adapters||[]):[], pr=d.available?(d.adapter_problems||[]):[], dr=d.driver||{};
-  const drTxt=d.available&&dr.message&&["working","waiting","failed","unsupported"].includes(dr.state)?dr.message:"";
+  const ad=d.available?(d.adapters||[]):[], pr=d.available?(d.adapter_problems||[]):[];
   let h="";
   if(!d.available) h=`<div class="wstat bad"><span class="wdot"></span><span class="wgrow">${esc(d.reason||"Der Bluetooth-Dienst ist nicht erreichbar")}</span></div>`;
   else{
     h=ad.map(a=>`<div class="wstat${a.powered?" ok":""}"><span class="wdot"></span><span class="wgrow"><b>${esc(a.label||a.name||(a.usb_id?"Bluetooth-Stick":"Eingebauter Bluetooth-Adapter"))}</b>${devDet(a)}${dnLink(a)} · ${a.powered?"bereit":"ausgeschaltet"}</span></div>`).join("")+
       pr.map(x=>`<div class="wstat bad"><span class="wdot"></span><span class="wgrow"><b>${esc(x.label||x.name)}</b> <span class="muted">(${esc(x.id)})</span>${dnLink(x)} · nicht nutzbar<div class="muted" style="margin-top:3px">${esc(x.hint)}</div></span></div>`).join("");
     if(!ad.length&&!pr.length) h='<div class="wstat bad"><span class="wdot"></span><span class="wgrow">Kein Bluetooth-Adapter gefunden. Für DJI-Kameras einen USB-Bluetooth-Stick einstecken.</span></div>';
-    if(drTxt) h+=`<div class="ph"${dr.state==="failed"||dr.state==="unsupported"?' style="color:var(--crit)"':""}>${esc(drTxt)}</div>`;
   }
   setHtml(el,h);
 }
-// Treiber von Hand einrichten (Helfer pipbox-btdriver): Fortschritt aus /api/btdriver, nicht aus dem Bluetooth-Dienst (der fehlt beim Neuladen kurz)
-let btdrvTimer=0;
-function btdrvRender(d){
-  const msg=$("btdrvmsg"), go=$("btdrv_go"); if(!msg||!go) return;
-  const run=d.state==="working", ch=d.chip||null;       // ch: eingebauter Bluetooth-Chip der ROCK 5B Plus (nur dort vorhanden)
-  progSet("btdrvprog",run,d.steps?Math.round(100*(d.step||0)/d.steps):0,d.step_text||"");
-  go.disabled=!d.helper_installed||run||!!(ch&&ch.state==="working");
-  const done=!!d.helper_installed&&!run&&(d.state==="ok"||(!!ch&&ch.state==="ok"&&(d.state==="none"||!d.state)));       // Treiber schon eingerichtet und grün: der Knopf ist nur noch für den Notfall da, also neutral statt blau
-  go.className=done?"sec":"";
-  let bad=d.state==="failed"||d.state==="unsupported", show;
-  if(!d.helper_installed) show="Der Treiber-Helfer ist auf dieser Box noch nicht installiert (install.sh erneut ausführen).";
-  else if(ch&&(d.state==="none"||!d.state)){            // kein Stick nötig: den Chip des Boards melden statt "kein Stick"
-    bad=ch.state==="failed"||ch.state==="unsupported";
-    show=(d.manual||ch.manual||ch.state!=="ok")&&ch.message;
-  }
-  else show=(d.manual||bad||run||d.state==="waiting")&&d.message;
-  msg.textContent=show||"";
-  msg.style.color=bad||!d.helper_installed?"var(--crit)":"";
-  clearTimeout(btdrvTimer);
-  btdrvTimer=setTimeout(btdrvLoad,run?1500:15000);
-}
-async function btdrvLoad(){ try{ const r=await fetch("/api/btdriver"); if(r.ok) btdrvRender(await r.json()); }catch(e){ clearTimeout(btdrvTimer); btdrvTimer=setTimeout(btdrvLoad,3000); } }
-$("btdrv_go").onclick=async()=>{
-  $("btdrv_go").disabled=true;
-  try{ const r=await fetch("/api/btdriver",{method:"POST",headers:{"Content-Type":"application/json"},body:"{}"}); const j=await r.json().catch(()=>({}));
-    if(!r.ok){ $("btdrvmsg").textContent=j.error||"Fehler"; $("btdrvmsg").style.color="var(--crit)"; $("btdrv_go").disabled=false; return; }
-    $("btdrvmsg").textContent="Wird gestartet …"; $("btdrvmsg").style.color=""; clearTimeout(btdrvTimer); btdrvTimer=setTimeout(btdrvLoad,1500);
-  }catch(e){ $("btdrvmsg").textContent="Keine Verbindung zur Box"; $("btdrv_go").disabled=false; }
-};
-btdrvLoad();
 // Handyverbindungen (Verbindungen, Bluetooth): gekoppelte Handys mit Akkustand; während der Kopplung zählt die Zeit herunter
 function phoneAge(s){ return s==null?"":s<90?"gerade eben":s<5400?`vor ${Math.round(s/60)} Min.`:`vor ${Math.round(s/3600)} Std.`; }
 function phoneRender(d){
@@ -212,11 +180,9 @@ function djiRender(d){
   note.style.color=note.textContent?"var(--crit)":"";
   { const pr=(d.adapter_problems||[]).map(x=>x.hint), ad=d.adapters||[];       // hier nur Probleme; die Adapter selbst stehen unter "Verbindungen, Bluetooth"
     const el=$("djiadapt");
-    const dr=d.driver||{}, drTxt=dr.message&&["working","waiting","failed","unsupported"].includes(dr.state)?dr.message:"";   // Treiber für Realtek-Sticks (Helfer pipbox-btdriver)
-    const bad=pr.length||!ad.length||dr.state==="failed"||dr.state==="unsupported";
-    if(pr.length&&!drTxt){ el.textContent=pr.join(" "); }
-    else if(pr.length){ el.textContent=drTxt; }
-    else { el.textContent=(ad.length?"":"Kein Bluetooth-Adapter gefunden. ")+drTxt; }
+    const bad=pr.length||!ad.length;
+    if(pr.length){ el.textContent=pr.join(" "); }
+    else { el.textContent=ad.length?"":"Kein Bluetooth-Adapter gefunden."; }
     el.style.color=bad?"var(--crit)":""; }
   $("d_scan").disabled=!!d.scanning; $("d_scan").textContent=d.scanning?"Suche läuft …":"Nach DJI-Kameras suchen";
   // Die Karten nur neu aufbauen, wenn sich die Kameras oder Verbindungen ändern (sonst wird das Tippen unterbrochen)

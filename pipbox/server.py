@@ -43,7 +43,7 @@ from srv.cameras import (CameraStore, HDMI_KEY, KEY_RE, ROLES)  # noqa: E402,F40
 from srv.dji_service import (DJI_COMMANDS, DJI_FIELDS, DjiService)  # noqa: E402,F401
 from srv.handler import (Handler)  # noqa: E402,F401
 from srv.hdmi_service import (HdmiService)  # noqa: E402,F401
-from srv.hostctl import (AutoStart, BtDriver, Developer, LogBundle, LogMode, Power)  # noqa: E402,F401
+from srv.hostctl import (AutoStart, Developer, LogBundle, LogMode, Power)  # noqa: E402,F401
 from srv.httpd import (LimitedHTTPServer, PHONE_FRAME, controller_action, scene_swap)  # noqa: E402,F401
 from srv.layout import (DeckStore, LayoutStore)  # noqa: E402,F401
 from srv.netinfo import (ARP_STATUS, ARP_STATUS_MAX_AGE, FIXED_ALIAS, IFACE_NAME_RE, LINKS_FILE, NET_LABELS, NET_PREFIXES, NET_RE, NET_SKIP, _alert_text, _iface_ips_raw, fixed_ip, iface_ips, lan_ip, mac_suffix, net_conflict, net_label, uplink_states)  # noqa: E402,F401
@@ -111,7 +111,6 @@ def main():
     Handler.wifi = Wifi(args.state, args.demo, Handler.netchoice, Handler.names, Handler.srtla)
     Handler.power = Power(args.state, args.demo, Handler.send)
     Handler.logmode = LogMode(args.state, args.demo)
-    Handler.btdriver = BtDriver(args.state, args.demo)
     Handler.logbundle = LogBundle(args.state, args.demo)
     Handler.developer = Developer(args.state, args.demo, args.bela_config or None)
     Handler.autostart = AutoStart(args.state, Handler.send, args.demo)

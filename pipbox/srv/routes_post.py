@@ -81,9 +81,6 @@ class PostRoutes:
 
     def post_admin(self, path, d):
         """Bluetooth, Entwickler, WLAN, Controller, Namen, Fernzugriff, Einstellungen, Update der Box"""
-        if path == "/api/btdriver":
-            self.btdriver.request()
-            return self.reply(200, self.btdriver.status())
         if path == "/api/developer":
             self.developer.request(d.get("action"), d.get("confirm") is True)
             return self.reply(200, self.developer.status())
