@@ -74,6 +74,8 @@ class SlotRelay(threading.Thread):
         self.last_sil = clock()
         self.events = collections.deque(maxlen=40)    # (Uhrzeit, Text): Tor auf/zu, Füllbild, Zähler; für den Bericht bei einem unerwarteten Ende von belacoder
         self.pkts_v = self.pkts_fill = 0
+        self.last_in = None                   # letzte Folgenummer des Zubringers
+        self.lost_in = 0                      # Pakete, die laut Folgenummer zwischen Zubringer und Weiche fehlen
         self.seq = 0
         self.socks = {}
         for name, port in (("v", in_v), ("a", in_a), ("f", in_f)):
@@ -118,6 +120,15 @@ class SlotRelay(threading.Thread):
 
     def on_video(self, pkt, now):
         self.last_cam = now
+        if len(pkt) >= 4:                     # Lücken in der Folgenummer vom Zubringer: Pakete, die vor der Weiche verloren gingen
+            seq = int.from_bytes(pkt[2:4], "big")
+            if self.last_in is not None:
+                gap = (seq - self.last_in - 1) & 0xFFFF
+                if 0 < gap < 1000:
+                    self.lost_in += gap
+                    if self.gate:
+                        self.note("Lücke im Strom der Kamera: %d Pakete fehlen (Tor offen)" % gap)
+            self.last_in = seq
         kind = classify(pkt)
         if self.gate:
             self.send_v(pkt)
@@ -146,6 +157,7 @@ class SlotRelay(threading.Thread):
             self.note("Tor zu (seit %.1f s keine Bilder der Kamera)" % (now - self.last_cam))
             self.gate = False                 # die Kamera liefert nichts mehr
             self.params = []
+            self.last_in = None
         if not self.gate:                     # Stille im Takt eines Tonpakets, damit der audiomixer nie auf diesen Platz wartet
             if now - self.last_sil > 0.25:
                 self.last_sil = now

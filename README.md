@@ -1,8 +1,10 @@
 # Jetson 2GB PIP (Beta)
 
-Bild-in-Bild für den **Jetson Nano 2GB** (BELABOX-Image, JetPack 4.6.4 / L4T 32.7.4). Eigenständiges Projekt.
+Bild-in-Bild für den **Jetson Nano 2GB** (BELABOX-Image, JetPack 4.6.4 / L4T 32.7.4): mehrere Kameras zu einem Bild mischen und über SRT/SRTLA senden. Eigenständiges Projekt, die Jetson-Ausgabe von [IRL4YOU PIP](https://github.com/IRL4YOU/irl4you-pip).
 
-> **Beta 0.1.0:** Frühe Testversion, Änderungen sind jederzeit möglich. Bisher gibt es die Einrichtung und die Weboberfläche (Port 8780, ohne Senden und ohne Bild-in-Bild). Das Bild-in-Bild selbst folgt. Getestet nur auf dem Jetson Nano 2GB (JetPack 4.6.4); das 4-GB-Modell ist noch nicht getestet.
+**Webseite:** [irl4you.de](https://irl4you.de) · **Schwesterprojekt (Orange Pi / ROCK):** [IRL4YOU/irl4you-pip](https://github.com/IRL4YOU/irl4you-pip) · **Fehler und Wünsche:** [Issues](https://github.com/IRL4YOU/irl4you-jetson-2gb-pip/issues)
+
+> **Beta:** Testversion, Änderungen sind jederzeit möglich. Die Versionsnummer steht in `VERSION`, die Änderungen in [CHANGELOG.md](CHANGELOG.md). Bisher gibt es: Senden mit Bild-in-Bild über die Video-Hardware des Jetson (alle Kameras immer bereit, Ausfall der Hauptkamera wird überbrückt), SRTLA, DJI-Kameras per Bluetooth, Vorschau, Update über die Oberfläche und Fernzugriff über Tailscale. Die USB-Kamera ist noch nicht mit echter Hardware geprüft; das 4-GB-Modell ist ebenfalls noch nicht getestet. Getestet auf dem Jetson Nano 2GB (JetPack 4.6.4).
 
 ## Installation
 

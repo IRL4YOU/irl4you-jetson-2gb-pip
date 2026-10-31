@@ -1,5 +1,9 @@
 # Änderungen
 
+## 0.1.10
+- Der Bericht bei einem unerwarteten Ende von belacoder (`/var/lib/pipbox/belacoder-ende.txt`) zeigt jetzt auch, wo Pakete verloren gehen: je Platz die Pakete, die laut Folgenummer zwischen Zubringer und Weiche fehlen (mit Uhrzeit, wenn es bei offenem Tor passiert), und die verworfenen Pakete je lokalem UDP-Port (Eingänge der Kette, Weichen, srtla_send). Damit lässt sich die Ursache des seltenen Decoderfehlers „reference in DPB was never decoded“ eingrenzen. Gemessen: Der Zähler von srtla_send (Port 9100) hatte einmal 115 Pakete verworfen (SRT holt sie per Wiederholung nach), die Kamera-Eingänge standen auf 0.
+- README: Link zur Webseite und zum Schwesterprojekt, aktueller Funktionsstand.
+
 ## 0.1.9
 - Osmo Action 6: Das Bild kommt über WLAN mit 1920x1088 Zeilen an (die letzten 8 Zeilen sind Füllzeilen, schwarz). Die Sendekette schneidet sie jetzt ab (nvvidconv mit festem Ausschnitt 1920x1080) statt das Bild zu stauchen. Gemessen im Vorschaubild: unten kein schwarzer Streifen mehr. Der Zuschnitt gilt nur für eine Kamera, die beim Aufbau der Kette 1920x1088 meldet; beim Start von Live muss die Action 6 also schon senden (sonst greift er erst beim nächsten Neuaufbau).
 - Der Ausgang des Compositors ist jetzt fest 1920x1080 (vorher folgte er der Größe der Bilder).
