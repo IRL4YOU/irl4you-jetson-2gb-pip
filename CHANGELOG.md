@@ -1,5 +1,9 @@
 # Änderungen
 
+## 0.1.24
+- **0.1.23 war zu teuer, jetzt behoben:** Das dauernd laufende Füllbild (ein Encoder-Prozess je Platz) trieb die CPU von etwa 50 % auf fast 100 % und füllte den Arbeitsspeicher (vier Prozesse mit je rund 40 MB und 25 bis 50 % eines Kerns). Jetzt wird das schwarze Füllbild beim Start ein Mal aufgenommen (eine Gruppe von Bildern, 25 Pakete, einige Sekunden Encoder) und die Weiche jedes Platzes spielt es selbst ab, wenn ihre Kamera nichts liefert. Es läuft kein Prozess mehr dafür; der Ausfall einer Kamera lässt die Ausgabe trotzdem nicht stehen (Prüfstand: durchgehend rund 750 KB je 2 s, auch während des Ausfalls und bei der Rückkehr der Kamera).
+- Zeitstempel des abgespielten Füllbildes zählen lückenlos weiter, das Abspielen beginnt immer an der Gruppe mit SPS/PPS und IDR.
+
 ## 0.1.23
 - **Sendung bleibt stehen, wenn eine Kamera ausfällt: behoben.** Endet der Strom einer Kamera (DJI „Trennen“ oder „Neu verbinden“, Kabel gezogen, Akku leer), stand bisher die ganze Ausgabe (im Prüfstand gemessen: 25 Sekunden ohne ein Byte, bis die Kamera wieder da war; am Gerät schlug der Wächter nach etwa 6 Sekunden zu und startete belacoder neu, 30 bis 40 Sekunden ohne Bild). Grund: der Bild-Mischer (nvcompositor) wartet an jedem Platz auf Bilder. Jetzt läuft das schwarze Füllbild an jedem belegten Platz dauernd mit, und die Weiche schaltet darauf zurück, sobald die Kamera nichts mehr liefert. Im Prüfstand läuft die Ausgabe durchgehend weiter (etwa 750 KB je 2 s auch während des Ausfalls), die Kamera kommt nach dem Neustart des Zubringers wieder ins Bild.
 - **Verpixeln per Chat entfernt** („!pixel“, „Moderatoren dürfen auch Köpfe ausschalten“): Die Jetson-Version hat kein Verpixeln. Mit dem Abschnitt in der Oberfläche fallen die Platzhalter `srv/datenschutz.py`, die Schalter in der Pipeline und die Hinweise (Facecam, „Alle Kameras immer bereit“) weg.
