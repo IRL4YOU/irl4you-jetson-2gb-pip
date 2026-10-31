@@ -6,6 +6,7 @@ import subprocess
 import time
 import pipbox_live
 
+from srv import pipeline_jetson
 from srv.netinfo import net_conflict
 from srv.pipeline import PipelineStore
 from srv.plugin import SWAP_SELECT, SWAP_STATE, VIEW_FILE, VIEW_STATE
@@ -138,7 +139,7 @@ class SendControl:
                 for k in sorted(set(keys)):
                     if live.get(k) != "live":
                         r.append(f"Kamera {k} sendet gerade nicht")
-        if cfg.get("type") == "pip" and not os.path.exists("/opt/pipbox/gst/libgstpbpip.so"):
+        if cfg.get("type") == "pip" and not pipeline_jetson.is_jetson() and not os.path.exists("/opt/pipbox/gst/libgstpbpip.so"):    # auf dem Jetson mischt nvcompositor
             r.append("Bild-in-Bild: der Überlagerungs-Baustein ist noch nicht installiert")
         return r
 
