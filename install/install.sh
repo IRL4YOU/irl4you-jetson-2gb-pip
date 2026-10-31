@@ -8,11 +8,17 @@ DEST=/opt/jetson-pip
 APP=/opt/pipbox
 STATE=/var/lib/pipbox
 UNIT=/etc/systemd/system/pipbox.service
+# Root-Helfer: je einer mit .path (Ausloeser), .service und .py; die Oberflaeche legt nur eine Anforderungsdatei mit einem festen Stichwort ab
+HELPERS="ssh update wifi power logs logmode netaddr remote swupdate"
 
 case "${1:-install}" in
   uninstall)
-    systemctl disable --now pipbox.service pipbox-ssh.path pipbox-update.path >/dev/null 2>&1 || true
-    rm -f "$UNIT" /etc/systemd/system/pipbox-ssh.service /etc/systemd/system/pipbox-ssh.path /etc/systemd/system/pipbox-update.service /etc/systemd/system/pipbox-update.path
+    systemctl disable --now pipbox.service >/dev/null 2>&1 || true
+    rm -f "$UNIT"
+    for h in $HELPERS; do
+      systemctl disable --now "pipbox-$h.path" >/dev/null 2>&1 || true
+      rm -f "/etc/systemd/system/pipbox-$h.path" "/etc/systemd/system/pipbox-$h.service"
+    done
     systemctl daemon-reload >/dev/null 2>&1 || true
     rm -rf "$APP" "$DEST"
     echo "Jetson 2GB PIP entfernt. Zustand in $STATE, Benutzer pipbox und nachinstallierte Pakete bleiben."
@@ -57,20 +63,18 @@ chown -R root:root "$APP"
 chmod -R u=rwX,go=rX "$APP"
 python3 -m compileall -q "$APP" >/dev/null 2>&1 || true
 install -m 644 "$HERE/install/pipbox.service" "$UNIT"
-# Root-Helfer fuer den SSH-Schalter und das erzeugte SSH-Passwort (Karte Entwickler); er schaltet nur den Dienst ssh ein oder aus
-install -m 755 "$HERE/install/pipbox-ssh.py" "$APP/pipbox-ssh.py"
-install -m 644 "$HERE/install/pipbox-ssh.service" /etc/systemd/system/pipbox-ssh.service
-install -m 644 "$HERE/install/pipbox-ssh.path" /etc/systemd/system/pipbox-ssh.path
-# Root-Helfer fuer die System-Updates (Karte System-Updates): apt-get update und dist-upgrade wie bei belaUI, nur auf Anforderung der Oberflaeche
-install -m 755 "$HERE/install/pipbox-update.py" "$APP/pipbox-update.py"
-install -m 644 "$HERE/install/pipbox-update.service" /etc/systemd/system/pipbox-update.service
-install -m 644 "$HERE/install/pipbox-update.path" /etc/systemd/system/pipbox-update.path
+for h in $HELPERS; do
+  install -m 755 "$HERE/install/pipbox-$h.py" "$APP/pipbox-$h.py"
+  install -m 644 "$HERE/install/pipbox-$h.service" "/etc/systemd/system/pipbox-$h.service"
+  install -m 644 "$HERE/install/pipbox-$h.path" "/etc/systemd/system/pipbox-$h.path"
+done
 
 echo "JPIP-STEP start"
 systemctl daemon-reload
 systemctl enable pipbox.service >/dev/null 2>&1 || echo "WARNUNG: Der Dienst pipbox liess sich nicht fuer den Autostart eintragen."
-systemctl enable --now pipbox-ssh.path >/dev/null 2>&1 || echo "WARNUNG: Der SSH-Helfer pipbox-ssh.path liess sich nicht einschalten."
-systemctl enable --now pipbox-update.path >/dev/null 2>&1 || echo "WARNUNG: Der Update-Helfer pipbox-update.path liess sich nicht einschalten."
+for h in $HELPERS; do
+  systemctl enable --now "pipbox-$h.path" >/dev/null 2>&1 || echo "WARNUNG: Der Helfer pipbox-$h.path liess sich nicht einschalten."
+done
 systemctl restart pipbox.service || echo "WARNUNG: Der Dienst pipbox liess sich nicht starten (journalctl -u pipbox)."
 i=0
 while [ "$i" -lt 20 ]; do
