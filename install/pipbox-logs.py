@@ -1035,6 +1035,60 @@ def usb_camera_report():
     return "\n".join(lines) + "\n"
 
 
+BT_CLONE_MAC = ("00:1A:7D", "00:1B:DC", "00:15:83")      # Adressanfänge, unter denen sich viele Nachbauten des CSR8510 melden (der Hersteller der Chips wird bei Nachbauten ebenfalls als "Cambridge Silicon Radio" gemeldet)
+
+
+def bluetooth_report():
+    """Bluetooth: Adapter, Chiphersteller, USB-Gerät, Treiber und Firmware, dazu Meldungen des Kernels. Zeigt, ob ein Stick nur nicht geladen ist oder ob er (Nachbau, Strom) ausfällt."""
+    lines = []
+    out = run(["hciconfig", "-a"], 8)
+    keep = ("hci", "Type:", "BD Address", "UP RUNNING", "DOWN", "RX bytes", "TX bytes", "HCI Version", "LMP Version", "Manufacturer")
+    macs = {}
+    cur = None
+    for l in out.splitlines():
+        m = re.match(r"^(hci\d+):", l)
+        if m:
+            cur = m.group(1)
+        a = re.search(r"BD Address: ([0-9A-Fa-f:]{17})", l)
+        if a and cur:
+            macs[cur] = a.group(1).upper()
+        if l.strip().startswith(keep) or l.startswith("hci"):
+            lines.append(l.rstrip())
+    if not lines:
+        lines.append("(kein Bluetooth-Adapter gefunden: hciconfig meldet nichts)")
+    base = "/sys/class/bluetooth"
+    try:
+        hcis = sorted(n for n in os.listdir(base) if re.match(r"^hci\d+$", n))
+    except OSError:
+        hcis = []
+    for h in hcis:
+        try:
+            iface = os.path.realpath(os.path.join(base, h, "device"))
+            usb = os.path.dirname(iface)
+            ids = (read_small(usb + "/idVendor", 8) + ":" + read_small(usb + "/idProduct", 8)).lower()
+            lines.append("%s: USB %s, Hersteller \"%s\", Produkt \"%s\", Version %s, Anschluss %s, Treiber %s" % (
+                h, ids, read_small(usb + "/manufacturer", 60), read_small(usb + "/product", 60), read_small(usb + "/bcdDevice", 8), os.path.basename(usb),
+                os.path.basename(os.path.realpath(iface + "/driver"))))
+            mac = macs.get(h, "")
+            hints = []
+            if ids == "0a12:0001":
+                hints.append("CSR8510: oft ein Nachbau, mit BLE-Verbindungen (DJI-Kameras) bekannt unzuverlässig")
+            if mac.startswith(BT_CLONE_MAC):
+                hints.append("Adresse vom Typ CSR-Nachbau")
+            if hints:
+                lines.append("    Hinweis: " + "; ".join(hints))
+        except OSError:
+            lines.append("%s: USB-Angaben nicht lesbar" % h)
+    mods = [l.split()[0] for l in run(["lsmod"], 5).splitlines()[1:] if re.match(r"^(bt|bluetooth|hci_|rfcomm|bnep|hidp)", l)]
+    lines.append("Module: " + (" ".join(mods) or "keine"))
+    fw = sorted(os.listdir("/lib/firmware/rtl_bt")) if os.path.isdir("/lib/firmware/rtl_bt") else []
+    lines.append("Firmware Realtek (/lib/firmware/rtl_bt): %d Dateien%s" % (len(fw), (", darunter " + " ".join(n for n in fw if re.search("8761|8822|8852|8723", n))[:200]) if fw else ""))
+    k = [l for l in run(["dmesg"], 10).splitlines() if re.search(r"Bluetooth:|btusb|hci\d", l)]
+    lines.append("Kernel: %d Meldungen \"hardware error\"; letzte Zeilen:" % sum("hardware error" in l for l in k))
+    lines += ["    " + l[:200] for l in k[-8:]]
+    return "\n".join(lines) + "\n"
+
+
 def usb_devices():
     """USB-Geräte aus /sys (lsusb gibt es auf der Box nicht): Anschluss, Hersteller-/Produktnummer, Name."""
     base = "/sys/bus/usb/devices"
@@ -1199,7 +1253,7 @@ def sections():
            ("Netzwerk beim Start (Adressen fest/DHCP, Netzdateien, Meldungen von ifupdown, ifplugd, DHCP und der Zusatzadresse; bei fehlender Adresse nach einem Neustart)", network_report()),
            ("USB-Geräte", usb_devices()),
            ("WLAN-Karten (Zustand und gefundene Funkstationen)", wifi_cards()),
-           ("Bluetooth", run(["hciconfig"], 8)),
+           ("Bluetooth", bluetooth_report()),
            ("Zustandsprotokoll (alle 10 s, letzte Stunde)", tail_file("/var/log/pipbox-health.log", 360) if os.path.exists("/var/log/pipbox-health.log")
             else tail_file("/run/pipbox-health.log", 360)),
            ("Zustand der Sendekette (nur während des Sendens vorhanden)", tail_file("/run/pipbox-send/status.json", 80)),

@@ -1,5 +1,8 @@
 # Änderungen
 
+## 0.1.30
+- **Protokoll: Abschnitt „Bluetooth“ ausführlicher.** Zeigt je Adapter den Chiphersteller und die Versionen (HCI, LMP), das USB-Gerät (Kennung, Hersteller, Produkt, Anschluss, Treiber), die geladenen Bluetooth-Module, die vorhandene Firmware für Realtek-Sticks und die Meldungen des Kernels („hardware error“ gezählt). Bei einem CSR8510 (`0a12:0001`) oder einer Adresse, unter der sich Nachbauten melden, steht ein Hinweis: solche Sticks sind mit BLE-Verbindungen zu DJI-Kameras oft unzuverlässig. Anlass war ein Protokoll mit „hci0 hardware error 0x37“ und einem Stick, der sich am USB mehrfach trennte.
+
 ## 0.1.29
 - **Weniger CPU in der Weiche, ohne Einbuße bei Bild, Auflösung oder Bitrate.** Die Zubringer schickten das Bild in RTP-Paketen von 1400 Byte an die Weichen (rund 6100 Pakete je Sekunde bei vier Kameras, jedes einzeln durch Python, Kernel und die Kette). Auf Loopback sind große Pakete problemlos möglich: Jetzt sind es 8192 Byte (`FEED_MTU`). Im Prüfstand mit zwei Plätzen brauchte die Weiche 7 statt 15 bis 16 % eines Kerns (halbiert), die Zubringer blieben gleich. Außerdem prüft die Weiche die Paketart (SPS/PPS/IDR) nur noch bei geschlossenem Tor und setzt Folgenummer und Quelle in einer Kopie statt mit fünf Zusammensetzungen je Paket.
 
