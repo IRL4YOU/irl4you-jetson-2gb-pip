@@ -62,6 +62,10 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 
+## bleak (MIT-Lizenz)
+
+Der Bluetooth-Dienst für die DJI-Kameras nutzt die Bibliothek [bleak](https://github.com/hbldh/bleak) (MIT-Lizenz, Henrik Blidh). Sie wird bei der Einrichtung per pip in eine eigene Python-Umgebung geladen und ist nicht Teil dieses Repositorys.
+
 ## belacoder und srtla_send (GPL-3.0 und AGPL-3.0)
 
 Die Sendekette nutzt `belacoder` ([BELABOX/belacoder](https://github.com/BELABOX/belacoder), Commit ccce9ca, GPL-3.0)

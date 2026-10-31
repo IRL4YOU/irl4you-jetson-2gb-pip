@@ -1,0 +1,23 @@
+[Unit]
+Description=Jetson 2GB PIP Bluetooth-Dienst für DJI-Kameras
+After=bluetooth.service
+Wants=bluetooth.service
+
+[Service]
+# Läuft mit Python 3.8 in einer eigenen Umgebung (/opt/pipbox/venv-dji): Die Bluetooth-Bibliothek bleak braucht ab Version 0.22 Python 3.8, das System hat 3.6.
+ExecStart=/opt/pipbox/venv-dji/bin/python -u /opt/pipbox/dji_daemon.py --state /var/lib/pipbox
+Environment=LC_ALL=C.UTF-8
+Restart=on-failure
+RestartSec=3
+TimeoutStopSec=25
+User=pipbox
+Group=pipbox
+SupplementaryGroups=bluetooth
+StateDirectory=pipbox
+StateDirectoryMode=0700
+ProtectSystem=strict
+ProtectHome=yes
+NoNewPrivileges=yes
+
+[Install]
+WantedBy=multi-user.target
