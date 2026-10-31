@@ -57,7 +57,7 @@ class PipelineStore:
             with open(path) as f:
                 self.cfg.update(json.load(f))
         except FileNotFoundError:
-            self.cfg["always_ready"] = True                              # neue Installation: "Alle Kameras immer bereit" ist Standard; wer schon gespeichert hat, behält seine Wahl
+            self.cfg["always_ready"] = not pipeline_jetson.is_jetson()   # neue Installation: "Alle Kameras immer bereit" ist Standard (auf dem Jetson noch nicht verfügbar); wer schon gespeichert hat, behält seine Wahl
         except (OSError, ValueError):
             pass
         self.cfg["styles"] = clean_styles(self.cfg.get("styles"))        # ältere Dateien kennen sie noch nicht
@@ -350,6 +350,8 @@ class PipelineStore:
         state/line: Anfangszustand (Hauptkamera, dann Kamera an Stelle 1 bis 3, 15 = keine), audio_pos: -1 Ton folgt dem Hauptbild,
         0 bis 2 Ton der Kamera an dieser Stelle; asel: Ton läuft ebenfalls über einen Umschalter."""
         c = cls._safe_cfg(cfg)
+        if pipeline_jetson.is_jetson():                  # Jetson: Nvidia-Kette ohne Rockchip-Bausteine, kein Tausch im Betrieb
+            return None
         if c["type"] != "pip" or c["swap_cams"] not in (2, 4) or not KEY_RE.match(c.get("main", "")) or not plugin_swap():
             return None
         pip, pip2, pip3, multi = cls._layout(c)
@@ -374,6 +376,8 @@ class PipelineStore:
         sind in der Tauschgruppe und alle Töne laufen über den Ton-Umschalter. cams: die Kameras beim Aufbau; ein Kamerawechsel an einem Platz braucht keinen
         Neustart (der Zubringer holt dann den Stream der neuen Kamera)."""
         c = cls._safe_cfg(cfg)
+        if pipeline_jetson.is_jetson():                  # Jetson: Nvidia-Kette ohne Zubringer und Compositor-Engine (noch nicht verfügbar)
+            return None
         if pipbox_live.enabled(c) and KEY_RE.match(c.get("main", "")):
             # Engine Compositor: keine Zubringer, kein pbpipsel; alle Änderungen gehen im Betrieb über den Steuerkanal von belacoder
             cams = [k for k in (c["main"], c.get("pip", ""), c.get("pip2", ""), c.get("pip3", "")) if k]
@@ -404,6 +408,8 @@ class PipelineStore:
         c = cls._safe_cfg(cfg)
         if c.get("always_ready") is not True or cls.always_plan(cfg):
             return None
+        if pipeline_jetson.is_jetson():
+            return "Alle Kameras immer bereit gibt es auf dem Jetson noch nicht. Die Sendung läuft im normalen Modus: Die Kameras des Bildaufbaus müssen beim Start senden."
         if c["type"] != "pip":                    # eine Kamera: nur die Engine mit Compositor kennt das; fehlt sie (belacoder zu alt), gilt der normale Modus
             return None if pipbox_live.supported() else "Alle Kameras immer bereit ist nicht aktiv: Der Sende-Baustein ist noch nicht auf dem neuen Stand. Die Sendung läuft im normalen Modus. Ein Software-Update baut ihn neu."
         if not feeder_tool():
@@ -702,7 +708,7 @@ class PipelineStore:
 
     def status(self, cams):
         keys = [c["key"] for c in cams]
-        return {"config": dict(self.cfg, styles=clean_styles(self.cfg.get("styles"))), "plugin_style": plugin_style(), "cameras": [{"key": c["key"], "name": c["name"], "state": c.get("state", "unknown"), "w": c.get("w", 0), "h": c.get("h", 0)} for c in cams],
+        return {"config": dict(self.cfg, styles=clean_styles(self.cfg.get("styles"))), "plugin_style": plugin_style() and not pipeline_jetson.is_jetson(), "cameras": [{"key": c["key"], "name": c["name"], "state": c.get("state", "unknown"), "w": c.get("w", 0), "h": c.get("h", 0)} for c in cams],
                 "corners": list(pip_corners()), "preview": self.build() if self.cfg.get("main") in keys else "",
                 "needs_plugin": self.cfg.get("type") == "pip", "plugin_present": pipeline_jetson.is_jetson() or os.path.exists("/opt/pipbox/gst/libgstpbpip.so")}
 
