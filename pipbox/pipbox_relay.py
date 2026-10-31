@@ -12,8 +12,14 @@ Decoder nie ein Bild ohne seinen Keyframe sieht. Bleiben die Bilder der Kamera l
 Kette ausgeblendet, der Compositor liefert weiter, gemessen), und beim Zurückkehren öffnet es wieder erst an einem IDR. Der Ton läuft nur bei offenem Tor von der Kamera, sonst
 schickt die Weiche Stille, damit der audiomixer der Kette nie auf einen Platz wartet. Folgenummer und Quelle der RTP-Pakete werden neu gesetzt, damit der Strom für den
 Depayloader lückenlos aussieht.
+
+Fester Kern: UDP über Loopback hält die Reihenfolge nur, solange der sendende Thread auf demselben Kern bleibt (der Kernel reiht Pakete je Kern ein; wechselt der
+Sender den Kern mitten in einem Bild, überholen spätere Pakete frühere). Gemessen am Jetson: Lücken in der Folgenummer von 1 bis 91 Paketen an allen Plätzen,
+immer in fallenden Serien (49, 44, 40, 34 …), ohne dass der Kernel ein Paket verworfen hätte; danach "reference in DPB was never decoded" und ein Stillstand der
+Kette. Deshalb laufen jede Weiche (hier) und jeder Zubringer (pipbox_always) auf einem festen Kern.
 """
 import collections
+import os
 import select
 import socket
 import threading
@@ -24,6 +30,15 @@ SHOW_AFTER = 0.3                  # so lange muss das Tor offen sein, bevor die 
 SILENCE_STEP = 1024 / 48000.0     # Dauer eines Tonpakets (1024 Abtastwerte bei 48 kHz)
 SILENCE = bytes(1024 * 4)         # 1024 Abtastwerte, 2 Kanäle, 16 Bit
 SSRC = b"\x4a\x50\x49\x50"
+RELAY_CPUS = (1, 2, 3)            # Kern je Platz (Platz mod 3); Kern 0 bleibt für Unterbrechungen und den Rest frei
+
+
+def pin_cpu(cpu):
+    """Den aufrufenden Thread (oder, in preexec_fn, den neuen Prozess) an einen Kern binden; still, wenn es den Kern nicht gibt."""
+    try:
+        os.sched_setaffinity(0, {int(cpu)})
+    except (AttributeError, OSError, ValueError):
+        pass
 
 
 def classify(pkt):
@@ -74,8 +89,9 @@ class SlotRelay(threading.Thread):
         self.last_sil = clock()
         self.events = collections.deque(maxlen=40)    # (Uhrzeit, Text): Tor auf/zu, Füllbild, Zähler; für den Bericht bei einem unerwarteten Ende von belacoder
         self.pkts_v = self.pkts_fill = 0
-        self.last_in = None                   # letzte Folgenummer des Zubringers
-        self.lost_in = 0                      # Pakete, die laut Folgenummer zwischen Zubringer und Weiche fehlen
+        self.last_in = None                   # höchste Folgenummer des Zubringers bisher
+        self.lost_in = 0                      # Pakete, die laut Folgenummer zwischen Zubringer und Weiche fehlen (Lücke nach vorn)
+        self.late_in = 0                      # Pakete, die nach einer Lücke doch noch kamen (Reihenfolge vertauscht): so viele davon waren kein Verlust
         self.seq = 0
         self.socks = {}
         for name, port in (("v", in_v), ("a", in_a), ("f", in_f)):
@@ -120,15 +136,23 @@ class SlotRelay(threading.Thread):
 
     def on_video(self, pkt, now):
         self.last_cam = now
-        if len(pkt) >= 4:                     # Lücken in der Folgenummer vom Zubringer: Pakete, die vor der Weiche verloren gingen
+        if len(pkt) >= 4:                     # Folgenummer vom Zubringer: Lücke nach vorn = Pakete fehlen (oder kommen später), Nachzügler = Reihenfolge vertauscht
             seq = int.from_bytes(pkt[2:4], "big")
-            if self.last_in is not None:
+            if self.last_in is None:
+                self.last_in = seq
+            else:
                 gap = (seq - self.last_in - 1) & 0xFFFF
-                if 0 < gap < 1000:
+                if gap == 0 or gap >= 1000 and gap < 0xFFFF - 1000:        # das nächste Paket, oder ein neuer Zubringer (eigene Nummern)
+                    self.last_in = seq
+                elif gap < 1000:
                     self.lost_in += gap
+                    self.last_in = seq
                     if self.gate:
                         self.note("Lücke im Strom der Kamera: %d Pakete fehlen (Tor offen)" % gap)
-            self.last_in = seq
+                elif gap != 0xFFFF:                                        # älter als das letzte: ein Nachzügler (last_in bleibt die höchste Nummer)
+                    self.late_in += 1
+                    if self.gate:
+                        self.note("Nachzügler: Paket %d Plätze zu spät (Tor offen)" % (0xFFFF - gap))
         kind = classify(pkt)
         if self.gate:
             self.send_v(pkt)
@@ -168,6 +192,7 @@ class SlotRelay(threading.Thread):
             self.last_sil = now
 
     def run(self):
+        pin_cpu(RELAY_CPUS[self.slot % len(RELAY_CPUS)])
         socks = list(self.socks.values())
         while not self.stop_ev.is_set():
             try:

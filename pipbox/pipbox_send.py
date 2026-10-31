@@ -334,6 +334,8 @@ def write_pipeline(cfg):
     if "name=sbf0_src" in text:             # Engine Compositor: Verzögerung, Ansicht, Ton und Stumm gehen im Betrieb über den Steuerkanal
         DELAY_LIVE = DELAY_LIVE_PIPS = VIEW_LIVE = AUDIO_LIVE = True
         SWAP_BASE = None
+    if pipeline_jetson.is_jetson() and server.PipelineStore.always_plan(cfg):
+        VIEW_LIVE = AUDIO_LIVE = True       # Jetson, alle Kameras immer bereit: Ansicht, Tonquelle und Stumm setzt der SlotController über die Steuerdatei (kein Neustart)
     try:
         os.unlink(server.VIEW_STATE)
     except OSError:
@@ -437,7 +439,8 @@ class Sender:
             self.always = pipbox_always.SlotController(
                 load_json=lambda name: load_json(f"{STATE}/{name}"), live_keys=live_keys,
                 feeders=pipbox_always.JetsonFeeders(log=lambda m: print(m, flush=True)), log=lambda m: print(m, flush=True), padctl_path=PADCTL,
-                geometry_fn=lambda cfg: _jetson_geometry(cfg))
+                geometry_fn=lambda cfg: _jetson_geometry(cfg),
+                view_file=f"{STATE}/{server.VIEW_FILE}", view_state=server.VIEW_STATE, view_values=server.PipelineStore.view_values)
         elif plan.get("always"):
             self.always = pipbox_always.Controller(
                 load_json=lambda name: load_json(f"{STATE}/{name}"), put_state_file=put_state_file,
@@ -819,7 +822,8 @@ class Sender:
         if self.always is not None and pipeline_jetson.is_jetson() and os.environ.get("PIPBOX_NO_PADCTL") != "1":     # PIPBOX_NO_PADCTL=1: nur für Tests auf der Box
             env["BELACODER_PADCTL_FILE"] = PADCTL         # kleine Bilder ohne Kamera ausblenden (belacoder-padctl.patch)
         if self.live:
-            env["GST_MPP_NO_RGA"] = "1"                   # der Encoder bekommt nur Bilder aus dem Compositor (Systemspeicher): Software-Kopie statt RGA über virtuelle Adresse
+            if not pipeline_jetson.is_jetson():
+                env["GST_MPP_NO_RGA"] = "1"                   # der Encoder bekommt nur Bilder aus dem Compositor (Systemspeicher): Software-Kopie statt RGA über virtuelle Adresse
             self.boost.off()                              # Rest eines abgestürzten Laufs zurückstellen, dann für diese Sendung hochnehmen
             self.boost.on()
         senv = None

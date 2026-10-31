@@ -714,7 +714,7 @@ class PipelineStore:
 
     def status(self, cams):
         keys = [c["key"] for c in cams]
-        return {"config": dict(self.cfg, styles=clean_styles(self.cfg.get("styles"))), "plugin_style": plugin_style() and not pipeline_jetson.is_jetson(), "cameras": [{"key": c["key"], "name": c["name"], "state": c.get("state", "unknown"), "w": c.get("w", 0), "h": c.get("h", 0)} for c in cams],
+        return {"config": dict(self.cfg, styles=clean_styles(self.cfg.get("styles"))), "plugin_style": plugin_style(), "cameras": [{"key": c["key"], "name": c["name"], "state": c.get("state", "unknown"), "w": c.get("w", 0), "h": c.get("h", 0)} for c in cams],
                 "corners": list(pip_corners()), "preview": self.build() if self.cfg.get("main") in keys else "",
                 "needs_plugin": self.cfg.get("type") == "pip", "plugin_present": pipeline_jetson.is_jetson() or os.path.exists("/opt/pipbox/gst/libgstpbpip.so")}
 

@@ -31,8 +31,16 @@ SWAP_STATE = "/run/pipbox-send/swap-state"   # hier meldet pbctl zurück, was er
 _CENTER = {"mtime": None, "ok": True, "free": True}
 
 
+def jetson():
+    """Läuft das hier auf einem Jetson (L4T)? Dort gibt es keinen Rockchip-Baustein: Mischen, Tausch, Füllbild und Ansicht im Betrieb macht die Nvidia-Kette
+    (nvcompositor mit Steuerdatei, pipbox_always.SlotController). Die Prüfungen unten fragen deshalb nicht nach der Datei des Bausteins."""
+    return os.path.exists("/etc/nv_tegra_release")
+
+
 def pip_corners():
-    """Wählbare Positionen. "unten Mitte" und "frei" nur, wenn der installierte Baustein sie kennt (sonst landet das Bild oben links)."""
+    """Wählbare Positionen. "unten Mitte" und "frei" nur, wenn der installierte Baustein sie kennt (sonst landet das Bild oben links). Jetson: alle (pipeline_jetson.place)."""
+    if jetson():
+        return PIP_CORNERS
     try:
         mt = os.stat(PLUGIN_SO).st_mtime
         if _CENTER["mtime"] != mt:
@@ -51,7 +59,9 @@ _MULTI = {"mtime": None, "ok": True}
 
 def plugin_multi():
     """Kennt der installierte Baustein den gemeinsamen Mischer für bis zu drei kleine Bilder (Eigenschaft "slot3")?
-    Ein alter Baustein (z. B. wenn der Neubau beim Update scheiterte) bekommt die alte Form mit zwei Mischern."""
+    Ein alter Baustein (z. B. wenn der Neubau beim Update scheiterte) bekommt die alte Form mit zwei Mischern. Jetson: ja (nvcompositor, ein Pad je Platz)."""
+    if jetson():
+        return True
     try:
         mt = os.stat(PLUGIN_SO).st_mtime
         if _MULTI["mtime"] != mt:
@@ -66,7 +76,10 @@ _SWAP = {"mtime": None, "ok": True}
 
 
 def plugin_swap():
-    """Kennt der installierte Baustein den Umschalter für den Tausch ohne Unterbrechung (pbpipsel)? Ohne Baustein (Entwicklungsrechner) ja."""
+    """Kennt der installierte Baustein den Umschalter für den Tausch ohne Unterbrechung (pbpipsel)? Ohne Baustein (Entwicklungsrechner) ja.
+    Jetson: ja (Tausch über Rollen in der Steuerdatei, jede Kamera behält ihren Decoder)."""
+    if jetson():
+        return True
     try:
         mt = os.stat(PLUGIN_SO).st_mtime
         if _SWAP["mtime"] != mt:
@@ -97,7 +110,10 @@ CAM_LIVE = "/run/pipbox-send/cam-live"       # pbctl meldet hier, welche Plätze
 
 
 def plugin_fill():
-    """Kann der installierte Baustein den Ausgang bei fehlendem Eingang füllen (Eigenschaft fill-caps von pbpipsel)? Ohne Baustein (Entwicklungsrechner) ja."""
+    """Kann der installierte Baustein den Ausgang bei fehlendem Eingang füllen (Eigenschaft fill-caps von pbpipsel)? Ohne Baustein (Entwicklungsrechner) ja.
+    Jetson: ja (Füllbild und Stille je Platz über die Weiche, pipbox_relay)."""
+    if jetson():
+        return True
     try:
         mt = os.stat(PLUGIN_SO).st_mtime
         if _FILL["mtime"] != mt:
@@ -122,9 +138,12 @@ VIEW_ENABLED = True          # Ansicht im Betrieb (Issue #19): Fußleiste am Han
 
 def plugin_view():
     """Kennt der installierte Baustein die Ansicht im Betrieb (Eigenschaften "view-file" und "view-state-file" von pbctl: kleine Bilder
-    ein-/ausblenden, Tonquelle, stumm ohne Neustart), und ist sie eingeschaltet (VIEW_ENABLED)? Ohne Baustein (Entwicklungsrechner) ja."""
+    ein-/ausblenden, Tonquelle, stumm ohne Neustart), und ist sie eingeschaltet (VIEW_ENABLED)? Ohne Baustein (Entwicklungsrechner) ja.
+    Jetson: ja (der SlotController setzt alpha und volume der Pads über die Steuerdatei und meldet in view-state zurück)."""
     if not VIEW_ENABLED:
         return False
+    if jetson():
+        return True
     try:
         mt = os.stat(PLUGIN_SO).st_mtime
         if _VIEW["mtime"] != mt:
@@ -142,7 +161,10 @@ _STYLE = {"mtime": None, "ok": True}
 def plugin_style():
     """Kennt der installierte Baustein Beschnitt, Deckkraft und Rahmen je kleinem Bild (Eigenschaften "style1" bis "style3")?
     Ein alter Baustein (z. B. wenn der Neubau beim Update scheiterte) würde die Eigenschaft nicht kennen und die Sendekette
-    nicht starten: dann bleibt sie aus dem Pipeline-Text weg. Ohne Baustein (Entwicklungsrechner) ja."""
+    nicht starten: dann bleibt sie aus dem Pipeline-Text weg. Ohne Baustein (Entwicklungsrechner) ja. Jetson: noch nicht (die Nvidia-Kette kennt
+    Beschnitt, Deckkraft und Rahmen je kleinem Bild noch nicht; die Oberfläche blendet die Regler aus)."""
+    if jetson():
+        return False
     try:
         mt = os.stat(PLUGIN_SO).st_mtime
         if _STYLE["mtime"] != mt:

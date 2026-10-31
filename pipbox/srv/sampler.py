@@ -79,6 +79,68 @@ def devfreq_loads():
                     f = (read(f"/sys/class/devfreq/{n}/cur_freq", "") or "").strip()
                     mhz = int(f) // 1000000 if f.isdigit() else 0
             out["gpu"] = {"load_pct": max(0, min(100, int(round(int(raw) / 10.0)))), "mhz": mhz}
+    out.update(tegra_video_loads(names))
+    return out
+
+
+TEGRA_VIDEO = (("vic", "vic"), ("nvdec", "nvdec"), ("nvenc", "nvenc"))     # (Schlüssel, Namensteil unter /sys/devices/platform/host1x)
+TEGRA_HOST1X = "/sys/devices/platform/host1x"
+_TEGRA = {"units": None, "hist": {}, "thread": None, "lock": threading.Lock()}
+
+
+def _tegra_units():
+    """{Schlüssel: Verzeichnisname} der Video-Einheiten des Jetson, einmal ermittelt; {} ohne Jetson."""
+    if _TEGRA["units"] is None:
+        found = {}
+        try:
+            for u in os.listdir(TEGRA_HOST1X):
+                for key, part in TEGRA_VIDEO:
+                    if u.endswith("." + part) and os.path.exists(f"{TEGRA_HOST1X}/{u}/load"):
+                        found[key] = u
+        except OSError:
+            pass
+        _TEGRA["units"] = found
+    return _TEGRA["units"]
+
+
+def _tegra_sampler():
+    """Liest die Lastdateien alle 100 ms: ein einzelner Wert ist eine Momentaufnahme (gemessen: 0 bis 854 Promille innerhalb von Sekunden bei gleichmäßiger Last),
+    erst der Mittelwert über 2 s ist aussagekräftig (so rechnet auch tegrastats)."""
+    units = _tegra_units()
+    while True:
+        now = time.monotonic()
+        for key, u in units.items():
+            raw = (read(f"{TEGRA_HOST1X}/{u}/load", "") or "").strip()
+            if raw.isdigit():
+                with _TEGRA["lock"]:
+                    h = _TEGRA["hist"].setdefault(key, [])
+                    h.append((now, int(raw)))
+                    del h[:-40]
+        time.sleep(0.1)
+
+
+def tegra_video_loads(devfreq_names=()):
+    """Jetson: Auslastung der Video-Hardware aus /sys/devices/platform/host1x/<Adresse>.<Einheit>/load (Promille, 2 s gemittelt): Bildwandler VIC (Skalieren,
+    Mischen, Farbwandlung), Decoder NVDEC, Encoder NVENC. Takt nur für Einheiten mit devfreq-Eintrag (VIC); die anderen Takte stehen nur in debugfs (root).
+    {"vic": {"load_pct", "mhz"}, ...}; leer, wenn es die Dateien nicht gibt (kein Jetson)."""
+    units = _tegra_units()
+    if not units:
+        return {}
+    if _TEGRA["thread"] is None:
+        _TEGRA["thread"] = threading.Thread(target=_tegra_sampler, daemon=True, name="tegra-last")
+        _TEGRA["thread"].start()
+    out = {}
+    now = time.monotonic()
+    with _TEGRA["lock"]:
+        for key, u in units.items():
+            vals = [v for t, v in _TEGRA["hist"].get(key, []) if now - t <= 2.0]
+            if not vals:
+                continue
+            mhz = None
+            if u in devfreq_names:
+                f = (read(f"/sys/class/devfreq/{u}/cur_freq", "") or "").strip()
+                mhz = int(f) // 1000000 if f.isdigit() else None
+            out[key] = {"load_pct": max(0, min(100, int(round(sum(vals) / len(vals) / 10.0)))), "mhz": mhz}
     return out
 
 

@@ -402,7 +402,7 @@ def build_stats_snapshot(m, send, labels, groups, now=None):
             return {"load_pct": num(v.get("load_pct"), 0), "mhz": num(v.get("mhz"), 0),
                     "cores": [num(c, 0) for c in (v.get("cores") or [])[:8]] if isinstance(v.get("cores"), list) else None} if isinstance(v, dict) else None
         out["cores"] = {"load": [num(c) for c in (cpu.get("cores") or [])[:16]], "freq_mhz": [num(f, 0) for f in (cpu.get("freq_mhz") or [])[:16]],
-                        "gpu": accel("gpu"), "npu": accel("npu")}
+                        "gpu": accel("gpu"), "npu": accel("npu"), "vic": accel("vic"), "nvdec": accel("nvdec"), "nvenc": accel("nvenc")}
     if groups.get("disk"):                                                         # Details: Speicherplatz
         k = det.get("disk")
         out["disk"] = {x: num(k.get(x), 1) for x in ("used_gb", "free_gb", "total_gb", "used_pct")} if isinstance(k, dict) else None
