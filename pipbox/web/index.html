@@ -264,10 +264,6 @@
       <label class="chk"><input type="checkbox" id="sa_f_on"> Kamera unter 20 fps</label>
     </div>
     <div class="sarows">
-      <label class="chk"><input type="checkbox" id="sa_mic"> Mikro-Akku (DJI) melden ab <input id="sa_micl" type="number" min="5" max="50" step="1" aria-label="Mikro-Akku in Prozent"> %</label>
-      <label class="sacd">Erinnerung nach <input id="sa_micr" type="number" min="1" max="60" step="1" aria-label="Erinnerung in Minuten"> Min.</label>
-    </div>
-    <div class="sarows">
       <label class="sacd">Pause <input id="sa_cd" type="number" min="1" max="120" step="1" aria-label="Pause in Minuten"> Min.</label>
       <label class="chk"><input type="checkbox" id="sa_rec"> „Wieder normal“ melden</label>
       <label class="chk"><input type="checkbox" id="sa_live"> Nur während der Sendung</label>
@@ -278,32 +274,12 @@
       <label class="chk"><input type="checkbox" id="sa_cmds"> „!status“ nennt die Ampel</label>
       <label class="chk"><input type="checkbox" id="sa_cmdv"> auch VIPs</label>
     </div>
-    <div class="sech" style="margin:12px 0 4px">Verpixeln per Chat</div>
-    <div class="sarows">
-      <label class="chk"><input type="checkbox" id="sa_cmdp"> „!pixel“ schaltet das Verpixeln</label>
-      <label class="chk"><input type="checkbox" id="sa_cmdph"> Moderatoren dürfen auch Köpfe ausschalten</label>
-    </div>
-    <div class="ph pxh" data-hlp>
-      <div>Im Twitch-Chat. Für Streamer und Moderatoren, VIPs mit dem Haken „auch VIPs“. Deutsch und Englisch geht (an/aus, on/off, kopf/head, kennz/plate).</div>
-      <div class="pxr"><code>!pixel</code><span>Stand anzeigen</span></div>
-      <div class="pxr"><code>!pixel an</code><span>Köpfe und Kennzeichen an</span></div>
-      <div class="pxr"><code>!pixel aus</code><span>alles aus</span></div>
-      <div class="pxr"><code>!pixel kopf an / aus</code><span>nur Köpfe</span></div>
-      <div class="pxr"><code>!pixel kennz an / aus</code><span>nur Kennzeichen</span></div>
-      <div>Ganz an oder aus: Die Sendung startet kurz neu.</div>
-      <div>Köpfe aus: nur der Streamer, Moderatoren mit Haken.</div>
-      <div>Installiert nichts: Erkennung und Lizenz vorher einrichten.</div>
-    </div>
     <details class="subsec" id="sa_txt"><summary>Texte</summary>
       <div class="sech" style="margin:6px 0 4px">Systemwarnung</div>
       <div class="twrow">
         <label class="f grow">Warnung ({Name}, {Wert} und {Grenze} werden ersetzt)<input id="sa_msg_a" maxlength="300" autocomplete="off"></label>
         <label class="f grow">Wieder normal<input id="sa_msg_o" maxlength="300" autocomplete="off"></label>
         <label class="f grow">Kamera unter 20 fps<input id="sa_msg_f" maxlength="300" autocomplete="off"></label>
-      </div>
-      <div class="sech" style="margin:10px 0 4px">Mikro-Akku</div>
-      <div class="twrow">
-        <label class="f grow">Meldung ({Mikro} und {Prozent} werden ersetzt)<input id="sa_msg_m" maxlength="300" autocomplete="off"></label>
       </div>
       <div class="sech" style="margin:10px 0 4px">Chat-Befehl „!temp“</div>
       <div class="twrow">
@@ -375,7 +351,7 @@
         <option value="0">aus (Encoder startet neu, etwa 5 s ohne Bild)</option>
         <option value="2">Hauptbild und erstes kleines Bild</option>
         <option value="4">alle Kameras (mehr Rechenlast)</option></select></label>
-    <label class="muted" style="display:block;margin-top:12px"><input type="checkbox" id="p_always"> Alle Kameras immer bereit: Kameras können jederzeit dazukommen, ausfallen und zurückkehren, ohne dass die Sendung neu startet. Fällt die Hauptkamera aus, übernimmt die nächste. Ohne Kamera sendet die Box Schwarz mit Stille. Dafür braucht die Box mehr Rechenlast, mit eingeschaltetem Datenschutz noch mehr: Dann bitte für ausreichend Kühlung sorgen. Das Bild wird gleichmäßiger, weil jede Kamera einen Puffer bekommt. Die Karte Datenschutz verpixelt auch hier das Hauptbild; die kleinen Bilder bleiben unverpixelt.</label>
+    <label class="muted" style="display:block;margin-top:12px"><input type="checkbox" id="p_always"> Alle Kameras immer bereit: Kameras können jederzeit dazukommen, ausfallen und zurückkehren, ohne dass die Sendung neu startet. Fällt die Hauptkamera aus, übernimmt die nächste. Ohne Kamera sendet die Box Schwarz mit Stille. Dafür braucht die Box mehr Rechenlast: Bitte für ausreichend Kühlung sorgen. Das Bild wird gleichmäßiger, weil jede Kamera einen Puffer bekommt.</label>
     </details>
     <details class="subsec piponly" id="pipe_facecam"><summary>Facecam</summary>
       <div class="ph">Die Facecam ist die Kamera, deren Ton immer mitgeht, egal ob ihr Bild groß oder klein ist und wohin sie getauscht wird. Wählen Sie das Bild, in dem sie gerade zu sehen ist. Ohne Facecam folgt der Ton dem Hauptbild. Die Tonquelle lässt sich in der Fußleiste von Hand ändern, beim nächsten Tausch geht der Ton wieder zur Facecam. Die Wahl gilt sofort, ohne „Bildaufbau speichern“.</div>

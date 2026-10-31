@@ -80,8 +80,6 @@ header .hdr .updbtn{border-color:var(--warn);background:rgba(245,158,11,.12);col
 .alert.ok{border-color:var(--ok);color:var(--muted)}
 .muted{color:var(--muted)}
 .ph{font-size:12px;color:var(--muted);margin-top:8px}
-.card .pxh.ph{font-size:14px;line-height:1.5;color:var(--text);max-width:none}.pxh>div{margin-top:6px}.card .pxh .pxr{display:grid;grid-template-columns:13em 1fr;gap:12px;margin-top:2px}.pxh code{font-family:ui-monospace,Menlo,Consolas,monospace;color:var(--accent)}
-@media(max-width:520px){.card .pxh .pxr{grid-template-columns:1fr;gap:0}}
 .cam{padding:10px 0;border-bottom:1px solid var(--line)}
 .cam:last-of-type{border-bottom:0}
 .cam .top{display:flex;gap:6px 12px;align-items:center;flex-wrap:wrap}

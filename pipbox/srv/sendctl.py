@@ -149,8 +149,6 @@ class SendControl:
                "since": d.get("since"), "restarts": d.get("restarts"), "delay_live": bool(d.get("delay_live")), "delay_live_pips": bool(d.get("delay_live_pips")),
                "server": sel and {"name": sel["name"], "host": sel["host"], "port": sel["port"]}}
         out["failover"] = d.get("failover") if active else None
-        fc, fmain = self.pipeline.cfg.get("facecam"), ((d.get("failover") or {}).get("main") if active else None)
-        out["facecam_main"] = bool(fc and fmain == fc and PipelineStore.datenschutz())            # die Facecam ist gerade das Hauptbild und Verpixeln ist an: dann wird nichts verpixelt (Hinweis in der Live-Karte)
         out["view_live"], out["audio_live"], out["view"] = self.view_live(), self.audio_live(), self.view_state()
         out["footer"] = self.footer()
         # Kameras, zwischen denen Hauptbild und kleine Bilder ohne Unterbrechung tauschen (die Oberfläche schreibt sonst "Encoder startet neu"): alle Kameras der laufenden Kette;

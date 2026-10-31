@@ -8,7 +8,6 @@ try:
 except ImportError:
     pipbox_preview = None
 from srv.auth import REMEMBER_SECONDS, SESSION_SECONDS
-from srv.datenschutz import neustart_noetig
 from srv.httpd import scene_swap
 from srv.netinfo import iface_ips
 from srv.pipeline import DELAY_KEYS, PipelineStore, always_compatible, view_only_change
@@ -35,7 +34,7 @@ class PostRoutes:
         return NOT_HANDLED
 
     def post_sending(self, path, d):
-        """Netz, Sendung, Autostart, Strom, Protokolle, Statistik, Deck, Layout, Datenschutz"""
+        """Netz, Sendung, Autostart, Strom, Protokolle, Statistik, Deck, Layout"""
         if path == "/api/network":
             self.netchoice.select(d.get("iface"))
             return self.reply(200, {"ok": True})
@@ -78,22 +77,6 @@ class PostRoutes:
             if isinstance(d.get("init"), dict):
                 return self.reply(200, self.layout.init(d["init"]))
             return self.reply(200, self.layout.put(d.get("profile"), d))
-        if path == "/api/datenschutz":
-            try:
-                if "addon" in d:
-                    self.datenschutz.addon_request(d.get("addon"), bool(belacoder_running() or self.send._active()))
-                    return self.reply(200, self.datenschutz.get())
-                if d.get("restart_send") is True:
-                    res = self.datenschutz.get()
-                    res["sending"] = self.send._active()
-                    res["restarted"], res["note"] = False, ""
-                    if res["sending"] and neustart_noetig(self.pipeline.build()):
-                        res["restarted"], res["note"] = self.send.restart_if_live()
-                    res["neustart_noetig"] = False
-                    return self.reply(200, res)
-                return self.reply(200, self.datenschutz.put(d))
-            except ValueError as e:
-                return self.reply(400, {"error": str(e)})
         return NOT_HANDLED
 
     def post_admin(self, path, d):

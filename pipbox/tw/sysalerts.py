@@ -29,25 +29,16 @@ class SysAlerts:
     FPS_LOW = 20.0                                # unter so vielen Bildern je Sekunde wird gewarnt
     FPS_HOLD_S = 15.0                             # so lange am Stück, bevor gemeldet wird (Anlaufen und kurze Aussetzer sind normal)
     FPS_REARM = 3.0                               # "wieder normal" erst, wenn die Bildrate so viel über der Grenze liegt
-    DEFAULT_MIC = "Mikro-Akku bei {Prozent} %, bitte wechseln: {Mikro}"
-    MIC_LIMIT = (5, 50)                           # Prozent
-    MIC_REPEAT = (1, 60)                          # Minuten bis zur einen Erinnerung
-    MIC_STALE_S = 1200                            # ein Messwert, der älter ist, löst keine Meldung aus
-    MIC_REARM = 10                                # wieder scharf, wenn der Akku mindestens so viele Prozentpunkte über der Grenze liegt
     DEFAULT_STATUS = {"ok": "🟢 Alles okay", "warn": "🟡 Es gibt eine Warnung", "crit": "🔴 Es gibt ein Problem"}
     DEFAULTS = {"enabled": False, "cooldown": 10, "recover": True, "only_live": True, "msg_alert": DEFAULT_ALERT, "msg_ok": DEFAULT_OK, "msg_temp": DEFAULT_TEMP, "msg_fps": DEFAULT_FPS, "msg_st_ok": DEFAULT_STATUS["ok"],
-                "msg_st_warn": DEFAULT_STATUS["warn"], "msg_st_crit": DEFAULT_STATUS["crit"], "mic_on": False, "fps_on": True, "mic_limit": 20, "mic_repeat": 10, "msg_mic": DEFAULT_MIC, "cmd_temp": False, "cmd_status": False, "cmd_vip": False, "cmd_pixel": False, "pixel_head_mod": False,
+                "msg_st_warn": DEFAULT_STATUS["warn"], "msg_st_crit": DEFAULT_STATUS["crit"], "fps_on": True, "cmd_temp": False, "cmd_status": False, "cmd_vip": False,
                 **{k: {"on": True, "limit": dflt} for k, _n, _u, _h, _r, dflt in METRICS}}
     POLL_S = 10
     SUSTAIN = 3                                   # Messungen hintereinander über der Grenze (etwa 30 s)
     RETRY_S = 60
     COOLDOWN = (1, 120)                           # Minuten
-    CMDS = ("!temp", "!status", "!pixel")         # Chat-Befehle: Moderatoren und der Streamer (auf Wunsch auch VIPs) fragen Temperatur und Ampel der Box ab; !pixel schaltet das Verpixeln (nur Streamer und Moderatoren)
-    CMD_FLAG = {"!temp": "cmd_temp", "!status": "cmd_status", "!pixel": "cmd_pixel"}
-    PIXEL_ON, PIXEL_OFF = ("an", "on"), ("aus", "off")
-    PIXEL_HEAD = ("kopf", "köpfe", "koepfe", "kopfe", "head", "heads", "gesicht", "gesichter", "face", "faces")
-    PIXEL_PLATE = ("kennz", "kennzeichen", "plate", "plates", "nummernschild", "nummernschilder")
-    PIXEL_GAP_S = 10                              # !pixel wird öfter gebraucht als die Abfragen: höchstens eine Antwort je 10 s
+    CMDS = ("!temp", "!status")                   # Chat-Befehle: Moderatoren und der Streamer (auf Wunsch auch VIPs) fragen Temperatur und Ampel der Box ab
+    CMD_FLAG = {"!temp": "cmd_temp", "!status": "cmd_status"}
     CMD_POLL_S = 2
     CMD_GAP_S = 30                                # höchstens eine Antwort je Befehl und 30 s, egal von wem (!temp und !status sperren sich nicht gegenseitig)
     CMD_MAX_AGE_S = 60                            # ältere Nachrichten (nach einem Verbindungsabbruch nachgeliefert) werden nicht mehr beantwortet
@@ -63,11 +54,7 @@ class SysAlerts:
         self.reader = None                        # TwitchReader (für den Chat-Befehl), vom Server gesetzt
         self.fps_fn = None                        # liefert {Schlüssel: {"name", "rates": [geliefert, dekodiert]}} der Kameras (Bildraten-Warnung), vom Server gesetzt
         self.fps_state = {}                       # Schlüssel -> {"since", "alerting", "last", "retry", "pending_ok", "name"}
-        self.pixel_get = None                     # liefert den Stand des Verpixelns {"an", "kopf", "kennz"} (für !pixel), vom Server gesetzt
-        self.pixel_set = None                     # (an, kopf, kennz) -> (ok, Text): speichert und startet die Sendung bei Bedarf neu, vom Server gesetzt
         self.light_fn = None                      # liefert die Ampel der Box {"level", "live", "reasons"} (für !status), vom Server gesetzt
-        self.mic_fn = None                        # liefert den Stand der DJI-Mikrofone {"mics": {MAC: {name, level, percent, time}}} (Dienst pipbox-mic), vom Server gesetzt
-        self.mic_state = {}                       # MAC -> {"low": bool, "sent": Anzahl, "last": monotone Zeit der letzten Meldung}
         self.cmd_since = None                     # Nummer der letzten gesehenen Chat-Nachricht (None: noch nichts gesehen, Altes wird nie beantwortet)
         self.cmd_last = {}                        # Befehl -> monotone Zeit der letzten Antwort
         try:
@@ -103,7 +90,7 @@ class SysAlerts:
             except ValueError:
                 if strict:
                     raise
-        for key in ("enabled", "recover", "only_live", "cmd_temp", "cmd_status", "cmd_vip", "cmd_pixel", "pixel_head_mod", "mic_on", "fps_on"):
+        for key in ("enabled", "recover", "only_live", "cmd_temp", "cmd_status", "cmd_vip", "fps_on"):
             if key in req:
                 if isinstance(req[key], bool):
                     new[key] = req[key]
@@ -127,12 +114,7 @@ class SysAlerts:
                     take(g)
             elif sub is not None and strict:
                 raise ValueError("Ungültige Anfrage")
-        for key, rng, err in (("mic_limit", cls.MIC_LIMIT, "Mikro-Akku: Zahl von %d bis %d Prozent"), ("mic_repeat", cls.MIC_REPEAT, "Erinnerung: Zahl von %d bis %d Minuten")):
-            if key in req:
-                def i(key=key, rng=rng, err=err):
-                    new[key] = cls._int(req[key], rng[0], rng[1], err % rng)
-                take(i)
-        for key in ("msg_alert", "msg_ok", "msg_temp", "msg_fps", "msg_st_ok", "msg_st_warn", "msg_st_crit", "msg_mic"):
+        for key in ("msg_alert", "msg_ok", "msg_temp", "msg_fps", "msg_st_ok", "msg_st_warn", "msg_st_crit"):
             if key in req:
                 def h(key=key):
                     new[key] = TwitchStore._message(req[key])
@@ -296,11 +278,6 @@ class SysAlerts:
         badges = item.get("badges") or []
         return "broadcaster" in badges or "moderator" in badges or (vip and "vip" in badges)
 
-    def _allowed_pixel(self, item, vip):
-        """!pixel schalten der Streamer, Moderatoren und auf Wunsch (Haken "auch VIPs") VIPs. Köpfe ausschalten gilt enger, siehe _pixel_text."""
-        badges = item.get("badges") or []
-        return "broadcaster" in badges or "moderator" in badges or (vip and "vip" in badges)
-
     def _is_cmd(self, item):
         """Der Befehl in der Nachricht ("!temp" oder "!status") oder None."""
         if item.get("type") != "msg":
@@ -321,60 +298,10 @@ class SysAlerts:
         why = [r["text"] for r in (light.get("reasons") or []) if isinstance(r, dict) and r.get("kind") == "fps" and r.get("text")][:2]
         return text + (": " + " · ".join(why) if why else "")
 
-    @staticmethod
-    def _pixel_state(an, kopf, kennz):
-        h, k = bool(an and kopf), bool(an and kennz)
-        return "Verpixeln: Köpfe %s, Kennzeichen %s" % ("an" if h else "aus", "an" if k else "aus")
-
-    def _pixel_text(self, item, data):
-        """Antwort auf !pixel: "!pixel" nennt den Stand, "!pixel an|aus" schaltet Köpfe und Kennzeichen, "!pixel kopf|kennz an|aus" nur eines davon (auch englisch: on/off, head/plate).
-        Köpfe ausschalten darf nur der Streamer, Moderatoren nur mit dem Haken "pixel_head_mod", VIPs nie."""
-        if self.pixel_get is None or self.pixel_set is None:
-            return "Verpixeln ist hier nicht verfügbar"
-        try:
-            st = self.pixel_get() or {}
-        except Exception:
-            return "Verpixeln: Stand nicht lesbar"
-        an, kopf, kennz = bool(st.get("an")), st.get("kopf") is not False, st.get("kennz") is not False
-        cur_h, cur_k = an and kopf, an and kennz
-        words = [w.lower() for w in str(item.get("text") or "").split()[1:]]
-        if not words:
-            return self._pixel_state(an, kopf, kennz)
-        on = [w for w in words if w in self.PIXEL_ON + self.PIXEL_OFF]
-        target = [w for w in words if w in self.PIXEL_HEAD + self.PIXEL_PLATE]
-        if len(on) != 1 or len(target) > 1 or len(words) != len(on) + len(target):
-            return "Nutzung: !pixel an|aus, !pixel kopf an|aus, !pixel kennz an|aus"
-        want = on[0] in self.PIXEL_ON
-        new_h, new_k = cur_h, cur_k
-        if not target:
-            new_h = new_k = want
-        elif target[0] in self.PIXEL_HEAD:
-            new_h = want
-        else:
-            new_k = want
-        if (new_h, new_k) == (cur_h, cur_k):
-            return self._pixel_state(an, kopf, kennz) + " (schon so)"
-        badges = item.get("badges") or []
-        if cur_h and not new_h and "broadcaster" not in badges and not (data.get("pixel_head_mod") and "moderator" in badges):
-            return "Köpfe ausschalten darf nur der Streamer"
-        if new_h or new_k:
-            args = (True, new_h, new_k)
-        else:
-            args = (False, kopf, kennz)                      # beides aus: die Maske ganz heraus, die gemerkten Haken bleiben
-        try:
-            ok, note = self.pixel_set(*args)
-        except Exception:
-            return "Verpixeln nicht geändert"
-        if not ok:
-            return "Verpixeln nicht geändert: " + str(note)
-        return self._pixel_state(*args) + (" (%s)" % note if note else "")
-
     def _reply(self, cfg, item, cmd="!temp", data=None):
         data = data or self.data
         who = TwitchNotifier.camera_text(item.get("name"))
-        if cmd == "!pixel":
-            text = ("@%s " % who if who else "") + self._pixel_text(item, data)
-        elif cmd == "!status":
+        if cmd == "!status":
             text = ("@%s " % who if who else "") + self._light_text(data)
         else:
             v = self.values()["temp"]
@@ -389,7 +316,7 @@ class SysAlerts:
         with self.lock:
             data = json.loads(json.dumps(self.data))
         cfg = self._creds()
-        if not (data["cmd_temp"] or data["cmd_status"] or data["cmd_pixel"]) or self.reader is None or (cfg is None and not self.demo):
+        if not (data["cmd_temp"] or data["cmd_status"]) or self.reader is None or (cfg is None and not self.demo):
             self.cmd_since = None
             return
         r = self.reader.poll(self.cmd_since or 0)
@@ -403,10 +330,10 @@ class SysAlerts:
             cmd = self._is_cmd(it)
             if not cmd or not data[self.CMD_FLAG[cmd]] or now - it.get("t", now) > self.CMD_MAX_AGE_S:
                 continue
-            if not (self._allowed_pixel(it, data["cmd_vip"]) if cmd == "!pixel" else self._allowed(it, data["cmd_vip"])):
+            if not self._allowed(it, data["cmd_vip"]):
                 continue
             last = self.cmd_last.get(cmd)
-            if last is not None and self.mono() - last < (self.PIXEL_GAP_S if cmd == "!pixel" else self.CMD_GAP_S):
+            if last is not None and self.mono() - last < self.CMD_GAP_S:
                 continue
             self.cmd_last[cmd] = self.mono()
             self._reply(cfg, it, cmd, data)
@@ -418,53 +345,6 @@ class SysAlerts:
             except Exception as e:
                 print("sysalerts-cmd:", type(e).__name__)
             self.stop_ev.wait(self.CMD_POLL_S)
-
-    # ---- Akku der DJI-Mikrofone
-    def mic_list(self):
-        """[{name, percent, age}] der zuletzt gelesenen Mikrofone (für die Oberfläche); leer ohne Dienst."""
-        try:
-            st = (self.mic_fn() if self.mic_fn else None) or {}
-        except Exception:
-            return []
-        now = self.wall()
-        out = []
-        for mac, m in sorted((st.get("mics") or {}).items()):
-            if not isinstance(m, dict) or not isinstance(m.get("percent"), int) or not isinstance(m.get("time"), (int, float)):
-                continue
-            out.append({"mac": mac, "name": TwitchNotifier.camera_text(m.get("name")) or mac, "percent": m["percent"], "age": max(0, int(now - m["time"]))})
-        return out
-
-    def mic_tick(self):
-        """Meldet im Twitch-Chat, wenn der Akku eines DJI-Mikrofons niedrig ist: einmal, nach der eingestellten Pause noch einmal, dann nicht mehr, bis der Akku wieder
-        über Grenze + 10 Prozentpunkte lag. Nur mit gültigen Twitch-Angaben (und bei "Nur während der Sendung" nur beim Senden) und nur mit frischen Messwerten."""
-        with self.lock:
-            data = json.loads(json.dumps(self.data))
-        if not data["mic_on"] or self.mic_fn is None:
-            self.mic_state = {}
-            return
-        cfg = self._creds()
-        if cfg is None or (data["only_live"] and not self._live()):
-            return
-        mics = {m["mac"]: m for m in self.mic_list()}
-        for mac in [k for k in self.mic_state if k not in mics]:
-            del self.mic_state[mac]
-        now = self.mono()
-        for mac, m in mics.items():
-            st = self.mic_state.setdefault(mac, {"low": False, "sent": 0, "last": None})
-            if m["age"] > self.MIC_STALE_S:
-                continue
-            if m["percent"] > data["mic_limit"] + self.MIC_REARM:
-                st.update(low=False, sent=0, last=None)
-                continue
-            if m["percent"] > data["mic_limit"]:
-                continue
-            st["low"] = True
-            wait = data["mic_repeat"] * 60
-            if st["sent"] == 0 or (st["sent"] == 1 and now - st["last"] >= wait):
-                text = data["msg_mic"].replace("{Prozent}", str(m["percent"])).replace("{Mikro}", m["name"])
-                if self._send(cfg, text):
-                    st["sent"] += 1
-                    st["last"] = now
 
     def _reset(self, keep_alert=False):
         for st in self.state.values():
@@ -482,10 +362,6 @@ class SysAlerts:
                 self.tick()
             except Exception as e:                  # nie den Dienst beenden; vom Text der Ausnahme nur den Typ ausgeben
                 print("sysalerts:", type(e).__name__)
-            try:
-                self.mic_tick()
-            except Exception as e:
-                print("sysalerts-mic:", type(e).__name__)
             self.stop_ev.wait(self.POLL_S)
 
     # ---- für die Oberfläche
@@ -496,4 +372,4 @@ class SysAlerts:
         vals = self.values()
         return dict(d, ready=self._creds() is not None,
                     values={k: (None if vals[k] is None else round(vals[k], 1)) for k in vals},
-                    alerting=[k for k, st in self.state.items() if st["alerting"]] + (["fps"] if any(st["alerting"] for st in self.fps_state.values()) else []), last=last, mics=self.mic_list())
+                    alerting=[k for k, st in self.state.items() if st["alerting"]] + (["fps"] if any(st["alerting"] for st in self.fps_state.values()) else []), last=last)

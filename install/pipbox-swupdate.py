@@ -390,14 +390,11 @@ INSTALL_STEPS = {
     "pakete": (40, "Prüfe die benötigten Pakete"),
     "dienst": (48, "Halte die Oberfläche an und richte Benutzer und Daten ein"),
     "dateien": (58, "Kopiere Programme und Oberfläche"),
-    "baustein": (66, "Prüfe den Bild-in-Bild-Baustein (wird neu gebaut, wenn er sich geändert hat)"),
-    "srtla": (78, "Prüfe den SRTLA-Sender (wird neu gebaut, wenn er sich geändert hat)"),
-    "belacoder": (88, "Prüfe den Encoder (wird neu gebaut, wenn er sich geändert hat)"),
+    "encoder": (68, "Prüfe den Encoder (wird neu gebaut, wenn er sich geändert hat)"),
+    "srtla": (82, "Prüfe den SRTLA-Sender (wird neu gebaut, wenn er sich geändert hat)"),
     "start": (95, "Starte die Dienste neu"),
-    "datenschutz": (96, "Frische die Erkennung der Karte Datenschutz auf (kann einige Minuten dauern)"),
 }
 INSTALL_TIMEOUT = 900
-INSTALL_TIMEOUT_TEST = 2400
 
 
 def run_install(tmp):
@@ -412,7 +409,7 @@ def run_install(tmp):
             os.killpg(p.pid, 9)                       # die ganze Gruppe: Kindprozesse halten sonst die Leitung offen
         except OSError:
             p.kill()
-    timer = threading.Timer(INSTALL_TIMEOUT_TEST if os.path.exists(f"{tmp}/install/install-datenschutz.sh") else INSTALL_TIMEOUT, too_long)
+    timer = threading.Timer(INSTALL_TIMEOUT, too_long)
     timer.start()
     tail = []
     try:

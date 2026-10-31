@@ -60,7 +60,6 @@ function saStatusHtml(d){
   if(d.enabled&&!d.ready) parts.push("<span>Twitch ist noch nicht eingerichtet: Anmeldung im Bereich „Chat“ oder Bot-Konto bei der Akku-Warnung.</span>");
   const v=d.values||{};
   if(d.enabled&&d.ready&&(d.alerting||[]).length) parts.push("<span>Gerade über der Grenze: "+d.alerting.map(k=>({temp:"Temperatur",cpu:"CPU-Last",ram:"RAM",fps:"Kamera unter 20 fps"})[k]).join(", ")+"</span>");
-  if(d.mic_on){ const mics=d.mics||[]; parts.push(mics.length?"<span>Mikrofone: "+mics.map(m=>`<span translate="no">${esc(m.name)}</span> ${m.percent} %`).join(", ")+"</span>":"<span>Mikrofone: noch keins gelesen (gekoppelte DJI-Mikrofone werden alle 2 Minuten abgefragt).</span>"); }
   const s=d.last;
   if(s) parts.push(s.ok?`<span>Letzte Meldung um ${twTime(s.time)} Uhr:</span> <span translate="no">${esc(s.text)}</span>`:`<span>Fehler um ${twTime(s.time)} Uhr:</span> <span>${esc(s.text)}</span>`);
   return parts.join(" ");
@@ -78,8 +77,8 @@ function saFill(d){
     $("sa_on").checked=!!d.enabled;
     [["t","temp"],["c","cpu"],["r","ram"]].forEach(([i,k])=>{ $("sa_"+i+"_on").checked=!!d[k].on; $("sa_"+i).value=d[k].limit; });
     $("sa_cd").value=d.cooldown; $("sa_rec").checked=!!d.recover; $("sa_live").checked=d.only_live!==false;
-    $("sa_cmdt").checked=!!d.cmd_temp; $("sa_cmds").checked=!!d.cmd_status; $("sa_cmdv").checked=!!d.cmd_vip; $("sa_cmdp").checked=!!d.cmd_pixel; $("sa_cmdph").checked=!!d.pixel_head_mod;
-    $("sa_f_on").checked=d.fps_on!==false; $("sa_mic").checked=!!d.mic_on; $("sa_micl").value=d.mic_limit; $("sa_micr").value=d.mic_repeat; $("sa_msg_m").value=d.msg_mic||"";
+    $("sa_cmdt").checked=!!d.cmd_temp; $("sa_cmds").checked=!!d.cmd_status; $("sa_cmdv").checked=!!d.cmd_vip;
+    $("sa_f_on").checked=d.fps_on!==false;
     $("sa_msg_a").value=d.msg_alert||""; $("sa_msg_o").value=d.msg_ok||""; $("sa_msg_f").value=d.msg_fps||"";
     $("sa_msg_t").value=d.msg_temp||""; $("sa_msg_so").value=d.msg_st_ok||""; $("sa_msg_sw").value=d.msg_st_warn||""; $("sa_msg_sc").value=d.msg_st_crit||"";
   }
@@ -91,7 +90,7 @@ async function saLoad(){
 }
 function saForm(){
   const n=id=>parseInt($(id).value,10);
-  return {enabled:$("sa_on").checked, cooldown:n("sa_cd"), recover:$("sa_rec").checked, only_live:$("sa_live").checked, cmd_temp:$("sa_cmdt").checked, cmd_status:$("sa_cmds").checked, cmd_vip:$("sa_cmdv").checked, cmd_pixel:$("sa_cmdp").checked, pixel_head_mod:$("sa_cmdph").checked, fps_on:$("sa_f_on").checked, mic_on:$("sa_mic").checked, mic_limit:n("sa_micl"), mic_repeat:n("sa_micr"), msg_mic:$("sa_msg_m").value,
+  return {enabled:$("sa_on").checked, cooldown:n("sa_cd"), recover:$("sa_rec").checked, only_live:$("sa_live").checked, cmd_temp:$("sa_cmdt").checked, cmd_status:$("sa_cmds").checked, cmd_vip:$("sa_cmdv").checked, fps_on:$("sa_f_on").checked,
           temp:{on:$("sa_t_on").checked, limit:n("sa_t")}, cpu:{on:$("sa_c_on").checked, limit:n("sa_c")}, ram:{on:$("sa_r_on").checked, limit:n("sa_r")},
           msg_alert:$("sa_msg_a").value, msg_ok:$("sa_msg_o").value, msg_fps:$("sa_msg_f").value, msg_temp:$("sa_msg_t").value, msg_st_ok:$("sa_msg_so").value, msg_st_warn:$("sa_msg_sw").value, msg_st_crit:$("sa_msg_sc").value};
 }
