@@ -13,6 +13,7 @@ Kette ausgeblendet, der Compositor liefert weiter, gemessen), und beim Zurückke
 schickt die Weiche Stille, damit der audiomixer der Kette nie auf einen Platz wartet. Folgenummer und Quelle der RTP-Pakete werden neu gesetzt, damit der Strom für den
 Depayloader lückenlos aussieht.
 """
+import collections
 import select
 import socket
 import threading
@@ -71,6 +72,8 @@ class SlotRelay(threading.Thread):
         self.params = []                      # zuletzt gesehene SPS/PPS-Pakete der Kamera
         self.last_cam = 0.0
         self.last_sil = clock()
+        self.events = collections.deque(maxlen=40)    # (Uhrzeit, Text): Tor auf/zu, Füllbild, Zähler; für den Bericht bei einem unerwarteten Ende von belacoder
+        self.pkts_v = self.pkts_fill = 0
         self.seq = 0
         self.socks = {}
         for name, port in (("v", in_v), ("a", in_a), ("f", in_f)):
@@ -91,9 +94,13 @@ class SlotRelay(threading.Thread):
         self.params = []
         self.fill_done = False
         self.fill_seen = False
+        self.note("zurückgesetzt (Tor zu, Füllbild wieder an)")
 
     def stop(self):
         self.stop_ev.set()
+
+    def note(self, text):
+        self.events.append("%s %s" % (time.strftime("%H:%M:%S", time.gmtime()), text))
 
     # --- Weitergabe ------------------------------------------------------------------------------------------------------------------------
     def send_v(self, pkt):
@@ -117,6 +124,7 @@ class SlotRelay(threading.Thread):
         elif kind == "param":
             self.params = (self.params + [pkt])[-4:]
         elif kind == "idr":
+            self.note("Tor offen (Keyframe der Kamera, %d SPS/PPS davor)" % len(self.params))
             self.gate, self.opened_at, self.fill_done = True, now, True
             for p in self.params:
                 self.send_v(p)
@@ -135,6 +143,7 @@ class SlotRelay(threading.Thread):
 
     def tick(self, now):
         if self.gate and now - self.last_cam > ACTIVE_GAP:
+            self.note("Tor zu (seit %.1f s keine Bilder der Kamera)" % (now - self.last_cam))
             self.gate = False                 # die Kamera liefert nichts mehr
             self.params = []
         if not self.gate:                     # Stille im Takt eines Tonpakets, damit der audiomixer nie auf diesen Platz wartet
