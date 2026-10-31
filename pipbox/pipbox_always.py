@@ -363,7 +363,7 @@ class JetsonFeeders:
         """Zustand und Ereignisse der Weichen für den Bericht bei einem unerwarteten Ende von belacoder: je Platz Tor, Füllbild und die letzten Ereignisse (nur Plätze und Uhrzeiten)."""
         out = []
         for slot, r in sorted(self.relays.items()):
-            out.append("Platz %d: Tor %s, Füllbild %s" % (slot, "offen" if r.gate else "zu", "beendet" if r.fill_done else "läuft"))
+            out.append("Platz %d: Tor %s, Füllbild %s, fehlende Pakete vor der Weiche %d" % (slot, "offen" if r.gate else "zu", "beendet" if r.fill_done else "läuft", r.lost_in))
             out += ["    " + e for e in list(r.events)[-8:]]
         return out
 

@@ -84,6 +84,25 @@ def udp_errors():
         return ", ".join("%s=%s" % (k, v) for k, v in zip(rows[0][1:], rows[1][1:]) if k in ("InErrors", "RcvbufErrors", "SndbufErrors"))
     except (OSError, IndexError):
         return "?"
+
+
+def udp_port_drops():
+    """Verworfene Pakete je lokalem UDP-Port der Kette (Spalte "drops" in /proc/net/udp): Eingänge der Kette 9410 bis 9417, Weichen 9440 bis 9451 und srtla_send 9100.
+    So ist im Bericht zu sehen, welcher Eingang Pakete verliert."""
+    out = []
+    try:
+        with open("/proc/net/udp") as f:
+            next(f)
+            for line in f:
+                p = line.split()
+                port = int(p[1].split(":")[1], 16)
+                if port == 9100 or 9410 <= port <= 9451:
+                    out.append("%d:%s" % (port, p[-1]))
+    except (OSError, ValueError, IndexError):
+        return "?"
+    return " ".join(sorted(out, key=lambda s: int(s.split(":")[0]))) or "-"
+
+
 END_FILE = "belacoder-ende.txt"
 
 
@@ -660,6 +679,7 @@ class Sender:
             head = "%s%s UTC · belacoder beendet (%s) nach %d s\n" % (END_MARK, time.strftime("%Y-%m-%d %H:%M:%S", time.gmtime()), exit_text(rc), int(time.time() - self.since))
             extra = ["Weichen (je Platz):"] + ["  " + t for t in getattr(getattr(self.always, "feeders", None), "relay_report", lambda: [])()]
             extra.append("UDP-Empfangsfehler (Zähler des Systems): " + udp_errors())
+            extra.append("Verworfene Pakete je Port (Port:Anzahl): " + udp_port_drops())
             body = "\n".join(["  " + t for t in list(self.tail)[-60:]] + [""] + extra) + "\n"
             self._write_end(head + body)
         except Exception as e:                                  # der Bericht darf die Übertragung nie stören
