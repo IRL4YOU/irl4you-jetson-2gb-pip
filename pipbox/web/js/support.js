@@ -5,7 +5,7 @@
 (function(){
   const card=$("c_report"), title=$("rp_title"), desc=$("rp_desc"), go=$("rp_go"), msg=$("rp_msg"), out=$("rp_out"), list=$("rp_cases"), logrow=$("rp_logrow"); let version="", now=0, win=1800, nowAt=0;
   const kind=()=>document.querySelector('input[name="rp_kind"]:checked').value;
-  const NEW="https://github.com/IRL4YOU/irl4you-pip/issues/new", MAXURL=7000, ALPH="ABCDEFGHJKMNPQRSTUVWXYZ23456789";
+  const NEW="https://github.com/IRL4YOU/jetson-2gb-pip/issues/new", MAXURL=7000, ALPH="ABCDEFGHJKMNPQRSTUVWXYZ23456789";
   const newId=()=>{ const a=new Uint8Array(6); (window.crypto||window.msCrypto).getRandomValues(a); return "IRL-"+Array.from(a,x=>ALPH[x%ALPH.length]).join(""); };
   const clean=t=>String(t||"").replace(/\s+/g," ").trim().slice(0,100);
   let draft={id:"",saved:false,title:""};
@@ -22,7 +22,7 @@
       const kd=document.createElement("span"); kd.className="rpd"; kd.textContent=c.kind==="feature"?"Wunsch":"Problem"; r.appendChild(kd);
       const id=document.createElement("code"); id.textContent=c.id; id.translate=false; r.appendChild(id);
       const t=document.createElement("span"); t.className="rpt"; t.textContent=c.title; t.translate=false; r.appendChild(t);
-      const a=document.createElement("a"); a.href=(issues||"https://github.com/IRL4YOU/irl4you-pip/issues")+"?q="+encodeURIComponent("is:issue "+c.id); a.target="_blank"; a.rel="noopener noreferrer"; a.textContent="Auf GitHub suchen"; r.appendChild(a);
+      const a=document.createElement("a"); a.href=(issues||"https://github.com/IRL4YOU/jetson-2gb-pip/issues")+"?q="+encodeURIComponent("is:issue "+c.id); a.target="_blank"; a.rel="noopener noreferrer"; a.textContent="Auf GitHub suchen"; r.appendChild(a);
       const b=document.createElement("button"); b.type="button"; b.className="sec"; b.classList.add("small"); b.dataset.id=c.id; b.dataset.done=c.done?"0":"1"; b.textContent=c.done?"Wieder öffnen":"Erledigt"; r.appendChild(b);
       if(age-c.t<=win){ const x=document.createElement("button"); x.type="button"; x.className="sec"; x.classList.add("small"); x.dataset.id=c.id; x.dataset.del="1"; x.textContent="Entfernen";
                         x.title="Nur in den ersten 30 Minuten nach dem Anlegen möglich: Danach bleibt der Eintrag erhalten."; r.appendChild(x); }

@@ -129,7 +129,7 @@ class GetRoutes:
         if path == "/api/swupdate/history":
             return self.reply(200, self.swupdate.history())
         if path == "/api/support":
-            return self.reply(200, {"cases": self.support.list(), "version": self.swupdate.version, "issues": "https://github.com/IRL4YOU/irl4you-pip/issues",
+            return self.reply(200, {"cases": self.support.list(), "version": self.swupdate.version, "issues": "https://github.com/IRL4YOU/jetson-2gb-pip/issues",
                                     "now": int(time.time()), "delete_window": int(self.support.DELETE_WINDOW)})
         if path == "/api/update":
             try:
