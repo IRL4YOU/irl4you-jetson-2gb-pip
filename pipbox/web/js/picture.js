@@ -13,8 +13,8 @@ function styleBlockHtml(){
   const num=(f,l,min,max,step)=>`<label class="muted">${l}<input type="number" data-f="${f}" min="${min}" max="${max}" step="${step||1}"></label>`;
   return `<summary>Aussehen <span class="pvs-sum"></span></summary>
     <label class="muted" style="display:block;margin-top:6px"><input type="checkbox" data-f="vis"> Bild einblenden</label>
-    <div class="sech">Ecken</div>
-    <div class="pvs-grid">${num("rd","Eckenrundung (Pixel)",0,60)}</div>
+    <div data-o="radius"><div class="sech">Ecken</div>
+    <div class="pvs-grid">${num("rd","Eckenrundung (Pixel)",0,60)}</div></div>
     <div class="sech">Beschneiden</div>
     <div class="pvs-info muted">Pixel, die links, rechts, oben und unten abgeschnitten werden, wie bei einem Bild von 1920 × 1080.</div>
     <div class="pvs-grid">${num("cl","Links",0,1888,2)}${num("cr","Rechts",0,1888,2)}${num("ct","Oben",0,1048,2)}${num("cb","Unten",0,1048,2)}</div>
@@ -215,6 +215,7 @@ async function pipeLoad(){
   let info=!c.main?"Noch keine Pipeline gespeichert.":c.type==="pip"?`Gespeichert: Bild-in-Bild, Hauptbild ${c.main}, kleines Bild ${[c.pip,c.pip2,c.pip3].filter(Boolean).join(", ")}.`:`Gespeichert: eine Kamera, Hauptbild ${c.main}.`;
   // Deckkraft, Beschnitt und Rahmen gibt es erst, wenn der installierte Überlagerungs-Baustein sie kennt (er wird beim Software-Update neu gebaut); bis dahin bleiben die Felder weg
   document.querySelectorAll(".pvs").forEach(e=>e.hidden=d.plugin_present&&d.plugin_style===false);
+  document.querySelectorAll('[data-o="radius"]').forEach(e=>e.hidden=d.style_radius===false);      // Jetson: keine Eckenrundung
   if(d.needs_plugin&&!d.plugin_present) info+=" Bild-in-Bild braucht den Überlagerungs-Baustein, der noch nicht auf der Box installiert ist.";
   $("pipeinfo").textContent=info;
 }

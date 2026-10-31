@@ -494,9 +494,10 @@ class SlotController:
     CANVAS = (0, 0, 1920, 1080)
 
     def __init__(self, load_json, live_keys, feeders, log=print, padctl_path=None, clock=time.monotonic, geometry_fn=None,
-                 view_file=None, view_state=None, view_values=None):
+                 view_file=None, view_state=None, view_values=None, crop_fn=None):
         self.load_json, self.live_keys, self.feeders, self.log = load_json, live_keys, feeders, log
         self.padctl_path, self.clock, self.geometry_fn = padctl_path, clock, geometry_fn
+        self.crop_fn = crop_fn                # (Schlüssel, Beschnitt) -> Kanten für den nvvidconv des Platzes (pipeline_jetson.crop_edges); None: kein Beschnitt
         self.padctl_last = None
         # Ansicht im Betrieb wie beim Rockchip-Baustein: die Oberfläche schreibt "ausgeblendet Tonquelle stumm" in view_file und wartet, bis dieselbe Zeile in
         # view_state zurückgemeldet ist; sonst startet sie die Sendung neu. Hier gehen alle drei über die Steuerdatei (alpha und volume der Pads).
@@ -518,8 +519,11 @@ class SlotController:
             feeders.live_fn = lambda: self.live_set
 
     def _pads(self):
+        """{Rolle: Lage} aus der Einstellung (pipeline_jetson.role_layout): "pic" (x, y, Breite, Höhe), "crop", "frame", "frame_pad", "frame_name", "color", "frame_alpha".
+        Eine alte Form mit (x, y, Breite, Höhe) je Rolle wird angenommen (Tests)."""
         geo = self.geometry_fn(self.cfg) if self.geometry_fn else {}
-        return geo
+        return {r: (v if isinstance(v, dict) else {"pic": tuple(v), "crop": (0, 0, 0, 0), "frame": None, "frame_pad": None, "frame_name": None, "color": 0, "frame_alpha": 0.0})
+                for r, v in geo.items()}
 
     def reload(self):
         cfg = self.load_json("pipeline.json")
@@ -584,16 +588,31 @@ class SlotController:
                 pad_role[s] = r
         lines = []
         hide, apos, mute = self._view_now()
+        visible_role = {}                                          # Rolle -> ihr Bild ist gerade zu sehen (für den Rahmen)
         for s in sorted(set(range(len(geo))) | set(pad_role)):
             role = pad_role.get(s)
             if role is None or role not in geo:
                 lines.append(f"comp.sink_{s} alpha 0")             # keine Rolle: unsichtbar (Lage bleibt wie sie war)
                 continue
-            x, y, w, h = geo[role]
-            z = 0 if role == 0 else role + 1
+            lay = geo[role]
+            x, y, w, h = lay["pic"]
+            z = 0 if role == 0 else 2 * role + 1                   # Ebenen: Hauptbild 0, Rahmen der Stelle n 2n, ihr Bild 2n+1
             hidden = role >= 1 and bool(hide >> (role - 1) & 1)   # kleines Bild in der Ansicht ausgeblendet
+            visible_role[role] = s in shown_slots and not hidden
             lines.append(f"comp.sink_{s} xpos {x}\ncomp.sink_{s} ypos {y}\ncomp.sink_{s} width {w}\ncomp.sink_{s} height {h}\ncomp.sink_{s} zorder {z}\n"
-                         f"comp.sink_{s} alpha {1 if s in shown_slots and not hidden else 0}")
+                         f"comp.sink_{s} alpha {1 if visible_role[role] else 0}")
+            if self.crop_fn:                                       # Beschnitt der Rolle am nvvidconv des Platzes, der sie gerade zeigt (Kanten im Quellbild der Kamera)
+                left, top, right, bottom = self.crop_fn(slots[s], lay["crop"])
+                lines.append(f"vc{s} left {left}\nvc{s} top {top}\nvc{s} right {right}\nvc{s} bottom {bottom}")
+        for role in sorted(geo):                                   # Rahmen: Farbfläche hinter dem kleinen Bild, nur sichtbar, wenn das Bild zu sehen ist
+            lay = geo[role]
+            if lay.get("frame_pad") is None:
+                continue
+            fx, fy, fw, fh = lay["frame"] or lay["pic"]
+            p = lay["frame_pad"]
+            alpha = lay["frame_alpha"] if lay["frame"] and visible_role.get(role) else 0
+            lines.append(f"comp.sink_{p} xpos {fx}\ncomp.sink_{p} ypos {fy}\ncomp.sink_{p} width {fw}\ncomp.sink_{p} height {fh}\ncomp.sink_{p} zorder {2 * role}\n"
+                         f"comp.sink_{p} alpha {alpha:g}\n{lay['frame_name']} foreground-color {lay['color']}")
         arole = apos + 1 if apos >= 0 else 0                       # Tonquelle: -1 Hauptbild, 0..2 kleines Bild an dieser Stelle
         a_slot = nums[arole] if arole < len(nums) and nums[arole] != 15 else None
         for s in sorted(set(range(len(geo))) | set(pad_role)):
