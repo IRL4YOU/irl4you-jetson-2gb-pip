@@ -64,8 +64,7 @@ REQUIRED = ("VERSION", "install/install.sh", "install/setup.sh", "install/pipbox
             "pipbox/web/index.html", "pipbox/web/login.html", "pipbox/web/i18n.js", "pipbox/web/i18n/languages.json")
 VERSION_RE = re.compile(r"^\d{1,3}\.\d{1,3}\.\d{1,3}(-[a-z0-9.]{1,16})?$")
 TEST_RE = re.compile(r"^\d{1,3}\.\d{1,3}\.\d{1,3}-test\d{1,3}$")
-TEST_PARTS = ("/etc/systemd/system/pipbox-privacy.service", f"{INSTALL}/pipbox-privacy.py", f"{INSTALL}/gst/libgstpbpixel.so",
-              f"{INSTALL}/gst-src/gstpbpixel.c")                 # Dateien der Testfunktionen, die beim Zurückwechseln entfallen
+TEST_PARTS = ()                                       # Jetson: keine Dateien von Testfunktionen (die Datenschutz-Beta der Box gibt es hier nicht)
 
 
 class Refuse(Exception):
@@ -368,11 +367,11 @@ def restore(ver, reason="", note="Zurück auf"):
 
 
 def remove_test_parts():
-    """Früher: Dateien der Testfunktionen (Datenschutz-Beta) wegräumen. Seit die Erkennung Teil der Hauptversion ist (Karte Datenschutz), bleibt sie
-    beim Wechsel auf eine stabile Version stehen; nur die alten Modelle der Beta werden entfernt."""
-    for f in ("yolox_s_fp16.rknn", "plate_raw_fp16.rknn", "yunet.onnx", "kopfnetz_fp16.rknn"):
+    """Beim Wechsel auf eine stabile Version Reste einer Testversion wegräumen. Jetson: nichts zu tun (keine Datenschutz-Beta, keine Modelle); bleibt als
+    Aufruf erhalten, damit der Ablauf mit dem anderen Paket übereinstimmt."""
+    for f in TEST_PARTS:
         try:
-            os.remove(f"{INSTALL}/privacy/modelle/{f}")
+            os.remove(f)
         except OSError:
             pass
 
