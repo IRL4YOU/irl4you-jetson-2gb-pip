@@ -36,6 +36,7 @@ BELACODER = "/opt/pipbox/bin/belacoder"      # belacoder mit tolerantem Regler (
 RUN = "/run/pipbox-send"
 WORK = "/var/tmp/pipbox"
 STATUS = f"{RUN}/status.json"
+PADCTL = f"{RUN}/pad-ctl"                       # Steuerdatei für belacoder (belacoder-padctl.patch): kleine Bilder des Compositors ein- und ausblenden (nur Jetson)
 BC_STATS = f"{RUN}/belacoder-stats.json"       # JSON von belacoder, einmal je Sekunde (Bitrate, RTT, Sendepuffer, Neuübertragungen, Verlust, Encoder-Bilder), im RAM
 EVENTS = f"{RUN}/belacoder-events.txt"     # Ereignisse von belacoder (Zweige starten, Zeitausrichtung), für die Protokolle, im RAM
 EVENT_RX = re.compile(r"^(Aligned |Re-aligned |Aligning |Feed sbf[0-9]|Dynamic feed |Controller parts|Bitrate controller|control: no element)")
@@ -115,6 +116,13 @@ def stream_live(key):
         if re.search(rf"<name>\s*{re.escape(key)}\s*</name>", m.group(0)) and "<publishing/>" in m.group(0):
             return True
     return False
+
+
+def _jetson_geometry(cfg):
+    """Lage der Plätze für die Jetson-Kette (Hauptbild und kleine Bilder), aus der gespeicherten Einstellung."""
+    c = server.PipelineStore._safe_cfg({**server.PipelineStore.DEFAULT, **cfg})
+    pip, pip2, pip3, _multi = server.PipelineStore._layout(c)
+    return pipeline_jetson.slot_geometry(c, pip, pip2, pip3)
 
 
 def live_keys():
@@ -386,7 +394,8 @@ class Sender:
         elif plan.get("always") and pipeline_jetson.is_jetson():
             self.always = pipbox_always.SlotController(
                 load_json=lambda name: load_json(f"{STATE}/{name}"), live_keys=live_keys,
-                feeders=pipbox_always.JetsonFeeders(log=lambda m: print(m, flush=True)), log=lambda m: print(m, flush=True))
+                feeders=pipbox_always.JetsonFeeders(log=lambda m: print(m, flush=True)), log=lambda m: print(m, flush=True), padctl_path=PADCTL,
+                geometry_fn=lambda cfg: _jetson_geometry(cfg))
         elif plan.get("always"):
             self.always = pipbox_always.Controller(
                 load_json=lambda name: load_json(f"{STATE}/{name}"), put_state_file=put_state_file,
@@ -575,6 +584,8 @@ class Sender:
         # des Encoders folgte 1 s auf einen Kamera-Rauswurf durch nginx, danach lehnte der Empfänger den schnellen Wiederanlauf ab
         # (ca. 4 s länger Ausfall); nach einem Code 0 nie. Vermutlich schreibt librtmp beim Schließen noch einmal in den toten Socket.
         # Bleibt SIGPIPE ignoriert (wie in diesem Dienst), endet belacoder über den normalen Fehlerweg (Code 0, SRT-Abmeldung).
+        if name == "belacoder" and self.always is not None and hasattr(self.always, "rearm"):
+            self.always.rearm()                           # Jetson: ein neuer belacoder steigt mitten im Keyframe-Abstand ein, die Weichen zeigen bis zum nächsten Keyframe das Füllbild
         soft = self.soft_start_begin() if name == "belacoder" else None
         t0 = time.time()
         p = subprocess.Popen(args, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, universal_newlines=True,
@@ -732,6 +743,8 @@ class Sender:
         env = dict(os.environ, GST_PLUGIN_PATH=PLUGIN_DIR)
         env.setdefault("SB_CTL", "D")                    # Regler: bei starkem Stau (Sendepuffer über 600 ms) die Bitrate halbieren statt um 10 % senken (Issue #1: Aussetzer bei plötzlichem Einbruch der Verbindung)
         env["BELACODER_STATS_FILE"] = BC_STATS            # Kennzahlen für "Details" im Status (belacoder-stats.patch), sonst nichts
+        if self.always is not None and pipeline_jetson.is_jetson():
+            env["BELACODER_PADCTL_FILE"] = PADCTL         # kleine Bilder ohne Kamera ausblenden (belacoder-padctl.patch)
         if self.live:
             env["GST_MPP_NO_RGA"] = "1"                   # der Encoder bekommt nur Bilder aus dem Compositor (Systemspeicher): Software-Kopie statt RGA über virtuelle Adresse
             self.boost.off()                              # Rest eines abgestürzten Laufs zurückstellen, dann für diese Sendung hochnehmen

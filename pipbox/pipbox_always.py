@@ -22,7 +22,14 @@ BACK_S = 3.0                # so lange muss die eigentliche Hauptkamera wieder B
 KEY_RE = re.compile(r"^[a-z0-9_-]{1,40}$")
 
 
-def feeder_cmd(key, slot, rtmp_port=1935, rtmp_app="publish", gst="gst-launch-1.0"):
+PRIV_PORT = 9440            # Jetson: private Eingänge der Weiche (pipbox_relay.py) je Platz: PRIV_PORT + 3*Platz Bild der Kamera, +1 Ton der Kamera, +2 Füllbild
+
+
+def priv_ports(slot):
+    return PRIV_PORT + 3 * slot, PRIV_PORT + 3 * slot + 1, PRIV_PORT + 3 * slot + 2
+
+
+def feeder_cmd(key, slot, rtmp_port=1935, rtmp_app="publish", gst="gst-launch-1.0", ports=None):
     """Befehl (Liste) eines Zubringers. Der Schlüssel muss geprüft sein (a-z, 0-9, -, _); er geht nie über eine Shell.
 
     Bild: Stream unverändert (kein Umkodieren), SPS/PPS jede Sekunde mitgeschickt, damit eine neu startende Kette sofort einsteigt.
@@ -30,7 +37,7 @@ def feeder_cmd(key, slot, rtmp_port=1935, rtmp_app="publish", gst="gst-launch-1.
     wären dann falsch ("not-negotiated", gemessen). Die Zeitstempel setzt die Kette selbst beim Eintreffen (udpsrc do-timestamp)."""
     if not KEY_RE.match(key or "") or not 0 <= slot < SLOTS:
         raise ValueError("Schlüssel oder Platz ungültig")
-    vp, ap = FEED_PORT + 2 * slot, FEED_PORT + 2 * slot + 1
+    vp, ap = ports if ports else (FEED_PORT + 2 * slot, FEED_PORT + 2 * slot + 1)
     chain = (f"rtmpsrc location=rtmp://127.0.0.1:{int(rtmp_port)}/{rtmp_app}/{key} do-timestamp=true ! flvdemux name=d "
              f"d.video ! queue max-size-time=2000000000 max-size-buffers=0 max-size-bytes=0 ! h264parse config-interval=-1 ! "
              f"rtph264pay config-interval=1 pt=96 ! udpsink host=127.0.0.1 port={vp} sync=false "
@@ -195,61 +202,171 @@ class Feeders:
                 self._stop_locked(slot)
 
 
-def fill_cmd(slot, gst="gst-launch-1.0"):
-    """Jetson: Füllbild für einen Platz ohne Kamera. Ein kleiner schwarzer H.264-Stream (mit Stille als Ton, sonst wartet der audiomixer der Kette) (640x360, 30 Bilder/s, SPS/PPS alle halbe Sekunde) geht an denselben Port wie der
-    Zubringer der Kamera. So hat der Compositor an jedem Platz von Anfang an Bilder (ohne sie liefert nvcompositor beim Start keinen Ausgang, gemessen) und zeigt nach einem
-    Ausfall Schwarz statt des letzten Bildes der Kamera. Der Compositor skaliert das Bild auf die Größe des Platzes."""
+FILL_SIZE = (1920, 1080)    # Größe des Füllbildes: gleich der üblichen Kamera, damit der Decoder beim Umschalten nicht die Größe wechseln muss
+
+
+def fill_cmd(slot, gst="gst-launch-1.0", size=None):
+    """Jetson: Füllbild für einen Platz, solange seine Kamera noch nicht da war. Ein schwarzer H.264-Stream (30 Bilder/s, SPS/PPS alle halbe Sekunde, wenig Datenrate) geht an den
+    Füll-Eingang der Weiche. So hat der Compositor an jedem Platz von Anfang an Bilder (ohne sie liefert nvcompositor beim Start keinen Ausgang, gemessen)."""
     if not 0 <= slot < SLOTS:
         raise ValueError("Platz ungültig")
-    vp, ap = FEED_PORT + 2 * slot, FEED_PORT + 2 * slot + 1
-    chain = ("videotestsrc is-live=true pattern=black ! video/x-raw,width=640,height=360,framerate=30/1 ! nvvidconv ! video/x-raw(memory:NVMM),format=NV12 ! "
+    w, h = size or FILL_SIZE
+    fp = priv_ports(slot)[2]
+    chain = (f"videotestsrc is-live=true pattern=black ! video/x-raw,width={int(w)},height={int(h)},framerate=30/1 ! nvvidconv ! video/x-raw(memory:NVMM),format=NV12 ! "
              "nvv4l2h264enc bitrate=300000 iframeinterval=15 insert-sps-pps=true ! h264parse config-interval=-1 ! "
-             f"rtph264pay config-interval=1 pt=96 ! udpsink host=127.0.0.1 port={vp} sync=false "
-             "audiotestsrc is-live=true wave=silence ! audio/x-raw,format=S16LE,rate=48000,channels=2,layout=interleaved ! "
-             f"audiobuffersplit output-buffer-duration=1024/48000 ! udpsink host=127.0.0.1 port={ap} sync=false")
+             f"rtph264pay config-interval=1 pt=96 ! udpsink host=127.0.0.1 port={fp} sync=false")
     return [gst, "-q"] + chain.split()
 
 
-class JetsonFeeders(Feeders):
-    """Zubringer für den Jetson: je Platz entweder der Zubringer der Kamera (wenn sie am RTMP-Server sendet) oder das Füllbild. Wechselt, sobald die Kamera kommt oder geht;
-    der Encoder der Sendekette merkt davon nichts. live_fn liefert die Schlüssel der sendenden Kameras (oder None, wenn unbekannt: dann wird die Kamera versucht)."""
+class JetsonFeeders:
+    """Zubringer für den Jetson. Je Platz: eine Weiche (pipbox_relay.SlotRelay), die den Eingang der Kette speist, ein Zubringer der Kamera (läuft, solange sie am RTMP-Server
+    sendet) und das Füllbild (läuft, bis die Kamera zum ersten Mal einen Keyframe geliefert hat). live_fn liefert die Schlüssel der sendenden Kameras (oder None, wenn unbekannt:
+    dann wird die Kamera einfach versucht)."""
 
-    def __init__(self, live_fn=lambda: None, **kw):
-        super().__init__(**kw)
-        self.live_fn = live_fn
-        self.modes = {}                       # Platz -> "kamera" oder "fuell" (für Anzeige und Tests)
+    def __init__(self, live_fn=lambda: None, rtmp_port=1935, rtmp_app="publish", log=print, popen=subprocess.Popen, clock=time.monotonic, killpg=os.killpg,
+                 relay_factory=None):
+        self.live_fn, self.rtmp_port, self.rtmp_app, self.log = live_fn, rtmp_port, rtmp_app, log
+        self.popen, self.clock, self.killpg = popen, clock, killpg
+        self.relay_factory = relay_factory or self._default_relay
+        self.lock = threading.Lock()
+        self.relays = {}
+        self.running = {}                    # Platz -> {"key", "stop", "threads", "procs"}
+        self.starts = {i: 0 for i in range(SLOTS)}
 
-    def _loop(self, slot, st):
+    @staticmethod
+    def _default_relay(slot):
+        import pipbox_relay
+        pv, pa, pf = priv_ports(slot)
+        return pipbox_relay.SlotRelay(slot, FEED_PORT + 2 * slot, FEED_PORT + 2 * slot + 1, pv, pa, pf)
+
+    # --- Zustand für Anzeige und Steuerung ------------------------------------------------------------------------------------------------
+    def shown(self, slot):
+        r = self.relays.get(slot)
+        return bool(r and r.shown())
+
+    @property
+    def modes(self):
+        return {s: ("kamera" if r.gate else "fuell") for s, r in self.relays.items()}
+
+    # --- Verwaltung ------------------------------------------------------------------------------------------------------------------------
+    def set_keys(self, slot_key):
+        with self.lock:
+            for slot in range(SLOTS):
+                key = slot_key[slot] if slot < len(slot_key) else ""
+                cur = self.running.get(slot)
+                if cur and cur["key"] == key:
+                    continue
+                if cur:
+                    self._stop_locked(slot)
+                if key:
+                    self._start_locked(slot, key)
+
+    def _start_locked(self, slot, key):
+        relay = self.relays.get(slot)
+        if relay is None:
+            relay = self.relays[slot] = self.relay_factory(slot)
+            relay.start()
+        else:
+            relay.reset()                    # andere Kamera: ihr erster Keyframe öffnet das Tor
+        st = {"key": key, "stop": threading.Event(), "procs": {}}
+        st["threads"] = [threading.Thread(target=self._cam_loop, args=(slot, st, relay), daemon=True, name=f"cam{slot}"),
+                         threading.Thread(target=self._fill_loop, args=(slot, st, relay), daemon=True, name=f"fill{slot}")]
+        self.running[slot] = st
+        for t in st["threads"]:
+            t.start()
+
+    def _stop_locked(self, slot):
+        st = self.running.pop(slot, None)
+        if not st:
+            return
+        st["stop"].set()
+        for p in list(st["procs"].values()):
+            self._kill(p)
+
+    def _kill(self, p):
+        if p is None or p.poll() is not None:
+            return
+        try:
+            self.killpg(p.pid, signal.SIGTERM)
+        except OSError:
+            try:
+                p.terminate()
+            except OSError:
+                pass
+
+    def _spawn(self, st, name, cmd):
+        try:
+            p = self.popen(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, start_new_session=True)
+        except (OSError, ValueError) as e:
+            if st.get("warned") != type(e).__name__:
+                st["warned"] = type(e).__name__
+                self.log(f"send: Zubringer nicht startbar ({type(e).__name__})")
+            return None
+        st["procs"][name] = p
+        return p
+
+    def _cam_loop(self, slot, st, relay):
         key = st["key"]
         while not st["stop"].is_set():
             live = self.live_fn()
-            cam = bool(key) and (live is None or key in live)
-            try:
-                cmd = feeder_cmd(key, slot, self.rtmp_port, self.rtmp_app) if cam else fill_cmd(slot)
-                p = self.popen(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, start_new_session=True)
-            except (OSError, ValueError) as e:
-                if st.get("warned") != type(e).__name__:
-                    st["warned"] = type(e).__name__
-                    self.log(f"send: Zubringer {slot} nicht startbar ({type(e).__name__})")
+            if live is not None and key not in live:
+                st["stop"].wait(0.5)         # die Kamera sendet nicht: nichts zu holen
+                continue
+            pv, pa, _pf = priv_ports(slot)
+            p = self._spawn(st, "cam", feeder_cmd(key, slot, self.rtmp_port, self.rtmp_app, ports=(pv, pa)))
+            if p is None:
                 if st["stop"].wait(5):
                     return
                 continue
-            st["proc"] = p
-            self.modes[slot] = "kamera" if cam else "fuell"
             self.starts[slot] += 1
+            gone = None
             while p.poll() is None and not st["stop"].is_set():
                 time.sleep(0.2)
                 now = self.live_fn()
-                if cam and now is not None and key not in now and p.poll() is None:
-                    time.sleep(1.0)                              # die Kamera ist weg: der Zubringer endet gleich selbst; sonst nach einer Sekunde beenden
-                    if p.poll() is None:
-                        self._kill(p)
-                elif not cam and now is not None and key in now:
-                    self._kill(p)                                # die Kamera ist da: Füllbild beenden, im nächsten Durchgang kommt der Zubringer
+                if now is not None and key not in now:
+                    gone = gone or self.clock()
+                    if self.clock() - gone > 1.0:
+                        self._kill(p)        # die Kamera ist weg, der Zubringer endet sonst erst später
+                else:
+                    gone = None
             if st["stop"].is_set():
                 self._kill(p)
                 return
-            st["stop"].wait(0.3)
+            st["stop"].wait(0.5)
+
+    def _fill_loop(self, slot, st, relay):
+        while not st["stop"].is_set() and not relay.fill_done:
+            p = self._spawn(st, "fill", fill_cmd(slot))
+            if p is None:
+                if st["stop"].wait(5):
+                    return
+                continue
+            while p.poll() is None and not st["stop"].is_set() and not relay.fill_done:
+                time.sleep(0.2)
+            self._kill(p)
+            if st["stop"].wait(0.3):
+                return
+
+    def rearm(self):
+        """belacoder startet neu: Weichen zurücksetzen und das Füllbild wieder starten, damit der neue Abnehmer sofort Bilder samt Keyframe bekommt."""
+        with self.lock:
+            for slot, st in self.running.items():
+                relay = self.relays.get(slot)
+                if relay is None:
+                    continue
+                relay.reset()
+                if not st["threads"][1].is_alive():          # das Füllbild war beendet: wieder starten (die Zubringer der Kameras laufen weiter)
+                    t = threading.Thread(target=self._fill_loop, args=(slot, st, relay), daemon=True, name=f"fill{slot}")
+                    st["threads"][1] = t
+                    t.start()
+
+    def stop_all(self):
+        with self.lock:
+            for slot in list(self.running):
+                self._stop_locked(slot)
+            for r in self.relays.values():
+                r.stop()
+            self.relays = {}
 
 
 class Controller:
@@ -332,15 +449,30 @@ class Controller:
 
 class SlotController:
     """Jetson: "alle Kameras immer bereit" mit festen Plätzen. Platz 0 ist das Hauptbild, 1 bis 3 sind die kleinen Bilder, genau wie im Bildaufbau; die Kette
-    (srv/pipeline_jetson.py build_always) liest jeden Platz von udpsrc und hat einen schwarzen Untergrund, fällt also nie aus. Je belegtem Platz holt ein Zubringer
-    den Stream der Kamera aus dem RTMP-Server. Wird in der Oberfläche eine andere Kamera an einen Platz gelegt, startet nur dessen Zubringer neu, der Encoder läuft
-    weiter. Es gibt keinen automatischen Wechsel des Hauptbildes: fällt die Hauptkamera aus, bleibt ihr Platz schwarz, bis sie wiederkommt."""
+    (srv/pipeline_jetson.py build_always) liest jeden Platz von udpsrc, fällt also nie aus. Je belegtem Platz holt ein Zubringer den Stream der Kamera aus dem RTMP-Server
+    (oder speist das Füllbild, wenn sie nicht sendet). Wird in der Oberfläche eine andere Kamera an einen Platz gelegt, startet nur dessen Zubringer neu, der Encoder
+    läuft weiter.
 
-    def __init__(self, load_json, live_keys, feeders, log=print):
+    Wer wo zu sehen ist, entscheidet wie beim anderen Projekt der Chooser: Fällt die Hauptkamera aus, wird die erste vorhandene Kamera der kleinen Bilder (in der Reihenfolge
+    der Einstellung, nicht deaktivierte) Hauptbild; ihr kleiner Platz bleibt dann leer. Kommt die Hauptkamera zurück, übernimmt sie nach BACK_S wieder. Umgesetzt wird das in
+    der Kette über die Steuerdatei von belacoder (belacoder-padctl.patch): Lage, Ebene und Sichtbarkeit der Compositor-Pads, Lautstärke der Ton-Pads. Kleine Bilder ohne
+    Kamera sind unsichtbar (kein schwarzes Viereck); das Hauptbild ist ohne Kamera schwarz. Der Ton folgt dem Hauptbild, wenn "Ton von: Hauptbild" gewählt ist."""
+
+    GRACE = 15.0                              # so lange gilt eine sendende Kamera, die noch auf ihren Keyframe wartet, als vorhanden (kein Hauptbild-Wechsel beim Start)
+    CANVAS = (0, 0, 1920, 1080)
+
+    def __init__(self, load_json, live_keys, feeders, log=print, padctl_path=None, clock=time.monotonic, geometry_fn=None):
         self.load_json, self.live_keys, self.feeders, self.log = load_json, live_keys, feeders, log
+        self.padctl_path, self.clock, self.geometry_fn = padctl_path, clock, geometry_fn
+        self.padctl_last = None
         self.binder = Binder()
+        self.chooser = Chooser(clock)
+        self.cfg = {}
         self.last_cfg_sig = None
         self.alive = set()
+        self.shown = set()                    # Kameras, deren Bilder durch die Weiche laufen und die zu sehen sein dürfen
+        self._wait = {}                       # Schlüssel -> seit wann die Kamera sendet, aber noch nicht zu sehen ist
+        self.main_key = None
         self.live_set = None                  # Schlüssel aller Kameras am RTMP-Server (None = unbekannt); die Zubringer lesen es
         if isinstance(feeders, JetsonFeeders):
             feeders.live_fn = lambda: self.live_set
@@ -351,6 +483,7 @@ class SlotController:
         if sig == self.last_cfg_sig:
             return False
         self.last_cfg_sig = sig
+        self.cfg = cfg
         keys = Controller.keys_of(cfg)
         if keys != self.binder.slot_key:
             self.binder.slot_key = list(keys)
@@ -358,10 +491,85 @@ class SlotController:
             return True
         return False
 
+    def _shown_slots(self):
+        """Plätze, deren Kamera sendet und deren Zubringer seit SHOW_AFTER läuft: erst dann ist ihr Bild echt (vorher läuft noch das Füllbild)."""
+        return {s for s, k in enumerate(self.binder.slot_key) if k and self.feeders.shown(s)}
+
+    def plan(self):
+        """(Zeilen für die Steuerdatei, Schlüssel des Hauptbildes). Platz = Pad des Compositors (sink_N); Ton-Pad des audiomixer: sink_(N+1)."""
+        keys = list(self.binder.slot_key)
+        shown_slots = self._shown_slots()
+        self.shown = {keys[s] for s in shown_slots}
+        now = self.clock()
+        live = self.live_set or set()
+        pending = set()
+        for s, k in enumerate(keys):
+            if not k or s in shown_slots or k not in live:
+                self._wait.pop(k, None)
+                continue
+            if now - self._wait.setdefault(k, now) < self.GRACE:
+                pending.add(k)
+        slot_of = {}
+        for s, k in enumerate(keys):
+            if k and k not in slot_of:
+                slot_of[k] = s
+        ina = self.cfg.get("inactive")
+        inactive = [k for k in ina if isinstance(k, str)] if isinstance(ina, list) else []
+        line, main = self.chooser.line(keys, slot_of, self.shown | pending, inactive)
+        nums = [int(x) for x in line.split()]          # Platz des Hauptbildes, dann Platz je kleinem Bild (15 = keiner)
+        main_slot = nums[0]
+        geo = self.geometry_fn(self.cfg) if self.geometry_fn else {}
+        lines = []
+        for s, k in enumerate(keys):
+            if s not in geo:
+                continue
+            vis = s in shown_slots
+            if s == main_slot and s != 0:
+                x, y, w, h, z = self.CANVAS[0], self.CANVAS[1], self.CANVAS[2], self.CANVAS[3], 1      # Ersatz für die Hauptkamera: Vollbild über dem schwarzen Hauptplatz
+            elif s == 0:
+                x, y, w, h = geo[0]
+                z = 0
+                vis = vis and main_slot == 0                                                              # Hauptplatz verdeckt, solange eine andere Kamera Hauptbild ist
+            else:
+                x, y, w, h = geo[s]
+                z = s + 1
+                vis = vis and nums[s] == s
+            lines.append(f"comp.sink_{s} xpos {x}\ncomp.sink_{s} ypos {y}\ncomp.sink_{s} width {w}\ncomp.sink_{s} height {h}\ncomp.sink_{s} zorder {z}\n"
+                         f"comp.sink_{s} alpha {1 if vis else 0}")
+        audio = self.cfg.get("audio", "main")
+        a_slot = {"main": main_slot, "pip": 1, "pip2": 2, "pip3": 3}.get(audio, main_slot)
+        for s in sorted(geo):
+            lines.append(f"amix.sink_{s + 1} volume {1 if s == a_slot else 0}")
+        return "\n".join(lines) + "\n", main
+
+    def write_padctl(self):
+        if not self.padctl_path or not self.geometry_fn:
+            return None
+        text, main = self.plan()
+        if text != self.padctl_last:
+            try:
+                tmp = self.padctl_path + ".tmp"
+                with open(tmp, "w") as f:
+                    f.write(text)
+                os.chmod(tmp, 0o644)
+                os.replace(tmp, self.padctl_path)
+                self.padctl_last = text
+            except OSError:
+                pass
+        return main
+
+    def rearm(self):
+        """belacoder wird (neu) gestartet: die Plätze zeigen wieder das Füllbild (kleine Bilder unsichtbar), bis die Kameras ihren nächsten Keyframe liefern."""
+        self.feeders.rearm()
+        self.padctl_last = None
+        self.write_padctl()
+
     def start(self):
         self.last_cfg_sig = None
         self.live_set = self.live_keys()
         self.reload()
+        self.padctl_last = None
+        self.write_padctl()                   # Anfangszustand: kleine Bilder unsichtbar, bis ihre Kamera da ist
         self.feeders.set_keys(self.binder.slot_key)
 
     def tick(self):
@@ -371,7 +579,12 @@ class SlotController:
         if live is not None:
             self.alive = {k for k in self.binder.slot_key if k and k in live}
         slots = list(self.binder.slot_key)
-        return {"slots": slots, "alive": sorted(self.alive), "main": slots[0] or None, "line": ""}
+        main = self.write_padctl()
+        if main is not None and main != self.main_key:
+            if self.main_key is not None:
+                self.log(f"send: Hauptbild jetzt {main or '(keine Kamera)'} (eingestellt: {slots[0]})")
+            self.main_key = main
+        return {"slots": slots, "alive": sorted(self.alive), "main": self.main_key or slots[0] or None, "line": ""}
 
     def stop(self):
         self.feeders.stop_all()

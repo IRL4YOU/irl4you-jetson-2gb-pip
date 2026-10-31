@@ -38,35 +38,48 @@ def _audio_other(demux, take):
     return f"{demux}.audio ! queue max-size-buffers=4 leaky=downstream ! fakesink sync=false async=false"
 
 
+def slot_geometry(c, pip, pip2, pip3):
+    """Lage der Plätze auf der Leinwand: {Platz: (x, y, Breite, Höhe)}; Platz 0 ist das Hauptbild, 1 bis 3 sind die kleinen Bilder (nur die, die es gibt)."""
+    geo = {0: (0, 0, CANVAS_W, CANVAS_H)}
+    margin = (CANVAS_W // 60) & ~1
+    present = {1: pip, 2: pip2, 3: pip3}
+    for n, size_key, sfx in ((1, "size_pct", ""), (2, "size_pct2", "2"), (3, "size_pct3", "3")):
+        if not present[n]:
+            continue
+        w, h = pip_size(c[size_key])
+        x, y = place(c["corner" + sfx], CANVAS_W, CANVAS_H, w, h, margin, c["x" + sfx], c["y" + sfx])
+        geo[n] = (x & ~1, y & ~1, w & ~1, h & ~1)         # nvcompositor verlangt gerade Werte (sonst eine Meldung je Bild)
+    return geo
+
+
 def build_always(c, pip, pip2, pip3):
     """"Alle Kameras immer bereit": jeder Platz (Hauptbild, kleine Bilder) liest von udpsrc auf Loopback, wohin ein Zubringer (pipbox_always.py) den Stream der Kamera
     reicht. udpsrc fällt nie aus; fehlt eine Kamera, speist ein schwarzes Füllbild den Platz (pipbox_always.fill_cmd), so hat der Compositor immer an jedem Platz Bilder und der
-    Ausgang läuft auch ohne Kamera. Ton: stiller Untergrund plus Ton des gewählten Platzes, im audiomixer zusammengeführt."""
+    Ausgang läuft auch ohne Kamera. Welche Kamera wo zu sehen ist (kleine Bilder ausblenden, Ersatz für die Hauptkamera) und welcher Ton läuft, ändert die Steuerdatei von
+    belacoder (belacoder-padctl.patch) im Betrieb: Lage und Ebene der Compositor-Pads (sink_N = Platz N) und Lautstärke der Ton-Pads des audiomixer (sink_N+1 = Platz N,
+    sink_0 ist die Stille)."""
     sel = c.get("audio", "main") if pip else "main"
     if sel == "pip2" and not pip2 or sel == "pip3" and not pip3 or sel not in ("main", "pip", "pip2", "pip3"):
         sel = "main"
+    geo = slot_geometry(c, pip, pip2, pip3)
     out = []
-    props = [f"sink_0::xpos=0 sink_0::ypos=0 sink_0::width={CANVAS_W} sink_0::height={CANVAS_H} sink_0::zorder=0"]
-    udp_v = lambda slot: (f"udpsrc port={FEED_PORT + 2 * slot} address=127.0.0.1 buffer-size=8388608 do-timestamp=true caps=\"{FEED_VIDEO_CAPS}\" !\n"
-                          f"rtph264depay ! h264parse")
-    out.append(f"{udp_v(0)} ! identity name=v_delay signal-handoffs=TRUE ! {Q_BIG} ! nvv4l2decoder ! nvvidconv ! {RGBA} ! comp.sink_0\n")
-    margin = (CANVAS_W // 60) & ~1
-    present = {"pip": pip, "pip2": pip2, "pip3": pip3}
-    size_keys = {"pip": "size_pct", "pip2": "size_pct2", "pip3": "size_pct3"}
-    for n, key, sfx in ((1, "pip", ""), (2, "pip2", "2"), (3, "pip3", "3")):
-        if not present[key]:
-            continue
-        w, h = pip_size(c[size_keys[key]])
-        x, y = place(c["corner" + sfx], CANVAS_W, CANVAS_H, w, h, margin, c["x" + sfx], c["y" + sfx])
-        props.append(f"sink_{n}::xpos={x} sink_{n}::ypos={y} sink_{n}::width={w} sink_{n}::height={h} sink_{n}::zorder={n}")
-        out.append(f"{udp_v(n)} ! {Q_BIG} ! nvv4l2decoder ! nvvidconv ! {RGBA} ! comp.sink_{n}\n")
+    props = []
+    for n in sorted(geo):
+        x, y, w, h = geo[n]
+        props.append(f"sink_{n}::xpos={x} sink_{n}::ypos={y} sink_{n}::width={w} sink_{n}::height={h} sink_{n}::zorder={n + (1 if n else 0)}")
+        v_delay = "identity name=v_delay signal-handoffs=TRUE ! " if n == 0 else ""
+        out.append(f"udpsrc port={FEED_PORT + 2 * n} address=127.0.0.1 buffer-size=8388608 do-timestamp=true caps=\"{FEED_VIDEO_CAPS}\" !\n"
+                   f"rtph264depay ! h264parse ! {v_delay}{Q_BIG} ! nvv4l2decoder ! nvvidconv ! {RGBA} ! comp.sink_{n}\n")
     out.append("nvcompositor name=comp " + " ".join(props) + f" !\n{RGBA} ! nvvidconv ! {NV12} !\n"
                f"{ENCODER} !\nh265parse config-interval=-1 ! {Q_MUX} ! mux.\n")
-    slot = {"main": 0, "pip": 1, "pip2": 2, "pip3": 3}[sel]
-    out.append(f"audiotestsrc is-live=true wave=silence ! {FEED_AUDIO_CAPS} ! amix.\n")
-    out.append(f"udpsrc port={FEED_PORT + 2 * slot + 1} address=127.0.0.1 buffer-size=1048576 do-timestamp=true caps=\"{FEED_AUDIO_CAPS}\" !\n"
-               f"queue max-size-time=2000000000 max-size-buffers=0 max-size-bytes=0 leaky=downstream ! amix.\n")
-    out.append("audiomixer name=amix ! audioconvert ! identity name=a_delay signal-handoffs=TRUE ! volume volume=1.0 ! "
+    slot_sel = {"main": 0, "pip": 1, "pip2": 2, "pip3": 3}[sel]
+    out.append(f"audiotestsrc is-live=true wave=silence ! {FEED_AUDIO_CAPS} ! amix.sink_0\n")
+    apads = []
+    for n in sorted(geo):
+        apads.append(f"sink_{n + 1}::volume={1.0 if n == slot_sel else 0.0}")
+        out.append(f"udpsrc port={FEED_PORT + 2 * n + 1} address=127.0.0.1 buffer-size=1048576 do-timestamp=true caps=\"{FEED_AUDIO_CAPS}\" !\n"
+                   f"queue max-size-time=2000000000 max-size-buffers=0 max-size-bytes=0 leaky=downstream ! amix.sink_{n + 1}\n")
+    out.append("audiomixer name=amix " + " ".join(apads) + " ! audioconvert ! identity name=a_delay signal-handoffs=TRUE ! volume volume=1.0 ! "
                f"voaacenc bitrate=128000 ! aacparse ! {Q_MUX} ! mux.\n")
     out.append("mpegtsmux name=mux !\nappsink name=appsink")
     return "\n".join(out)
@@ -102,6 +115,7 @@ def build(c, base, pip, pip2, pip3, always=False):
                 continue
             w, h = pip_size(c[size_keys[key]])
             x, y = place(c["corner" + sfx], CANVAS_W, CANVAS_H, w, h, margin, c["x" + sfx], c["y" + sfx])
+            x, y, w, h = x & ~1, y & ~1, w & ~1, h & ~1                  # nvcompositor verlangt gerade Werte (sonst eine Meldung je Bild)
             props.append(f"sink_{n}::xpos={x} sink_{n}::ypos={y} sink_{n}::width={w} sink_{n}::height={h} sink_{n}::zorder={n}")
             out.append(f"rtmpsrc location={base}/{c[key]} do-timestamp=true !\nflvdemux name=d{n}\n")
             out.append(f"d{n}.video ! {Q_BIG} ! h264parse ! nvv4l2decoder ! nvvidconv ! {RGBA} ! comp.sink_{n}\n")
