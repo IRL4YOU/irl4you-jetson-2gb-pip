@@ -1,5 +1,8 @@
 # Änderungen
 
+## 0.1.7
+- Weniger CPU-Last durch den DJI-Dienst: Die Oberfläche fragte bei jeder Statusabfrage die WLAN-Liste neu ab (rund sieben nmcli-Aufrufe je Abfrage, dabei liefen polkit, NetworkManager und dbus-daemon zusammen auf etwa einem Drittel eines Kerns). Die Anzeige darf jetzt 30 Sekunden alt sein; beim Verbinden einer Kamera wird weiter frisch gelesen. Gemessen: von etwa 40 auf 2 Aufrufe in 12 Sekunden.
+
 ## 0.1.6
 - USB-Kamera als Kamera (Webcam, HDMI-USB-Grabber): Der Dienst aus dem anderen Paket speist die erste angeschlossene USB-Kamera als RTMP-Kamera ein (MJPEG, Rohbild oder H.264, mit dem Hardware-Kodierer des Jetson). **Nicht mit einer echten Kamera geprüft:** Getestet wurde der Weg ab der Kamera (MJPEG, Rohbild und H.264 aus einem Testbild bis zum RTMP-Server: richtige Größe, 30 Bilder/s, Ton). Wie sich echte Kameras und Grabber melden (Formate, Tongerät), bleibt offen. Ein H.264-Strom mit Füllzeilen (Osmo Action 6 am USB) wird nicht zugeschnitten. Der HDMI-Eingang des Rockchip-Boards fehlt dem Jetson. Hinweis: Eine USB-Kamera am Jetson braucht Strom; bei Ausfällen einen USB-Hub mit eigenem Netzteil verwenden.
 - Fernzugriff über Tailscale auf Ubuntu 18.04: Die Paketquelle von tailscale.com hat für dieses System nur Version 1.8.2 von 2021 (ohne „serve“ und „funnel“). Der Helfer lädt deshalb das offizielle Programmpaket (rund 36 MB, aktuelle Version) und richtet den Dienst selbst ein. Die Anmeldung beim Tailscale-Konto machst du selbst.
