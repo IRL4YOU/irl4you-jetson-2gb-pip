@@ -1,5 +1,10 @@
 # Änderungen
 
+## 0.1.8
+- Tausch von Hauptbild und kleinen Bildern ohne Unterbrechung (Dialog „Bildaufbau speichern“, „Hauptbild wählen“, Controller-Tasten): Vorher bekam der Decoder eines Platzes beim Tausch plötzlich den Strom einer anderen Kamera; der Hardware-Decoder des Jetson verkraftet das nicht („reference in DPB was never decoded“), der Ausgang stand etwa 15 Sekunden, dann startete belacoder neu. Jetzt behält jede Kamera ihren Decoder-Platz (wie im anderen Paket: ein Schlüssel behält seinen Platz), und ein Tausch ändert nur Lage, Größe und Ebene der Bilder und die Tonquelle. Nur eine Kamera, die neu dazukommt, startet belacoder gezielt neu. Gemessen: 12 Tauschwechsel (cam-a mit cam-b und cam-a mit der Action 6) ohne Stillstand.
+- Bericht bei einem unerwarteten Ende von belacoder: Die letzten Ausgabezeilen (ohne Adressen und Schlüssel), der Zustand der Weichen je Platz mit Uhrzeiten und die UDP-Fehlerzähler stehen in /var/lib/pipbox/belacoder-ende.txt (die letzten 6 Berichte). Damit lassen sich seltene Ausfälle erklären.
+- Bekannt, noch nicht erklärt: Selten (etwa alle 10 bis 30 Minuten mit vier Kameras) meldet der Decoder „reference in DPB was never decoded“ und belacoder startet von selbst neu, auch ohne Tausch.
+
 ## 0.1.7
 - Weniger CPU-Last durch den DJI-Dienst: Die Oberfläche fragte bei jeder Statusabfrage die WLAN-Liste neu ab (rund sieben nmcli-Aufrufe je Abfrage, dabei liefen polkit, NetworkManager und dbus-daemon zusammen auf etwa einem Drittel eines Kerns). Die Anzeige darf jetzt 30 Sekunden alt sein; beim Verbinden einer Kamera wird weiter frisch gelesen. Gemessen: von etwa 40 auf 2 Aufrufe in 12 Sekunden.
 

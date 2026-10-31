@@ -359,6 +359,14 @@ class JetsonFeeders:
             time.sleep(0.1)
         return False
 
+    def relay_report(self):
+        """Zustand und Ereignisse der Weichen für den Bericht bei einem unerwarteten Ende von belacoder: je Platz Tor, Füllbild und die letzten Ereignisse (nur Plätze und Uhrzeiten)."""
+        out = []
+        for slot, r in sorted(self.relays.items()):
+            out.append("Platz %d: Tor %s, Füllbild %s" % (slot, "offen" if r.gate else "zu", "beendet" if r.fill_done else "läuft"))
+            out += ["    " + e for e in list(r.events)[-8:]]
+        return out
+
     def rearm(self):
         """belacoder startet neu: Weichen zurücksetzen und das Füllbild wieder starten, damit der neue Abnehmer sofort Bilder samt Keyframe bekommt."""
         with self.lock:
@@ -460,15 +468,16 @@ class Controller:
 
 
 class SlotController:
-    """Jetson: "alle Kameras immer bereit" mit festen Plätzen. Platz 0 ist das Hauptbild, 1 bis 3 sind die kleinen Bilder, genau wie im Bildaufbau; die Kette
-    (srv/pipeline_jetson.py build_always) liest jeden Platz von udpsrc, fällt also nie aus. Je belegtem Platz holt ein Zubringer den Stream der Kamera aus dem RTMP-Server
-    (oder speist das Füllbild, wenn sie nicht sendet). Wird in der Oberfläche eine andere Kamera an einen Platz gelegt, startet nur dessen Zubringer neu, der Encoder
-    läuft weiter.
+    """Jetson: "alle Kameras immer bereit". Die Kette (srv/pipeline_jetson.py build_always) hat je Platz (Pad des Compositors, Decoder) einen Eingang von udpsrc, der Strom kommt
+    über die Weiche (pipbox_relay.py) von einem Zubringer. WICHTIG: Ein Decoder, der schon läuft, verkraftet den Strom einer anderen Kamera nicht (gemessen: "reference in DPB was
+    never decoded", dann steht der Ausgang und belacoder startet neu, auch bei gleicher Auflösung). Darum behält jede Kamera ihren Platz, und ein Tausch ändert nur, WO ihr
+    Bild zu sehen ist: Lage, Größe und Ebene der Pads und die Lautstärke der Tonquellen über die Steuerdatei von belacoder (belacoder-padctl.patch). Nur eine Kamera, die neu
+    dazukommt (ein Platz bekommt eine andere Kamera), braucht einen Neustart von belacoder (Anzeige "restart" in tick(), der Sende-Dienst startet dann neu).
 
-    Wer wo zu sehen ist, entscheidet wie beim anderen Projekt der Chooser: Fällt die Hauptkamera aus, wird die erste vorhandene Kamera der kleinen Bilder (in der Reihenfolge
-    der Einstellung, nicht deaktivierte) Hauptbild; ihr kleiner Platz bleibt dann leer. Kommt die Hauptkamera zurück, übernimmt sie nach BACK_S wieder. Umgesetzt wird das in
-    der Kette über die Steuerdatei von belacoder (belacoder-padctl.patch): Lage, Ebene und Sichtbarkeit der Compositor-Pads, Lautstärke der Ton-Pads. Kleine Bilder ohne
-    Kamera sind unsichtbar (kein schwarzes Viereck); das Hauptbild ist ohne Kamera schwarz. Der Ton folgt dem Hauptbild, wenn "Ton von: Hauptbild" gewählt ist."""
+    Rollen (Hauptbild, kleine Bilder 1 bis 3) kommen aus der Einstellung. Wer in welcher Rolle zu sehen ist, entscheidet wie beim anderen Projekt der Chooser: Fällt die Hauptkamera
+    aus, wird die erste vorhandene Kamera der kleinen Bilder Hauptbild (nicht deaktivierte, in der Reihenfolge der Einstellung), ihr kleiner Platz bleibt leer; die Hauptkamera
+    übernimmt nach BACK_S wieder. Kleine Bilder ohne Kamera sind unsichtbar (kein schwarzes Viereck), das Hauptbild ist ohne Kamera schwarz. Der Ton folgt dem Hauptbild, wenn
+    "Ton von: Hauptbild" gewählt ist."""
 
     GRACE = 15.0                              # so lange gilt eine sendende Kamera, die noch auf ihren Keyframe wartet, als vorhanden (kein Hauptbild-Wechsel beim Start)
     CANVAS = (0, 0, 1920, 1080)
@@ -477,17 +486,23 @@ class SlotController:
         self.load_json, self.live_keys, self.feeders, self.log = load_json, live_keys, feeders, log
         self.padctl_path, self.clock, self.geometry_fn = padctl_path, clock, geometry_fn
         self.padctl_last = None
-        self.binder = Binder()
+        self.binder = Binder()                # slot_key: welche Kamera an welchem Platz (Decoder) hängt
         self.chooser = Chooser(clock)
         self.cfg = {}
+        self.roles = ["", "", "", ""]         # Hauptbild und kleine Bilder laut Einstellung
         self.last_cfg_sig = None
         self.alive = set()
         self.shown = set()                    # Kameras, deren Bilder durch die Weiche laufen und die zu sehen sein dürfen
         self._wait = {}                       # Schlüssel -> seit wann die Kamera sendet, aber noch nicht zu sehen ist
         self.main_key = None
+        self.restart_needed = False
         self.live_set = None                  # Schlüssel aller Kameras am RTMP-Server (None = unbekannt); die Zubringer lesen es
         if isinstance(feeders, JetsonFeeders):
             feeders.live_fn = lambda: self.live_set
+
+    def _pads(self):
+        geo = self.geometry_fn(self.cfg) if self.geometry_fn else {}
+        return geo
 
     def reload(self):
         cfg = self.load_json("pipeline.json")
@@ -496,61 +511,73 @@ class SlotController:
             return False
         self.last_cfg_sig = sig
         self.cfg = cfg
-        keys = Controller.keys_of(cfg)
-        if keys != self.binder.slot_key:
-            self.binder.slot_key = list(keys)
-            self.feeders.set_keys(self.binder.slot_key)
+        self.roles = Controller.keys_of(cfg)
+        npads = len(self._pads()) or 4
+        wanted = []
+        for k in self.roles[:npads]:
+            if k and k not in wanted:
+                wanted.append(k)
+        cur = list(self.binder.slot_key)
+        new = [""] * 4
+        for s in range(min(npads, 4)):
+            if cur[s] in wanted:
+                new[s] = cur[s]                                    # bleibt: derselbe Decoder, nur die Rolle ändert sich
+        free = [s for s in range(min(npads, 4)) if not new[s]]
+        replaced = False
+        for k in wanted:
+            if k not in new and free:
+                s = free.pop(0)
+                new[s] = k
+                replaced = replaced or bool(cur[s])                # der Platz hatte schon eine andere Kamera: sein Decoder müsste den Strom wechseln
+        if new != cur:
+            self.binder.slot_key = new
+            self.feeders.set_keys(new)
+            if replaced:
+                self.restart_needed = True
             return True
         return False
 
     def _shown_slots(self):
-        """Plätze, deren Kamera sendet und deren Zubringer seit SHOW_AFTER läuft: erst dann ist ihr Bild echt (vorher läuft noch das Füllbild)."""
+        """Plätze, deren Kamera sendet und deren Bilder durch die Weiche laufen: erst dann ist ihr Bild echt (vorher läuft noch das Füllbild)."""
         return {s for s, k in enumerate(self.binder.slot_key) if k and self.feeders.shown(s)}
 
     def plan(self):
-        """(Zeilen für die Steuerdatei, Schlüssel des Hauptbildes). Platz = Pad des Compositors (sink_N); Ton-Pad des audiomixer: sink_(N+1)."""
-        keys = list(self.binder.slot_key)
+        """(Zeilen für die Steuerdatei, Schlüssel des Hauptbildes). Platz s = Pad sink_s des Compositors; Ton-Pad des audiomixer: sink_(s+1)."""
+        slots = list(self.binder.slot_key)
         shown_slots = self._shown_slots()
-        self.shown = {keys[s] for s in shown_slots}
+        self.shown = {slots[s] for s in shown_slots}
         now = self.clock()
         live = self.live_set or set()
         pending = set()
-        for s, k in enumerate(keys):
+        for s, k in enumerate(slots):
             if not k or s in shown_slots or k not in live:
                 self._wait.pop(k, None)
                 continue
             if now - self._wait.setdefault(k, now) < self.GRACE:
                 pending.add(k)
-        slot_of = {}
-        for s, k in enumerate(keys):
-            if k and k not in slot_of:
-                slot_of[k] = s
+        slot_of = {k: s for s, k in reversed(list(enumerate(slots))) if k}
         ina = self.cfg.get("inactive")
         inactive = [k for k in ina if isinstance(k, str)] if isinstance(ina, list) else []
-        line, main = self.chooser.line(keys, slot_of, self.shown | pending, inactive)
-        nums = [int(x) for x in line.split()]          # Platz des Hauptbildes, dann Platz je kleinem Bild (15 = keiner)
-        main_slot = nums[0]
-        geo = self.geometry_fn(self.cfg) if self.geometry_fn else {}
+        line, main = self.chooser.line(self.roles, slot_of, self.shown | pending, inactive)
+        nums = [int(x) for x in line.split()]          # Platz, der in der Rolle Hauptbild/kleines Bild 1..3 zu sehen ist (15 = keiner)
+        geo = self._pads()
+        pad_role = {}
+        for r, s in enumerate(nums):
+            if s != 15 and s < 4 and slots[s] and r in geo and s not in pad_role:
+                pad_role[s] = r
         lines = []
-        for s, k in enumerate(keys):
-            if s not in geo:
+        for s in sorted(set(range(len(geo))) | set(pad_role)):
+            role = pad_role.get(s)
+            if role is None or role not in geo:
+                lines.append(f"comp.sink_{s} alpha 0")             # keine Rolle: unsichtbar (Lage bleibt wie sie war)
                 continue
-            vis = s in shown_slots
-            if s == main_slot and s != 0:
-                x, y, w, h, z = self.CANVAS[0], self.CANVAS[1], self.CANVAS[2], self.CANVAS[3], 1      # Ersatz für die Hauptkamera: Vollbild über dem schwarzen Hauptplatz
-            elif s == 0:
-                x, y, w, h = geo[0]
-                z = 0
-                vis = vis and main_slot == 0                                                              # Hauptplatz verdeckt, solange eine andere Kamera Hauptbild ist
-            else:
-                x, y, w, h = geo[s]
-                z = s + 1
-                vis = vis and nums[s] == s
+            x, y, w, h = geo[role]
+            z = 0 if role == 0 else role + 1
             lines.append(f"comp.sink_{s} xpos {x}\ncomp.sink_{s} ypos {y}\ncomp.sink_{s} width {w}\ncomp.sink_{s} height {h}\ncomp.sink_{s} zorder {z}\n"
-                         f"comp.sink_{s} alpha {1 if vis else 0}")
-        audio = self.cfg.get("audio", "main")
-        a_slot = {"main": main_slot, "pip": 1, "pip2": 2, "pip3": 3}.get(audio, main_slot)
-        for s in sorted(geo):
+                         f"comp.sink_{s} alpha {1 if s in shown_slots else 0}")
+        arole = {"main": 0, "pip": 1, "pip2": 2, "pip3": 3}.get(self.cfg.get("audio", "main"), 0)
+        a_slot = nums[arole] if arole < len(nums) and nums[arole] != 15 else None
+        for s in sorted(set(range(len(geo))) | set(pad_role)):
             lines.append(f"amix.sink_{s + 1} volume {1 if s == a_slot else 0}")
         return "\n".join(lines) + "\n", main
 
@@ -582,6 +609,7 @@ class SlotController:
         self.last_cfg_sig = None
         self.live_set = self.live_keys()
         self.reload()
+        self.restart_needed = False
         self.padctl_last = None
         self.write_padctl()                   # Anfangszustand: kleine Bilder unsichtbar, bis ihre Kamera da ist
         self.feeders.set_keys(self.binder.slot_key)
@@ -596,9 +624,10 @@ class SlotController:
         main = self.write_padctl()
         if main is not None and main != self.main_key:
             if self.main_key is not None:
-                self.log(f"send: Hauptbild jetzt {main or '(keine Kamera)'} (eingestellt: {slots[0]})")
+                self.log(f"send: Hauptbild jetzt {main or '(keine Kamera)'} (eingestellt: {self.roles[0]})")
             self.main_key = main
-        return {"slots": slots, "alive": sorted(self.alive), "main": self.main_key or slots[0] or None, "line": ""}
+        restart, self.restart_needed = self.restart_needed, False
+        return {"slots": slots, "alive": sorted(self.alive), "main": self.main_key or self.roles[0] or None, "line": "", "restart": restart}
 
     def stop(self):
         self.feeders.stop_all()

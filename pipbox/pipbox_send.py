@@ -70,6 +70,23 @@ NOTABLE = (
 )
 
 
+# Bericht bei einem unerwarteten Ende von belacoder (belacoder-ende.txt): Rauschen der Nvidia-Bibliotheken und Wiederholungen bleiben draußen, Adressen und Schlüssel werden entfernt
+TAIL_NOISE = re.compile(r"nvbuf_utils|NvMM|NVMEDIA|Opening in BLOCKING|=====|H26[45]: Profile|padctl:|DstComp|^\s*$|^b:|^bs:")
+TAIL_SECRET = re.compile(r"(\d{1,3}\.){3}\d{1,3}(:\d+)?|(?i:streamid|stream_id|passphrase)\S*|[A-Fa-f0-9]{24,}")
+END_MARK = "===== ENDE "
+
+
+def udp_errors():
+    """Zähler aus /proc/net/snmp: InErrors und RcvbufErrors (Pakete, die ein voller Empfangspuffer verworfen hat). Dazu gehören auch die lokalen Eingänge der Kette."""
+    try:
+        with open("/proc/net/snmp") as f:
+            rows = [l.split() for l in f if l.startswith("Udp:")]
+        return ", ".join("%s=%s" % (k, v) for k, v in zip(rows[0][1:], rows[1][1:]) if k in ("InErrors", "RcvbufErrors", "SndbufErrors"))
+    except (OSError, IndexError):
+        return "?"
+END_FILE = "belacoder-ende.txt"
+
+
 class Refuse(Exception):
     pass
 
@@ -409,6 +426,7 @@ class Sender:
         self._cfg_mt = None
         self._inact_mt = None
         self.stats = collections.deque(maxlen=STATS_KEEP)    # (Zeit, Zeile)
+        self.tail = collections.deque(maxlen=90)             # die letzten Ausgabezeilen von belacoder (ohne Adressen und Rauschen), für den Bericht bei einem unerwarteten Ende
         self.events = collections.deque(maxlen=120)          # Ereigniszeilen von belacoder (nur feste Meldungen ohne Adressen und Schlüssel)
         self.links = collections.deque(maxlen=300)           # Zustandszeilen der Wegewahl (srtla_send "links: ...")
         self.watch = (pipbox_watch.JetsonHangWatch() if pipeline_jetson.is_jetson() else pipbox_watch.HangWatch()) if pipbox_watch else None
@@ -608,6 +626,8 @@ class Sender:
                 dbg.write(time.strftime("%H:%M:%S ") + line[:300].rstrip() + "\n")
                 dbg.flush()
             self.note(line)      # nur erkannte Meldungen, nie Stream-ID oder Adressen ins Journal
+            if name == "belacoder" and not TAIL_NOISE.search(line):
+                self.tail.append(time.strftime("%H:%M:%S ", time.gmtime()) + TAIL_SECRET.sub("<x>", line.rstrip()[:220]))
             if name == "srtla_send" and line.startswith("links:"):
                 # Zustand der laufzeitbewussten Wegewahl (nur Zahlen und eigene Adressen), im RAM
                 self.links.append((time.strftime("%H:%M:%S", time.gmtime()), line.strip()[:200]))
@@ -626,6 +646,33 @@ class Sender:
                 elif not (t.startswith("set bitrate") or re.match(r"^b:\s*-?\d+/", t)):
                     continue
                 self.stats.append((time.strftime("%H:%M:%S", time.gmtime()), t[:200]))
+
+    def write_end_report(self, rc):
+        """Die letzten Zeilen von belacoder bei einem unerwarteten Ende sichern (belacoder-ende.txt, die letzten 6 Berichte). Ohne sie bleibt von einem Fehler im Bildaufbau nur
+        "gstreamer error from h264parse0" im Journal, nicht der Text dahinter."""
+        try:
+            head = "%s%s UTC · belacoder beendet (%s) nach %d s\n" % (END_MARK, time.strftime("%Y-%m-%d %H:%M:%S", time.gmtime()), exit_text(rc), int(time.time() - self.since))
+            extra = ["Weichen (je Platz):"] + ["  " + t for t in getattr(getattr(self.always, "feeders", None), "relay_report", lambda: [])()]
+            extra.append("UDP-Empfangsfehler (Zähler des Systems): " + udp_errors())
+            body = "\n".join(["  " + t for t in list(self.tail)[-60:]] + [""] + extra) + "\n"
+            self._write_end(head + body)
+        except Exception as e:                                  # der Bericht darf die Übertragung nie stören
+            print(f"send: Bericht zum Ende von belacoder nicht gespeichert ({type(e).__name__})", flush=True)
+
+    def _write_end(self, block):
+        path = os.path.join(STATE, END_FILE)
+        try:
+            with open(path, encoding="utf-8", errors="replace") as f:
+                old = f.read()
+        except OSError:
+            old = ""
+        blocks = [END_MARK + b for b in old.split(END_MARK) if b.strip()] + [block]
+        data = "".join(b if b.endswith("\n") else b + "\n" for b in blocks[-6:])[-60000:]
+        tmp = path + ".tmp"
+        with open(tmp, "w", encoding="utf-8") as f:
+            f.write(data)
+        os.chmod(tmp, 0o644)
+        os.replace(tmp, path)
 
     def flush_stats(self):
         try:
@@ -793,6 +840,8 @@ class Sender:
                         if name == "belacoder" and self.last_at and time.time() - self.last_at < 15:
                             why = f", zuletzt: {self.last}" + (f" ({self.last_src})" if self.last_src else "")
                     print(f"send: {name} beendet ({exit_text(p.returncode)}), Neustart {n}{why}", flush=True)
+                    if name == "belacoder":
+                        self.write_end_report(p.returncode)
                     if name == "belacoder" and self.encoder_died(env):
                         continue
                     if self.stop_ev.wait(2):
@@ -821,6 +870,8 @@ class Sender:
                 try:
                     self.always_state = self.always.tick()
                     self.sync_swap_base()
+                    if self.always_state.get("restart"):
+                        self.restart_belacoder(env, "eine Kamera ist an einem Platz neu dazugekommen (der Decoder kann den Strom nicht wechseln)")
                 except Exception as e:                  # die Auswahl darf die Übertragung nie beenden
                     print(f"send: Kameraauswahl: Fehler {type(e).__name__}", flush=True)
                 try:
@@ -894,6 +945,17 @@ class Sender:
                 self.state = "running"
         except OSError as e:
             print(f"send: Neustart nach Hänger nicht möglich ({type(e).__name__})", flush=True)
+
+    def restart_belacoder(self, env, why):
+        """Geplanter Neustart von belacoder (zum Beispiel weil ein Decoder-Platz eine andere Kamera bekommt). spawn() setzt die Weichen zurück und wartet auf das Füllbild."""
+        print(f"send: belacoder wird neu gestartet: {why}", flush=True)
+        try:
+            self.stop_proc("belacoder")
+            self.spawn("belacoder", self.args("belacoder"), env=env)
+            with self.lock:
+                self.state = "running"
+        except OSError as e:
+            print(f"send: Neustart nicht möglich ({type(e).__name__})", flush=True)
 
     def hang_check_jetson(self, env):
         """Wächter für den Jetson (pipbox_watch.JetsonHangWatch): steht die Kennzahlen-Datei von belacoder still, hängen seine Threads im Kernel oder liefert der Encoder keine Bilder mehr,
