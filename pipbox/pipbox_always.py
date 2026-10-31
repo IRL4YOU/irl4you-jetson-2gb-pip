@@ -597,6 +597,14 @@ class SlotController:
                 pass
         return main
 
+    def rebind(self):
+        """Plätze wieder in der Reihenfolge der Rollen belegen (vor einem Neuaufbau der Kette: dort gehört Platz n zur Rolle n, auch für den Zuschnitt)."""
+        self.last_cfg_sig = None
+        self.binder.slot_key = [""] * 4
+        self.reload()
+        self.restart_needed = False
+        self.feeders.set_keys(self.binder.slot_key)
+
     def rearm(self):
         """belacoder wird (neu) gestartet: die Plätze zeigen wieder das Füllbild (kleine Bilder unsichtbar), bis die Kameras ihren nächsten Keyframe liefern."""
         self.feeders.rearm()

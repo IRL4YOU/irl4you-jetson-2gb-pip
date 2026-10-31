@@ -20,6 +20,18 @@ ENCODER = ('nvv4l2h265enc control-rate=1 qp-range="28,50:0,38:0,50" iframeinterv
            "EnableTwopassCBR=true insert-sps-pps=true name=venc_bps")
 
 
+# Bildgrößen der sendenden Kameras {Schlüssel: (Breite, Höhe)}, vom Sende-Dienst aus der nginx-Statistik gefüllt (pipbox_send.live_keys); leer, wenn unbekannt
+STREAM_SIZES = {}
+FULL_W, FULL_H = CANVAS_W, CANVAS_H
+
+
+def crop_to_canvas(key):
+    """True, wenn der Strom dieser Kamera 1920x1088 liefert: Die Osmo Action 6 kodiert bei 1080p 1088 Zeilen ohne Vermerk im Strom, die unteren 8 sind Füllzeilen. Der Compositor
+    staucht das Bild sonst auf 1080 und zeigt die schwarzen Zeilen mit (ein Pad größer als die Ausgabe wird nicht abgeschnitten, sondern gestaucht; gemessen). Darum schneidet
+    der nvvidconv dieses Platzes vorher auf 1920x1080 zu. Nur bei genau dieser Größe, weil der feste Ausschnitt sonst bei einer 4K-Kamera nur die linke obere Ecke zeigte."""
+    return STREAM_SIZES.get(key) == (FULL_W, FULL_H + 8)
+
+
 def is_jetson():
     """Läuft das hier auf einem Jetson (L4T)? Dann baut PipelineStore.build() diese Kette statt der Rockchip-Kette."""
     return os.path.exists("/etc/nv_tegra_release")
@@ -68,9 +80,12 @@ def build_always(c, pip, pip2, pip3):
         x, y, w, h = geo[n]
         props.append(f"sink_{n}::xpos={x} sink_{n}::ypos={y} sink_{n}::width={w} sink_{n}::height={h} sink_{n}::zorder={n + (1 if n else 0)}")
         v_delay = "identity name=v_delay signal-handoffs=TRUE ! " if n == 0 else ""
+        cam = c.get(("main", "pip", "pip2", "pip3")[n], "")
+        conv = f"nvvidconv left=0 right={FULL_W} top=0 bottom={FULL_H} ! {RGBA},width={FULL_W},height={FULL_H}" if crop_to_canvas(cam) else f"nvvidconv ! {RGBA}"
         out.append(f"udpsrc port={FEED_PORT + 2 * n} address=127.0.0.1 buffer-size=8388608 do-timestamp=true caps=\"{FEED_VIDEO_CAPS}\" !\n"
-                   f"rtph264depay ! h264parse ! {v_delay}{Q_BIG} ! nvv4l2decoder ! nvvidconv ! {RGBA} ! comp.sink_{n}\n")
-    out.append("nvcompositor name=comp " + " ".join(props) + f" !\n{RGBA} ! nvvidconv ! {NV12} !\n"
+                   f"rtph264depay ! h264parse ! {v_delay}{Q_BIG} ! nvv4l2decoder ! {conv} ! comp.sink_{n}\n")
+    # Ausgabegröße fest: ohne sie folgt der Compositor der Größe der Pads (gemessen: ein Pad mit 1088 Zeilen machte die Ausgabe 1088 groß)
+    out.append("nvcompositor name=comp " + " ".join(props) + f" !\n{RGBA},width={FULL_W},height={FULL_H} ! nvvidconv ! {NV12} !\n"
                f"{ENCODER} !\nh265parse config-interval=-1 ! {Q_MUX} ! mux.\n")
     slot_sel = {"main": 0, "pip": 1, "pip2": 2, "pip3": 3}[sel]
     out.append(f"audiotestsrc is-live=true wave=silence ! {FEED_AUDIO_CAPS} ! amix.sink_0\n")
@@ -119,7 +134,7 @@ def build(c, base, pip, pip2, pip3, always=False):
             props.append(f"sink_{n}::xpos={x} sink_{n}::ypos={y} sink_{n}::width={w} sink_{n}::height={h} sink_{n}::zorder={n}")
             out.append(f"rtmpsrc location={base}/{c[key]} do-timestamp=true !\nflvdemux name=d{n}\n")
             out.append(f"d{n}.video ! {Q_BIG} ! h264parse ! nvv4l2decoder ! nvvidconv ! {RGBA} ! comp.sink_{n}\n")
-        out.append("nvcompositor name=comp " + " ".join(props) + f" !\n{RGBA} ! nvvidconv ! {NV12} !\n"
+        out.append("nvcompositor name=comp " + " ".join(props) + f" !\n{RGBA},width={CANVAS_W},height={CANVAS_H} ! nvvidconv ! {NV12} !\n"
                    f"{ENCODER} !\nh265parse config-interval=-1 ! {Q_MUX} ! mux.\n")
 
     # Ton: genau eine Quelle geht in die Sendung, die übrigen werden verworfen

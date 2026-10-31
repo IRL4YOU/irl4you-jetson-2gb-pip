@@ -150,10 +150,16 @@ def live_keys():
     except OSError:
         return None
     out = set()
+    sizes = {}
     for m in re.finditer(r"<stream>.*?</stream>", x, re.S):
         n = re.search(r"<name>([^<]+)</name>", m.group(0))
         if n and "<publishing/>" in m.group(0):
             out.add(n.group(1).strip())
+            v = re.search(r"<video>.*?<width>(\d+)</width>\s*<height>(\d+)</height>", m.group(0), re.S)
+            if v:
+                sizes[n.group(1).strip()] = (int(v.group(1)), int(v.group(2)))
+    pipeline_jetson.STREAM_SIZES.clear()            # nur für die Jetson-Kette: Bildgröße je Kamera (Zuschnitt der Action 6)
+    pipeline_jetson.STREAM_SIZES.update(sizes)
     return out
 
 
@@ -950,6 +956,9 @@ class Sender:
         """Geplanter Neustart von belacoder (zum Beispiel weil ein Decoder-Platz eine andere Kamera bekommt). spawn() setzt die Weichen zurück und wartet auf das Füllbild."""
         print(f"send: belacoder wird neu gestartet: {why}", flush=True)
         try:
+            self.always.rebind()                              # Plätze wieder in der Reihenfolge der Rollen
+            live_keys()                                       # aktuelle Bildgrößen (Zuschnitt)
+            write_pipeline({**server.PipelineStore.DEFAULT, **load_json(f"{STATE}/pipeline.json")})
             self.stop_proc("belacoder")
             self.spawn("belacoder", self.args("belacoder"), env=env)
             with self.lock:
