@@ -168,8 +168,12 @@ class SlotRelay(threading.Thread):
     # --- Weitergabe ------------------------------------------------------------------------------------------------------------------------
     def send_v(self, pkt):
         self.seq = (self.seq + 1) & 0xFFFF
+        b = bytearray(pkt)                    # ein Mal kopieren, Folgenummer und Quelle an Ort und Stelle setzen
+        b[2] = self.seq >> 8
+        b[3] = self.seq & 0xFF
+        b[8:12] = SSRC
         try:
-            self.out.sendto(pkt[:2] + self.seq.to_bytes(2, "big") + pkt[4:8] + SSRC + pkt[12:], ("127.0.0.1", self.out_v))
+            self.out.sendto(b, ("127.0.0.1", self.out_v))
         except OSError:
             pass
 
@@ -228,10 +232,11 @@ class SlotRelay(threading.Thread):
                     self.late_in += 1
                     if self.gate:
                         self.note("Nachzügler: Paket %d Plätze zu spät (Tor offen)" % (0xFFFF - gap))
-        kind = classify(pkt)
         if self.gate:
             self.emit_v(pkt, now)
-        elif kind == "param":
+            return
+        kind = classify(pkt)                  # nur bei geschlossenem Tor nötig (bei offenem Tor ginge es für jedes Paket um sonst)
+        if kind == "param":
             self.params = (self.params + [pkt])[-4:]
         elif kind == "idr":
             self.note("Tor offen (Keyframe der Kamera, %d SPS/PPS davor)" % len(self.params))

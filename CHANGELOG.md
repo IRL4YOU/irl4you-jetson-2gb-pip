@@ -1,5 +1,8 @@
 # Änderungen
 
+## 0.1.29
+- **Weniger CPU in der Weiche, ohne Einbuße bei Bild, Auflösung oder Bitrate.** Die Zubringer schickten das Bild in RTP-Paketen von 1400 Byte an die Weichen (rund 6100 Pakete je Sekunde bei vier Kameras, jedes einzeln durch Python, Kernel und die Kette). Auf Loopback sind große Pakete problemlos möglich: Jetzt sind es 8192 Byte (`FEED_MTU`). Im Prüfstand mit zwei Plätzen brauchte die Weiche 7 statt 15 bis 16 % eines Kerns (halbiert), die Zubringer blieben gleich. Außerdem prüft die Weiche die Paketart (SPS/PPS/IDR) nur noch bei geschlossenem Tor und setzt Folgenummer und Quelle in einer Kopie statt mit fünf Zusammensetzungen je Paket.
+
 ## 0.1.28
 - **USB-Kamera: Einspeisung mit normaler Priorität.** Mit 0.1.27 (Muxer-Wartezeit) lieferte der echte Dienst bei laufender Sendung noch immer nur etwa 20 fps, ein Test mit gleichem Befehl und normaler Priorität dagegen genau 30,0 fps. Ursache: Der Dienst lief mit `nice 10` und wurde bei hoher CPU-Last zeitweise ausgebremst (mit nice 10: 23,4 und 29,7 fps in zwei Läufen, mit nice 0: 30,0 und 30,0). Die Einspeisung ist die Quelle der Kette; ist sie langsam, hilft eine freie Sendekette nichts.
 
