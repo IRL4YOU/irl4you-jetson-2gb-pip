@@ -14,13 +14,16 @@ HELPERS="ssh update wifi power logs logmode netaddr remote swupdate"
 case "${1:-install}" in
   uninstall)
     systemctl disable --now pipbox.service >/dev/null 2>&1 || true
-    rm -f "$UNIT"
+    systemctl stop pipbox-send.service >/dev/null 2>&1 || true
+    systemctl disable --now pipbox-send-ctl.path >/dev/null 2>&1 || true
+    rm -f "$UNIT" /etc/systemd/system/pipbox-send.service /etc/systemd/system/pipbox-send-ctl.service /etc/systemd/system/pipbox-send-ctl.path
     for h in $HELPERS; do
       systemctl disable --now "pipbox-$h.path" >/dev/null 2>&1 || true
       rm -f "/etc/systemd/system/pipbox-$h.path" "/etc/systemd/system/pipbox-$h.service"
     done
     systemctl daemon-reload >/dev/null 2>&1 || true
     rm -rf "$APP" "$DEST"
+    rm -f /usr/local/bin/srtla_send /usr/local/bin/srtla_send.sig
     echo "Jetson 2GB PIP entfernt. Zustand in $STATE, Benutzer pipbox und nachinstallierte Pakete bleiben."
     exit 0 ;;
   install) ;;
@@ -68,11 +71,43 @@ for h in $HELPERS; do
   install -m 644 "$HERE/install/pipbox-$h.service" "/etc/systemd/system/pipbox-$h.service"
   install -m 644 "$HERE/install/pipbox-$h.path" "/etc/systemd/system/pipbox-$h.path"
 done
+# Sendekette (srtla_send und belacoder): der Dienst pipbox-send startet nur auf Anforderung der Oberflaeche (pipbox-send-ctl.path), nie von selbst
+install -m 644 "$HERE/install/pipbox-send.service" /etc/systemd/system/pipbox-send.service
+install -m 644 "$HERE/install/pipbox-send-ctl.service" /etc/systemd/system/pipbox-send-ctl.service
+install -m 644 "$HERE/install/pipbox-send-ctl.path" /etc/systemd/system/pipbox-send-ctl.path
+
+# belacoder mit den Patches aus belacoder/ (Regler, Wächter, Kennzahlen für die Anzeige Live). Gebaut wird nur, wenn sich Skript oder Patches geändert haben;
+# schlägt der Bau fehl, bleibt das Original aus dem BELABOX-Paket (/usr/bin/belacoder) im Einsatz, nur die Kennzahlen fehlen dann.
+echo "JPIP-STEP encoder"
+SIG=$(cat "$HERE/belacoder/build.sh" "$HERE"/belacoder/belacoder-*.patch | sha1sum | cut -d' ' -f1)
+if [ -x "$APP/bin/belacoder" ] && [ "$(cat "$APP/bin/belacoder.sig" 2>/dev/null)" = "$SIG" ]; then
+  echo "belacoder ist schon in der gebauten Fassung vorhanden."
+elif sh "$HERE/belacoder/build.sh" > /var/tmp/belacoder-build.log 2>&1; then
+  echo "$SIG" > "$APP/bin/belacoder.sig"
+  echo "belacoder gebaut."
+else
+  echo "WARNUNG: belacoder liess sich nicht bauen, es bleibt das Original ohne Kennzahlen (Protokoll: /var/tmp/belacoder-build.log)."
+  tail -3 /var/tmp/belacoder-build.log | sed 's/^/  /'
+fi
+
+# srtla_send mit den Patches aus srtla/ (Wegewahl nach Laufzeit, Mindestanteil, Zustandszeilen für die Anzeige Live): gleiches Vorgehen wie beim Encoder;
+# schlägt der Bau fehl, bleibt das Original aus dem BELABOX-Paket im Einsatz, nur die Anzeige Live kennt dann den Zustand der Wege nicht.
+echo "JPIP-STEP srtla"
+SIG=$(cat "$HERE/srtla/build.sh" "$HERE"/srtla/srtla_send-*.patch | sha1sum | cut -d' ' -f1)
+if [ -x /usr/local/bin/srtla_send ] && [ "$(cat /usr/local/bin/srtla_send.sig 2>/dev/null)" = "$SIG" ]; then
+  echo "srtla_send ist schon in der gebauten Fassung vorhanden."
+elif sh "$HERE/srtla/build.sh" > /var/tmp/srtla-build.log 2>&1; then
+  echo "$SIG" > /usr/local/bin/srtla_send.sig
+  echo "srtla_send gebaut."
+else
+  echo "WARNUNG: srtla_send liess sich nicht bauen, es bleibt das Original ohne Zustandszeilen (Protokoll: /var/tmp/srtla-build.log)."
+  tail -3 /var/tmp/srtla-build.log | sed 's/^/  /'
+fi
 
 echo "JPIP-STEP start"
 systemctl daemon-reload
 systemctl enable pipbox.service >/dev/null 2>&1 || echo "WARNUNG: Der Dienst pipbox liess sich nicht fuer den Autostart eintragen."
-for h in $HELPERS; do
+for h in $HELPERS send-ctl; do
   systemctl enable --now "pipbox-$h.path" >/dev/null 2>&1 || echo "WARNUNG: Der Helfer pipbox-$h.path liess sich nicht einschalten."
 done
 systemctl restart pipbox.service || echo "WARNUNG: Der Dienst pipbox liess sich nicht starten (journalctl -u pipbox)."

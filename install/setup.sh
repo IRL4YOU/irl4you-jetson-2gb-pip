@@ -140,6 +140,8 @@ rc="$TMP/rc2"; : > "$rc"
     "JPIP-STEP pakete")  bar 15 "Benötigte Pakete installieren" ;;
     "JPIP-STEP dienst")  bar 40 "Benutzer und Daten einrichten" ;;
     "JPIP-STEP dateien") bar 60 "Programme und Oberfläche kopieren" ;;
+    "JPIP-STEP encoder") bar 70 "Encoder bauen (dauert einige Minuten)" ;;
+    "JPIP-STEP srtla")   bar 80 "Sender bauen" ;;
     "JPIP-STEP start")   bar 85 "Dienst starten" ;;
   esac
 done
