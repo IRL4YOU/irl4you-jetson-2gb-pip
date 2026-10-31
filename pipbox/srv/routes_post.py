@@ -190,14 +190,7 @@ class PostRoutes:
                     print("Ansicht im Notbetrieb gespeichert, kein Neustart", flush=True)
                     return self.reply(200, {"ok": True, "restarted": False, "note": "Gespeichert. Gilt, sobald alle Kameras wieder da sind (Notbetrieb: ohne Neustart)."})
             if self.pipeline.cfg != before:
-                only_delay = {k: v for k, v in before.items() if k not in DELAY_KEYS} == \
-                             {k: v for k, v in self.pipeline.cfg.items() if k not in DELAY_KEYS}
-                pips_changed = any(before.get(k) != self.pipeline.cfg.get(k) for k in DELAY_KEYS[1:])
-                live_ok = self.send.delay_live_pips() if pips_changed else self.send.delay_live()
-                if only_delay and live_ok:
-                    note = "Gespeichert. Die Verzögerung wird live übernommen, ohne Neustart."
-                else:
-                    restarted, note = self.send.restart_if_live()
+                restarted, note = self.send.restart_if_live()
             return self.reply(200, {"ok": True, "restarted": restarted, "note": note})
         if path == "/api/srtla":
             return self.reply(200, {"id": self.srtla.add(d)})

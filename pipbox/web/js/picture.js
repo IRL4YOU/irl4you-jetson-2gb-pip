@@ -72,7 +72,7 @@ function setDelays(vals){
 }
 function delayBody(){ const o={}; DL.forEach(([r,n,v,k])=>{ o[k]=+($(n).value||0); }); return o; }
 const isDelayCtl=id=>DL.some(([r,n])=>id===r||id===n);
-const DL_ENGINE_MAX=750;                  // größte Verzögerung der Engine "Alle Kameras immer bereit" (pipbox_live.MAX_DELAY_MS): mehr wird dort begrenzt (12. Oktober 2026: 2560 ms ließen das Hauptbild ruckeln)
+const DL_ENGINE_MAX=750;                  // größte Verzögerung der Engine "Alle Kameras immer bereit" (pipbox_relay.MAX_DELAY_S): mehr wird dort begrenzt (12. Oktober 2026: 2560 ms ließen das Hauptbild ruckeln)
 function dlWarn(){
   const el=$("dl_warn"); if(!el) return;
   const pip=$("p_type").value==="pip", always=!!($("p_always")&&$("p_always").checked), vals=[+$("n_delay").value||0];       // Hauptbild immer, kleine Bilder nur mit gewählter Kamera

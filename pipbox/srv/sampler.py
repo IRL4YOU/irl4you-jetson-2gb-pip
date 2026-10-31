@@ -26,7 +26,7 @@ BC_STATS_FILE = "/run/pipbox-send/belacoder-stats.json"        # vom Sender (bel
 
 
 THERMAL_NAMES = {"soc-thermal": "SoC", "bigcore0-thermal": "Große Kerne 4–5", "bigcore1-thermal": "Große Kerne 6–7",
-                 "littlecore-thermal": "Kleine Kerne 0–3", "center-thermal": "Mitte", "gpu-thermal": "GPU", "npu-thermal": "NPU",
+                 "littlecore-thermal": "Kleine Kerne 0–3", "center-thermal": "Mitte", "gpu-thermal": "GPU",
                  # Jetson (Tegra)
                  "CPU-therm": "CPU", "GPU-therm": "GPU", "AO-therm": "Dauerbetrieb (AO)", "PLL-therm": "Taktgeber (PLL)",
                  "PMIC-Die": "Spannungsregler (PMIC)", "thermal-fan-est": "Lüfter-Schätzung"}
@@ -34,42 +34,20 @@ THERMAL_NAMES = {"soc-thermal": "SoC", "bigcore0-thermal": "Große Kerne 4–5",
 THERMAL_NO_MAX = ("PMIC-Die", "thermal-fan-est")
 
 
-NPU_FILE = "/run/pipbox-npu"
-
-
-def npu_load():
-    """Echte NPU-Auslastung je Kern. Der Frequenzregler der NPU meldet immer 100 %; die richtige Zahl steht nur in debugfs (root).
-    Der Dienst pipbox-npu liest sie und legt sie in /run/pipbox-npu ab. Gibt {"load_pct": höchster Kern, "cores": [...]} oder None (fehlt/zu alt)."""
-    try:
-        d = json.loads(read(NPU_FILE, "") or "")
-        cores = [max(0, min(100, int(c))) for c in d["cores"]][:8]
-        if cores and abs(time.time() - float(d["t"])) < 15:
-            return {"load_pct": max(cores), "cores": cores}
-    except (ValueError, KeyError, TypeError):
-        pass
-    return None
-
-
 def devfreq_loads():
-    """Auslastung der GPU aus /sys/class/devfreq/*/load ("12@300000000Hz"): {"gpu": {...}}; dazu die NPU (echte Last aus npu_load, Takt aus devfreq)."""
+    """Auslastung der GPU des Jetson (Last in Promille unter /sys/devices/gpu.0/load, Takt aus devfreq) und der Video-Hardware (tegra_video_loads): {"gpu": {...}, "vic": ...}."""
     out = {}
     try:
         names = sorted(os.listdir("/sys/class/devfreq"))
     except OSError:
         names = []
     for n in names:
-        if "gpu" not in n and "npu" not in n:
+        if "gpu" not in n:
             continue
         raw = (read(f"/sys/class/devfreq/{n}/load", "") or "").strip()
-        m = re.match(r"^(\d+)@(\d+)Hz$", raw)
-        if not m:
-            continue
-        if "gpu" in n:
+        m = re.match(r"^(\d+)@(\d+)Hz$", raw)                      # Format "12@300000000Hz" (andere Boards); der Jetson meldet seine Last unten
+        if m:
             out["gpu"] = {"load_pct": int(m.group(1)), "mhz": int(m.group(2)) // 1000000}
-        else:                                                    # NPU: die Prozentzahl von devfreq ist wertlos (immer 100), nur der Takt zählt
-            real = npu_load()
-            if real:
-                out["npu"] = {"load_pct": real["load_pct"], "mhz": int(m.group(2)) // 1000000, "cores": real["cores"]}
     if "gpu" not in out:                  # Jetson (Tegra): Last in Promille unter /sys/devices/gpu.0/load, Takt als cur_freq (Hz) in devfreq
         raw = (read("/sys/devices/gpu.0/load", "") or "").strip()
         if raw.isdigit():
@@ -719,9 +697,11 @@ class Sampler:
                           int(7.4 * 1024 * 1024), rates, 0, int(110 + 40 * math.sin(t / 30)))
         out["details"] = {
             "temps": [{"name": n, "c": round(temp + d + random.uniform(-0.4, 0.4), 1)} for n, d in
-                      (("SoC", 0), ("Große Kerne 4–5", 2), ("Große Kerne 6–7", 1.5), ("Kleine Kerne 0–3", -3), ("Mitte", 0), ("GPU", -5), ("NPU", -6))],
-            "accel": {"gpu": {"load_pct": int(12 + 8 * math.sin(t / 5)), "mhz": 600},
-                      "npu": {"load_pct": int(30 + 20 * math.sin(t / 7)), "mhz": 1000, "cores": [int(30 + 20 * math.sin(t / 7)), int(10 + 8 * math.sin(t / 4)), 0]}},
+                      (("CPU", 0), ("Dauerbetrieb (AO)", 4), ("GPU", -5), ("Taktgeber (PLL)", -6))],
+            "accel": {"vic": {"load_pct": int(40 + 25 * math.sin(t / 7)), "mhz": 627},
+                      "nvdec": {"load_pct": int(25 + 15 * math.sin(t / 5)), "mhz": None},
+                      "nvenc": {"load_pct": int(10 + 6 * math.sin(t / 4)), "mhz": None},
+                      "gpu": {"load_pct": 0, "mhz": 77}},
             "disk": {"total_gb": 62.8, "free_gb": 55.5, "used_gb": 4.6, "used_pct": 8.7},
             "send": {"fps": 29.9, "bitrate_kbps": 9800, "rtt_ms": round(38 + 6 * math.sin(t / 9), 1), "send_mbps": round(9.7 + random.uniform(-0.5, 0.5), 2),
                      "snd_buf_pkts": int(30 + 20 * random.random()), "snd_buf_ms": int(25 + 15 * random.random()), "loss_total": 37,

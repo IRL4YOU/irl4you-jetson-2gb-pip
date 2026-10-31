@@ -109,31 +109,7 @@ def clean_styles(src, old=None, strict=False):
     return {k: clean_style((src or {}).get(k), old.get(k), strict) for k in STYLE_SLOTS}
 
 
-def style_text(st):
-    """Eigenschaft style<N> des Bausteins (Format siehe gst/gstpbpip.c), nur mit Werten, die vom Standard abweichen; leer, wenn alles
-    Standard ist. st ist eine geprüfte Stileinstellung (clean_style): nur Zahlen und eine Hex-Farbe gelangen in den Text."""
-    parts = []
-    op = st["opacity"] if st["visible"] else 0
-    if op != 100:
-        parts.append(f"op={int(op)}")
-    for key, name in (("l", "cl"), ("r", "cr"), ("t", "ct"), ("b", "cb")):
-        if st["crop"][key]:
-            parts.append(f"{name}={int(st['crop'][key])}")
-    b = st["border"]
-    if b["enabled"]:
-        parts.append(f"bw={int(b['width'])}")
-        parts.append(f"bc={b['color'][1:]}")
-        if b["opacity"] != 100:
-            parts.append(f"bo={int(b['opacity'])}")
-    if st["radius"]:                                                     # die Rundung gilt für das Bild selbst, mit oder ohne Rahmen
-        parts.append(f"br={int(st['radius'])}")
-    return ",".join(parts)
-
-
 SIZE_MIN, SIZE_MAX = 1, 100       # Skalierung eines kleinen Bildes in Prozent des Hauptbildes (100 = so groß wie das Hauptbild)
-
-
-HW_MIN_W, HW_MIN_H = 128, 72     # kleinste Größe, auf die der Hardware-Decoder verkleinert: auf der Box gemessen geht es ab 120 Pixeln Breite (Verhältnis 1:16), darunter nicht
 
 
 def pip_size(pct):
@@ -141,11 +117,3 @@ def pip_size(pct):
     w = max(16, int(round(1920 * pct / 100.0 / 16.0)) * 16)
     h = int(round(w * 9 / 16.0 / 2.0)) * 2
     return w, h
-
-
-def small_decode(w, h):
-    """Der Teil der Pipeline, der ein kleines Bild auf w x h bringt: Der Hardware-Decoder verkleinert selbst. Reicht seine Verkleinerung nicht (unter
-    128 Pixel Breite), verkleinert er auf 128 x 72 und eine Software-Stufe (videoscale) macht den Rest; bei dieser Größe kostet sie fast nichts."""
-    if w >= HW_MIN_W:
-        return f"mppvideodec width={w} height={h} !\nvideo/x-raw,format=NV12 !\n"
-    return (f"mppvideodec width={HW_MIN_W} height={HW_MIN_H} !\nvideoscale !\nvideo/x-raw,format=NV12,width={w},height={h} !\n")
