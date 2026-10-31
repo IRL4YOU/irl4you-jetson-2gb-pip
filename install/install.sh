@@ -16,8 +16,8 @@ case "${1:-install}" in
     systemctl disable --now pipbox.service >/dev/null 2>&1 || true
     systemctl stop pipbox-send.service >/dev/null 2>&1 || true
     systemctl disable --now pipbox-send-ctl.path >/dev/null 2>&1 || true
-    systemctl disable --now pipbox-dji.service >/dev/null 2>&1 || true
-    rm -f /etc/systemd/system/pipbox-dji.service
+    systemctl disable --now pipbox-dji.service pipbox-hdmi.service >/dev/null 2>&1 || true
+    rm -f /etc/systemd/system/pipbox-dji.service /etc/systemd/system/pipbox-hdmi.service
     systemctl disable --now pipbox-preview.socket pipbox-preview.service >/dev/null 2>&1 || true
     rm -f /etc/systemd/system/pipbox-preview.socket /etc/systemd/system/pipbox-preview.service
     rm -f "$UNIT" /etc/systemd/system/pipbox-send.service /etc/systemd/system/pipbox-send-ctl.service /etc/systemd/system/pipbox-send-ctl.path
@@ -95,6 +95,8 @@ install -m 644 "$HERE/install/pipbox-send-ctl.service" /etc/systemd/system/pipbo
 install -m 644 "$HERE/install/pipbox-send-ctl.path" /etc/systemd/system/pipbox-send-ctl.path
 # DJI-Kameras per Bluetooth (Dienst mit Python 3.8 aus /opt/pipbox/venv-dji)
 install -m 644 "$HERE/install/pipbox-dji.service" /etc/systemd/system/pipbox-dji.service
+# USB-Kamera als Kamera (Webcam, HDMI-USB-Grabber): speist sie in den RTMP-Eingang ein, solange sie steckt
+install -m 644 "$HERE/install/pipbox-hdmi.service" /etc/systemd/system/pipbox-hdmi.service
 # Vorschau des gesendeten Bildes: Socket, der Dienst startet erst bei Bedarf (liest den lokalen SRT-Strom mit und dekodiert ihn mit der Video-Hardware)
 install -m 644 "$HERE/install/pipbox-preview.socket" /etc/systemd/system/pipbox-preview.socket
 install -m 644 "$HERE/install/pipbox-preview.service" /etc/systemd/system/pipbox-preview.service
@@ -134,6 +136,8 @@ for h in $HELPERS send-ctl; do
   systemctl enable --now "pipbox-$h.path" >/dev/null 2>&1 || echo "WARNUNG: Der Helfer pipbox-$h.path liess sich nicht einschalten."
 done
 systemctl enable pipbox-dji.service >/dev/null 2>&1 || echo "WARNUNG: Der DJI-Dienst liess sich nicht fuer den Autostart eintragen."
+systemctl enable pipbox-hdmi.service >/dev/null 2>&1 || echo "WARNUNG: Der USB-Kamera-Dienst liess sich nicht fuer den Autostart eintragen."
+systemctl restart pipbox-hdmi.service >/dev/null 2>&1 || echo "WARNUNG: Der USB-Kamera-Dienst liess sich nicht starten (journalctl -u pipbox-hdmi)."
 systemctl restart pipbox-dji.service >/dev/null 2>&1 || echo "WARNUNG: Der DJI-Dienst liess sich nicht starten (journalctl -u pipbox-dji)."
 systemctl enable --now pipbox-preview.socket >/dev/null 2>&1 || echo "WARNUNG: Der Anschluss der Vorschau liess sich nicht einschalten (pipbox-preview.socket)."
 systemctl try-restart pipbox-preview.service >/dev/null 2>&1 || true       # neuer Programmstand (der Dienst endet sonst nach einer Minute ohne Zuschauer von selbst)

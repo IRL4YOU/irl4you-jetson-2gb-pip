@@ -1,0 +1,16 @@
+[Unit]
+Description=Jetson 2GB PIP USB-Kamera als Kamera (RTMP-Einspeisung)
+After=network-online.target nginx.service
+
+[Service]
+# Läuft mit Python 3.8 aus /opt/pipbox/venv-dji (der Dienst nutzt Funktionen ab Python 3.7; das System hat 3.6). Als root, weil die Video-Hardware (Kodierer) und /dev/snd nur root öffnen darf.
+ExecStart=/opt/pipbox/venv-dji/bin/python -u /opt/pipbox/hdmi_daemon.py --state /var/lib/pipbox
+Environment=LC_ALL=C.UTF-8
+Restart=on-failure
+RestartSec=3
+TimeoutStopSec=10
+NoNewPrivileges=yes
+ProtectHome=yes
+
+[Install]
+WantedBy=multi-user.target
