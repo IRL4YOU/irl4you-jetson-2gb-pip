@@ -11,8 +11,8 @@ UNIT=/etc/systemd/system/pipbox.service
 
 case "${1:-install}" in
   uninstall)
-    systemctl disable --now pipbox.service >/dev/null 2>&1 || true
-    rm -f "$UNIT"
+    systemctl disable --now pipbox.service pipbox-ssh.path >/dev/null 2>&1 || true
+    rm -f "$UNIT" /etc/systemd/system/pipbox-ssh.service /etc/systemd/system/pipbox-ssh.path
     systemctl daemon-reload >/dev/null 2>&1 || true
     rm -rf "$APP" "$DEST"
     echo "Jetson 2GB PIP entfernt. Zustand in $STATE, Benutzer pipbox und nachinstallierte Pakete bleiben."
@@ -57,10 +57,15 @@ chown -R root:root "$APP"
 chmod -R u=rwX,go=rX "$APP"
 python3 -m compileall -q "$APP" >/dev/null 2>&1 || true
 install -m 644 "$HERE/install/pipbox.service" "$UNIT"
+# Root-Helfer fuer den SSH-Schalter und das erzeugte SSH-Passwort (Karte Entwickler); er schaltet nur den Dienst ssh ein oder aus
+install -m 755 "$HERE/install/pipbox-ssh.py" "$APP/pipbox-ssh.py"
+install -m 644 "$HERE/install/pipbox-ssh.service" /etc/systemd/system/pipbox-ssh.service
+install -m 644 "$HERE/install/pipbox-ssh.path" /etc/systemd/system/pipbox-ssh.path
 
 echo "JPIP-STEP start"
 systemctl daemon-reload
 systemctl enable pipbox.service >/dev/null 2>&1 || echo "WARNUNG: Der Dienst pipbox liess sich nicht fuer den Autostart eintragen."
+systemctl enable --now pipbox-ssh.path >/dev/null 2>&1 || echo "WARNUNG: Der SSH-Helfer pipbox-ssh.path liess sich nicht einschalten."
 systemctl restart pipbox.service || echo "WARNUNG: Der Dienst pipbox liess sich nicht starten (journalctl -u pipbox)."
 i=0
 while [ "$i" -lt 20 ]; do
