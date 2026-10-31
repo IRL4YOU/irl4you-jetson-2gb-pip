@@ -411,7 +411,7 @@ class Sender:
         self.stats = collections.deque(maxlen=STATS_KEEP)    # (Zeit, Zeile)
         self.events = collections.deque(maxlen=120)          # Ereigniszeilen von belacoder (nur feste Meldungen ohne Adressen und Schlüssel)
         self.links = collections.deque(maxlen=300)           # Zustandszeilen der Wegewahl (srtla_send "links: ...")
-        self.watch = pipbox_watch.HangWatch() if pipbox_watch else None
+        self.watch = (pipbox_watch.JetsonHangWatch() if pipeline_jetson.is_jetson() else pipbox_watch.HangWatch()) if pipbox_watch else None
         self.hang_n = 0
         self._hang_t = 0.0
         self.stop_ev = threading.Event()
@@ -837,6 +837,8 @@ class Sender:
     def hang_check(self, env):
         """Wächter (Issue #51): steht belacoder still oder liefert eine sendende Kamera keine Bilder mehr, wird ein Diagnosepaket gesichert und belacoder neu gestartet.
         Höchstens einmal je Sekunde geprüft, nur im Modus "alle Kameras immer bereit" mit Compositor (nur dort gibt es die Statistikdatei)."""
+        if pipeline_jetson.is_jetson() and self.always is not None:
+            return self.hang_check_jetson(env)
         if self.watch is None or not (self.live and self.always is not None) or time.monotonic() - self._hang_t < 1.0:
             return
         self._hang_t = time.monotonic()
@@ -886,6 +888,47 @@ class Sender:
         try:
             if hit["kind"] != "feed":
                 p.kill()                       # steht belacoder, nimmt er SIGTERM nicht mehr an
+            self.stop_proc("belacoder")
+            self.spawn("belacoder", self.args("belacoder"), env=env)
+            with self.lock:
+                self.state = "running"
+        except OSError as e:
+            print(f"send: Neustart nach Hänger nicht möglich ({type(e).__name__})", flush=True)
+
+    def hang_check_jetson(self, env):
+        """Wächter für den Jetson (pipbox_watch.JetsonHangWatch): steht die Kennzahlen-Datei von belacoder still, hängen seine Threads im Kernel oder liefert der Encoder keine Bilder mehr,
+        wird ein Diagnosepaket gesichert (hang-diagnose.txt) und belacoder neu gestartet. Höchstens einmal je Sekunde geprüft."""
+        if self.watch is None or time.monotonic() - self._hang_t < 1.0:
+            return
+        self._hang_t = time.monotonic()
+        p = self.procs.get("belacoder")
+        if p is None or p.poll() is not None:
+            return
+        try:
+            mt = os.stat(BC_STATS).st_mtime
+            with open(BC_STATS, errors="replace") as f:
+                text = f.read(4000)
+        except OSError:
+            mt, text = None, ""
+        try:
+            fps = float(json.loads(text).get("fps"))
+        except (ValueError, TypeError, AttributeError):
+            fps = None
+        hit = self.watch.check_jetson(mt, fps, pipbox_watch.d_state_threads(p.pid))
+        if hit is None or not self.watch.allow():
+            return
+        slots = []
+        feeders = getattr(self.always, "feeders", None)
+        for slot, r in sorted(getattr(feeders, "relays", {}).items()):
+            slots.append((slot, "Tor %s, Füllbild %s" % ("offen" if r.gate else "zu", "beendet" if r.fill_done else "läuft"), ""))
+        report = pipbox_watch.build_report(hit, p.pid, time.monotonic() - (self.watch.started or time.monotonic()), text,
+                                           [f"{t} {e}" for t, e in list(self.events)], slots, slot_fmt="  Platz %s: %s%s")
+        saved = pipbox_watch.write_report(STATE, report)
+        self.watch.acted_now()
+        self.hang_n += 1
+        print(f"send: Hänger erkannt ({hit['text']}); Diagnosepaket {'gesichert (hang-diagnose.txt)' if saved else 'nicht speicherbar'}, belacoder wird neu gestartet", flush=True)
+        try:
+            p.kill()                           # steht belacoder, nimmt er SIGTERM nicht mehr an
             self.stop_proc("belacoder")
             self.spawn("belacoder", self.args("belacoder"), env=env)
             with self.lock:
