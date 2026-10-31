@@ -1,5 +1,8 @@
 # Änderungen
 
+## 0.1.4
+- Vorschau des gesendeten Bildes: Ein eigener Dienst (startet erst, wenn jemand die Vorschau öffnet) liest den lokalen SRT-Strom mit, dekodiert ihn mit der Video-Hardware des Jetson und liefert dem Browser ein kleines Bild (640x360, 30 Bilder/s, rund 1,5 Mbit/s als H.264, ersatzweise Motion-JPEG). Die Sendung wird dabei nicht angefasst; die Vorschau kostet rund ein Fünftel eines Kerns.
+
 ## 0.1.3
 - Wächter für die Sendekette (wie beim anderen Paket, in einer Fassung für den Jetson): Steht die Kennzahlen-Datei von belacoder 15 Sekunden still, hängen seine Threads 12 Sekunden im Kernel oder liefert der Encoder 12 Sekunden keine Bilder, sichert er ein Diagnosepaket (hang-diagnose.txt, ohne Schlüssel und Adressen) und startet belacoder neu. Höchstens 4 Eingriffe je Stunde, danach 90 Sekunden Ruhe.
 
