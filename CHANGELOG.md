@@ -1,5 +1,8 @@
 # Änderungen
 
+## 0.1.14
+- Korrektur zu 0.1.13: Ein Fehler in der Oberfläche (Zugriff auf eine noch nicht angelegte Variable) hätte die Karte „Bildaufbau“ lahmgelegt; 0.1.13 bitte überspringen.
+
 ## 0.1.13
 - Bildaufbau, Karte „Aussehen“: Eine Änderung an Beschnitt, Rahmen oder Sichtbarkeit ging verloren, wenn die Oberfläche zwischen Eingabe und „Bildaufbau speichern“ die Einstellung neu abfragte (alle paar Sekunden). Jetzt gilt die Eingabe als ungespeichert („Nicht gespeichert: …“) und bleibt bis zum Speichern stehen. Betrifft auch das andere Paket. Die Eckenrundung wird auf dem Jetson jetzt zuverlässig ausgeblendet.
 

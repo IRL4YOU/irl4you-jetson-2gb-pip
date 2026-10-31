@@ -7,6 +7,7 @@ const STYLE_DEF=()=>({visible:true,opacity:100,crop:{l:0,r:0,t:0,b:0},radius:0,b
 const CROP_W=1920, CROP_H=1080, CROP_KEEP=32;
 let pipStyles={1:STYLE_DEF(),2:STYLE_DEF(),3:STYLE_DEF()};
 const styleOf=k=>pipStyles[k]||(pipStyles[k]=STYLE_DEF());
+let styleRadius=true;                                   // Eckenrundung anbieten? Nein auf dem Jetson (pipeLoad setzt es aus der Antwort der Box)
 const clampN=(v,lo,hi,d)=>{ v=Math.round(+v); return isNaN(v)?d:Math.max(lo,Math.min(hi,v)); };
 const hexRgba=(h,a)=>{ const n=parseInt(String(h).slice(1),16)||0; return `rgba(${n>>16&255},${n>>8&255},${n&255},${a})`; };
 function styleBlockHtml(){
@@ -55,7 +56,7 @@ document.querySelectorAll(".pvs").forEach(box=>{
     styleFill(k,ev.type==="change"); renderPreview();
   };
   box.addEventListener("input",edit); box.addEventListener("change",edit);
-  if(pipeData&&pipeData.style_radius===false) box.querySelectorAll('[data-o="radius"]').forEach(e=>e.hidden=true);   // Jetson: keine Eckenrundung (auch wenn die Karte vor diesem Block geladen wurde)
+  box.querySelectorAll('[data-o="radius"]').forEach(e=>e.hidden=!styleRadius);                 // Jetson: keine Eckenrundung
   styleFill(k,true);
 });
 let pipeData=null, pipeDirty=false, pipDelayDirty=false, pipLive={}, pipCams=[], pipCorners=[];
@@ -189,6 +190,7 @@ $("fc_btns").addEventListener("click",async e=>{
 async function pipeLoad(){
   try{ pipeData=await srtlaCall("GET","/api/pipeline"); }catch(e){ return; }
   const d=pipeData, c=d.config;
+  styleRadius=d.style_radius!==false; document.querySelectorAll('[data-o="radius"]').forEach(e=>e.hidden=!styleRadius);   // vor der Prüfung auf ungespeicherte Eingaben
   fcRender(d);
   pipCams=d.cameras; pipCorners=d.corners;
   pipLive=d.live||{};
@@ -217,7 +219,6 @@ async function pipeLoad(){
   let info=!c.main?"Noch keine Pipeline gespeichert.":c.type==="pip"?`Gespeichert: Bild-in-Bild, Hauptbild ${c.main}, kleines Bild ${[c.pip,c.pip2,c.pip3].filter(Boolean).join(", ")}.`:`Gespeichert: eine Kamera, Hauptbild ${c.main}.`;
   // Deckkraft, Beschnitt und Rahmen gibt es erst, wenn der installierte Überlagerungs-Baustein sie kennt (er wird beim Software-Update neu gebaut); bis dahin bleiben die Felder weg
   document.querySelectorAll(".pvs").forEach(e=>e.hidden=d.plugin_present&&d.plugin_style===false);
-  document.querySelectorAll('[data-o="radius"]').forEach(e=>e.hidden=d.style_radius===false);      // Jetson: keine Eckenrundung
   if(d.needs_plugin&&!d.plugin_present) info+=" Bild-in-Bild braucht den Überlagerungs-Baustein, der noch nicht auf der Box installiert ist.";
   $("pipeinfo").textContent=info;
 }
