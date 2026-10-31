@@ -3,6 +3,7 @@ Description=Jetson 2GB PIP: Oberflaeche und Auslastungsanzeige (Port 8780)
 After=network.target
 
 [Service]
+Environment=LC_ALL=C.UTF-8 LANG=C.UTF-8
 ExecStart=/usr/bin/python3 /opt/pipbox/server.py --host 0.0.0.0 --port 8780 --state /var/lib/pipbox --bela-config /opt/belaUI/config.json --rtmp-app publish --rtmp-stat-url http://127.0.0.1:1936/
 Restart=on-failure
 User=pipbox

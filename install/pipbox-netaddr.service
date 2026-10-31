@@ -3,6 +3,7 @@ Description=IRL4YOU BOX Netzadress-Helfer (nur eine feste Zusatzadresse je LAN-K
 After=network.target
 
 [Service]
+Environment=LC_ALL=C.UTF-8 LANG=C.UTF-8
 Type=oneshot
 ExecStart=/usr/bin/python3 /opt/pipbox/pipbox-netaddr.py
 TimeoutStartSec=1min
