@@ -1077,8 +1077,8 @@ def jetson_system():
     try:
         for u in sorted(os.listdir(base)):
             v = read_small(f"{base}/{u}/load")
-            if v:
-                loads.append("%s %s" % (u, v.strip()))
+            if v and v.strip().isdigit():                       # nur Einheiten mit Lastwert (vic, nvdec, nvenc, nvjpg, gpu); der Rest meldet nichts Lesbares
+                loads.append("%s %s" % (u.split(".", 1)[-1], v.strip()))
     except OSError:
         pass
     out.append("Last der Einheiten (Promille, Momentaufnahme): " + (", ".join(loads) or "?"))
