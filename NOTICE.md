@@ -62,6 +62,15 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 
+## belacoder und srtla_send (GPL-3.0 und AGPL-3.0)
+
+Die Sendekette nutzt `belacoder` ([BELABOX/belacoder](https://github.com/BELABOX/belacoder), Commit ccce9ca, GPL-3.0)
+und `srtla_send` ([BELABOX/srtla](https://github.com/BELABOX/srtla), Commit 37862da, AGPL-3.0).
+Beide werden bei der Einrichtung auf dem Gerät aus dem Original-Quelltext gebaut. Dieses Repository enthält nur die eigenen Änderungen
+als Patch-Dateien (`belacoder/*.patch` unter GPL-3.0, `srtla/*.patch` unter AGPL-3.0), nicht den Quelltext der Projekte.
+Die Patches ändern das Verhalten des Bitraten-Reglers, der Wegewahl und liefern Kennzahlen für die Anzeige Live.
+Die Lizenztexte stehen in den jeweiligen Originalprojekten. Auf Wunsch gibt der Betreiber der Box den Quelltext der gebauten Fassung heraus.
+
 ## BELABOX
 
 Unabhängiges Zusatzprojekt, kein Produkt von BELABOX, NVIDIA oder DJI.
@@ -70,4 +79,5 @@ Es ändert keine Dateien von BELABOX und liest das BELABOX-Passwort nur zur Anme
 ## Welche Lizenz gilt wo
 
 - **MIT** (eigener Code): alles in diesem Repository, außer den oben genannten Teilen, die auf MIT-lizenzierten Projekten beruhen.
+- **GPL-3.0** bzw. **AGPL-3.0**: die Patch-Dateien in `belacoder/` und `srtla/` sowie die daraus gebauten Programme.
 - Keine Rechtsberatung.

@@ -23,6 +23,7 @@ import time
 
 sys.path.insert(0, "/opt/pipbox")
 import server  # noqa: E402  (nur Prüf- und Erzeugungsfunktionen, startet nichts)
+from srv import pipeline_jetson  # noqa: E402  (Jetson: Nvidia-Kette, kein Rockchip-Baustein nötig)
 import pipbox_always  # noqa: E402  (Zubringer und Auswahl im Modus "alle Kameras immer bereit")
 import pipbox_live  # noqa: E402  (Engine "immer bereit" mit Compositor und dynamischen Zweigen, Technik von streamingbox)
 try:
@@ -323,7 +324,7 @@ def prepare():
     if not pipe.get("main"):
         raise Refuse("Kein Bildaufbau gespeichert (Hauptkamera fehlt)")
     cfg = {**server.PipelineStore.DEFAULT, **pipe}
-    if cfg["type"] == "pip" and not os.path.exists(f"{PLUGIN_DIR}/libgstpbpip.so"):
+    if cfg["type"] == "pip" and not pipeline_jetson.is_jetson() and not os.path.exists(f"{PLUGIN_DIR}/libgstpbpip.so"):      # auf dem Jetson mischt nvcompositor
         raise Refuse("Bild-in-Bild braucht den Überlagerungs-Baustein, der noch nicht installiert ist")
     if not server.PipelineStore(os.devnull).build(cfg):
         raise Refuse("Der Bildaufbau konnte nicht erzeugt werden (Kamera-Schlüssel ungültig)")
