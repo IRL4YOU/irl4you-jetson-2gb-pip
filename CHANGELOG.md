@@ -1,5 +1,8 @@
 # Änderungen
 
+## 1.0.4
+- Nachbesserung wegen einer Versionsnummern-Überschneidung: Die Nummer 1.0.3 war schon online, bevor alle Dateien hochgeladen waren. Wer früh aktualisiert hat, bekam die Korrektur der Systemwarnungen nur zum Teil. 1.0.4 bringt sie vollständig.
+
 ## 1.0.3
 - Die Systemwarnungen lassen sich wieder speichern. Auf dem Jetson (Python 3.6) wurden die Standardtexte mit 🟢 und 🟡 abgelehnt, jedes Speichern in diesem Abschnitt schlug fehl. Auch das Senden dieser Texte in den Chat ist jetzt möglich.
 - Die Standardgrenze für den Arbeitsspeicher steht jetzt bei 75 % (vorher 60 %, was auf dem 2-GB-Jetson im Normalbetrieb oft erreicht war).
