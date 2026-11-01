@@ -4,7 +4,19 @@ Bild-in-Bild für den **Jetson Nano 2GB** (BELABOX-Image, JetPack 4.6.4 / L4T 32
 
 **Webseite:** [irl4you.de](https://irl4you.de) · **Schwesterprojekt (Orange Pi / ROCK):** [IRL4YOU/irl4you-pip](https://github.com/IRL4YOU/irl4you-pip) · **Fehler und Wünsche:** [Issues](https://github.com/IRL4YOU/irl4you-jetson-2gb-pip/issues)
 
-> **Beta:** Testversion, Änderungen sind jederzeit möglich. Die Versionsnummer steht in `VERSION`, die Änderungen in [CHANGELOG.md](CHANGELOG.md). Bisher gibt es: Senden mit Bild-in-Bild über die Video-Hardware des Jetson (alle Kameras immer bereit, Ausfall der Hauptkamera wird überbrückt), SRTLA, DJI-Kameras per Bluetooth, Vorschau, Update über die Oberfläche und Fernzugriff über Tailscale. Die USB-Kamera ist noch nicht mit echter Hardware geprüft; das 4-GB-Modell ist ebenfalls noch nicht getestet. Getestet auf dem Jetson Nano 2GB (JetPack 4.6.4).
+> **Beta:** Testversion, Änderungen sind jederzeit möglich. Die Versionsnummer steht in `VERSION`, die Änderungen in [CHANGELOG.md](CHANGELOG.md). Getestet auf dem Jetson Nano 2GB (JetPack 4.6.4); das 4-GB-Modell ist noch nicht getestet.
+
+## Was die Box kann
+
+- **Bild-in-Bild mit bis zu vier Kameras** (ein Hauptbild, bis zu drei kleine Bilder), gemischt in der Video-Hardware des Jetson (Decoder, Bildwandler, Compositor, H.265-Encoder). Die CPU bleibt dabei frei: im Dauertest über eine Stunde mit mehreren Kameras und laufender Sendung im Mittel 34 % frei, nie unter 15 %.
+- **Alle Kameras immer bereit:** Tausch von Haupt- und kleinem Bild ohne Unterbrechung, Verzögerung je Kamera bis 750 ms. Fällt eine Kamera aus (Kabel gezogen, Akku leer), läuft die Sendung weiter: der Platz zeigt ein schwarzes Füllbild, bis die Kamera zurück ist.
+- **Senden über SRT und SRTLA** (Bündelung mehrerer Leitungen, zum Beispiel LAN, WLAN und Handy-Hotspot) mit angepasstem `belacoder` und `srtla_send` (Bitratenregler, Wegewahl, Kennzahlen).
+- **Kameras:**
+  - **USB-Kamera** (zum Beispiel DJI Osmo Action 4 im USB-Modus, Webcam oder HDMI-USB-Grabber): 1080p mit 30 Bildern je Sekunde und 8000 kbit/s, gemessen genau 30,0 fps. MJPEG der Kamera wird in der Video-Hardware dekodiert und neu kodiert.
+  - **DJI-Kameras per Bluetooth** (Kopplung, Steuerung, Akkustand), bewährter Stick: ASUS USB-BT500.
+  - **RTMP-Kameras** (zum Beispiel Handy-Apps oder Action-Cams), die an die Box senden.
+- **Weboberfläche** (Port 8780, 14 Sprachen): Live, Vorschau, Status, Bildaufbau (Positionen, Rahmen, Beschnitt, Facecam), Verbindungen (WLAN, Bluetooth, Upload-Leitungen), SRTLA-Einstellungen, Streamer.bot-Deck, Chat und Systemwarnungen im Twitch-Chat, öffentliche Statistik für OBS und Homepage, Einstellungen sichern, Protokolle.
+- **Update über die Oberfläche** (Karte Software-Update, mit Fortschritt) und **Fernzugriff über Tailscale**.
 
 ## Installation
 
@@ -29,7 +41,8 @@ Ohne Systemupdate: `sudo sh install/setup.sh --ohne-systemupdate`. Rückweg: `su
 | `install/setup.sh` | Komplett-Einrichtung (Systemupdate, dann `install.sh`) |
 | `install/install.sh` | Pakete, Benutzer, Dateien und Dienst einrichten, `uninstall` |
 | `install/pipbox.service` | systemd-Dienst der Weboberfläche |
-| `pipbox/` | Weboberfläche (Python 3.6, nur Standardbibliothek) |
+| `pipbox/` | Weboberfläche und Dienste (Python 3.6, nur Standardbibliothek): Sendekette, Weichen, Kameradienste |
+| `belacoder/`, `srtla/` | Patches für `belacoder` und `srtla_send`, die bei der Einrichtung auf dem Gerät gebaut werden |
 
 Die Oberfläche erreichst du danach unter `http://<Adresse des Jetson>:8780`.
 
