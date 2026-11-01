@@ -1,0 +1,2 @@
+# Elgato (zum Beispiel Cam Link 4K): USB-Schlafmodus aus, sonst schreibt der Kernel alle paar Sekunden eine Zeile ins Protokoll (usb_suspend_both)
+ACTION=="add", SUBSYSTEM=="usb", ATTR{idVendor}=="0fd9", TEST=="power/control", ATTR{power/control}="on"
