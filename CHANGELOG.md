@@ -1,5 +1,8 @@
 # Änderungen
 
+## 1.0.2
+- Der Elgato Cam Link bleibt wach (USB-Schlafmodus aus per udev-Regel). Das Kernel-Protokoll wird nicht mehr alle paar Sekunden mit `usb_suspend_both` gefüllt.
+
 ## 1.0.1
 - **HDMI-USB-Grabber werden unterstützt (getestet: Elgato Cam Link 4K).** Neues Bildformat „RAW 1920x1080@30“ in der automatischen Wahl. Die HDMI-Quelle muss 1080p ausgeben, der Cam Link braucht einen USB-3-Anschluss.
 - Die Meldung „Die Kamera liefert kein Bild“ hat einen Hinweis zum HDMI-Grabber (13 Sprachen).
