@@ -2418,7 +2418,11 @@
   "Die Treiber für Realtek- und Broadcom-Sticks sind im Kernel dieser Box enthalten, es muss nichts eingerichtet oder nachinstalliert werden. Steht ein Stick als „nicht nutzbar“ da, kennt der Kernel (4.9) ihn nicht: dann hilft nur ein anderer Stick, bewährt ist der ASUS USB-BT500 (Realtek RTL8761B). Nachbauten des CSR8510 (Kennung 0a12:0001) verbinden sich mit DJI-Kameras oft nicht zuverlässig. Bitte Stick und Kamera an einem USB-Hub mit eigenem Netzteil betreiben, wenn die Box Überstrom meldet.": "ไดรเวอร์สำหรับดองเกิล Realtek และ Broadcom มีอยู่ในเคอร์เนลของ Box นี้แล้ว ไม่ต้องตั้งค่าหรือติดตั้งเพิ่ม หากดองเกิลแสดงเป็น “ใช้งานไม่ได้” แสดงว่าเคอร์เนล (4.9) ไม่รู้จัก ในกรณีนี้ต้องเปลี่ยนไปใช้ดองเกิลตัวอื่น ซึ่ง ASUS USB-BT500 (Realtek RTL8761B) ผ่านการใช้งานจริงมาแล้ว ดองเกิลเลียนแบบ CSR8510 (รหัส 0a12:0001) มักเชื่อมต่อกับกล้อง DJI ได้ไม่เสถียร โปรดใช้ดองเกิลและกล้องผ่าน USB ฮับที่มีอะแดปเตอร์ไฟของตัวเอง หาก Box รายงานกระแสไฟเกิน",
   "H.264 (Strom der Kamera; kann der Treiber ihn nicht abholen, nimmt die Box MJPEG)": "H.264 (สตรีมของกล้องเอง หากไดรเวอร์ดึงไม่ได้ Box จะใช้ MJPEG)",
   "Prozessor-Details (Kerne, GPU, Video-Hardware)": "รายละเอียดโปรเซสเซอร์ (คอร์ GPU ฮาร์ดแวร์วิดีโอ)",
-  "Es wurden gar keine Bluetooth-Geräte empfangen. Den USB-Bluetooth-Stick prüfen (fest eingesteckt, am besten an einem USB-Hub mit eigenem Netzteil) und die Kamera näher heranhalten.": "ไม่พบสัญญาณจากอุปกรณ์ Bluetooth เลย โปรดตรวจสอบอะแดปเตอร์ USB Bluetooth (เสียบให้แน่น ควรเสียบกับ USB ฮับที่มีอะแดปเตอร์ไฟของตัวเอง) และนำกล้องเข้าใกล้ขึ้น"
+  "Es wurden gar keine Bluetooth-Geräte empfangen. Den USB-Bluetooth-Stick prüfen (fest eingesteckt, am besten an einem USB-Hub mit eigenem Netzteil) und die Kamera näher heranhalten.": "ไม่พบสัญญาณจากอุปกรณ์ Bluetooth เลย โปรดตรวจสอบอะแดปเตอร์ USB Bluetooth (เสียบให้แน่น ควรเสียบกับ USB ฮับที่มีอะแดปเตอร์ไฟของตัวเอง) และนำกล้องเข้าใกล้ขึ้น",
+  "Systemwarnungen eingespielt": "ใช้การเตือนระบบแล้ว",
+  "Streamerbot Deck eingespielt": "ใช้ Streamerbot Deck แล้ว",
+  "Optionen eingespielt": "ใช้ตัวเลือกแล้ว",
+  "Design und Reihenfolge der Hauptmenüs": "การออกแบบและลำดับของเมนูหลัก"
  },
  "patterns": []
 }

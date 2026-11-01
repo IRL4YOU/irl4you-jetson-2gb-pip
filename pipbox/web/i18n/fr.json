@@ -2418,7 +2418,11 @@
   "Die Treiber für Realtek- und Broadcom-Sticks sind im Kernel dieser Box enthalten, es muss nichts eingerichtet oder nachinstalliert werden. Steht ein Stick als „nicht nutzbar“ da, kennt der Kernel (4.9) ihn nicht: dann hilft nur ein anderer Stick, bewährt ist der ASUS USB-BT500 (Realtek RTL8761B). Nachbauten des CSR8510 (Kennung 0a12:0001) verbinden sich mit DJI-Kameras oft nicht zuverlässig. Bitte Stick und Kamera an einem USB-Hub mit eigenem Netzteil betreiben, wenn die Box Überstrom meldet.": "Les pilotes des adaptateurs Realtek et Broadcom sont inclus dans le noyau de cette Box ; rien n'est à configurer ni à installer après coup. Si un adaptateur est indiqué comme « inutilisable », le noyau (4.9) ne le connaît pas : seul un autre adaptateur peut alors aider, l'ASUS USB-BT500 (Realtek RTL8761B) a fait ses preuves. Les copies du CSR8510 (identifiant 0a12:0001) ne se connectent souvent pas de façon fiable aux caméras DJI. Utilisez l'adaptateur et la caméra sur un hub USB avec sa propre alimentation si la Box signale une surintensité.",
   "H.264 (Strom der Kamera; kann der Treiber ihn nicht abholen, nimmt die Box MJPEG)": "H.264 (flux propre de la caméra ; si le pilote ne peut pas le récupérer, la Box utilise MJPEG)",
   "Prozessor-Details (Kerne, GPU, Video-Hardware)": "Détails du processeur (cœurs, GPU, matériel vidéo)",
-  "Es wurden gar keine Bluetooth-Geräte empfangen. Den USB-Bluetooth-Stick prüfen (fest eingesteckt, am besten an einem USB-Hub mit eigenem Netzteil) und die Kamera näher heranhalten.": "Aucun appareil Bluetooth n'a été détecté. Vérifiez la clé USB Bluetooth (bien enfoncée, de préférence sur un hub USB avec sa propre alimentation) et rapprochez la caméra."
+  "Es wurden gar keine Bluetooth-Geräte empfangen. Den USB-Bluetooth-Stick prüfen (fest eingesteckt, am besten an einem USB-Hub mit eigenem Netzteil) und die Kamera näher heranhalten.": "Aucun appareil Bluetooth n'a été détecté. Vérifiez la clé USB Bluetooth (bien enfoncée, de préférence sur un hub USB avec sa propre alimentation) et rapprochez la caméra.",
+  "Systemwarnungen eingespielt": "Alertes système appliquées",
+  "Streamerbot Deck eingespielt": "Streamerbot Deck appliqué",
+  "Optionen eingespielt": "Options appliquées",
+  "Design und Reihenfolge der Hauptmenüs": "Design et ordre des menus principaux"
  },
  "patterns": []
 }

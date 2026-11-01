@@ -2418,7 +2418,11 @@
   "Die Treiber für Realtek- und Broadcom-Sticks sind im Kernel dieser Box enthalten, es muss nichts eingerichtet oder nachinstalliert werden. Steht ein Stick als „nicht nutzbar“ da, kennt der Kernel (4.9) ihn nicht: dann hilft nur ein anderer Stick, bewährt ist der ASUS USB-BT500 (Realtek RTL8761B). Nachbauten des CSR8510 (Kennung 0a12:0001) verbinden sich mit DJI-Kameras oft nicht zuverlässig. Bitte Stick und Kamera an einem USB-Hub mit eigenem Netzteil betreiben, wenn die Box Überstrom meldet.": "Realtek ve Broadcom adaptörlerinin sürücüleri bu Box’ın çekirdeğinde bulunur; hiçbir şey kurmanız veya sonradan yüklemeniz gerekmez. Bir adaptör “kullanılamaz” olarak görünüyorsa çekirdek (4.9) onu tanımıyordur: bu durumda tek çare başka bir adaptördür, ASUS USB-BT500 (Realtek RTL8761B) kendini kanıtlamıştır. CSR8510’un (kimlik 0a12:0001) taklitleri DJI kameralarla çoğu zaman güvenilir biçimde bağlanmaz. Box aşırı akım bildirirse lütfen adaptörü ve kamerayı kendi güç kaynağı olan bir USB hub üzerinden çalıştırın.",
   "H.264 (Strom der Kamera; kann der Treiber ihn nicht abholen, nimmt die Box MJPEG)": "H.264 (kameranın kendi akışı; sürücü onu alamazsa Box MJPEG kullanır)",
   "Prozessor-Details (Kerne, GPU, Video-Hardware)": "İşlemci ayrıntıları (çekirdekler, GPU, video donanımı)",
-  "Es wurden gar keine Bluetooth-Geräte empfangen. Den USB-Bluetooth-Stick prüfen (fest eingesteckt, am besten an einem USB-Hub mit eigenem Netzteil) und die Kamera näher heranhalten.": "Hiç Bluetooth cihazı alınamadı. USB Bluetooth adaptörünü kontrol edin (sıkıca takılı olmalı, tercihen kendi güç kaynağı olan bir USB hub üzerinde) ve kamerayı daha yakına getirin."
+  "Es wurden gar keine Bluetooth-Geräte empfangen. Den USB-Bluetooth-Stick prüfen (fest eingesteckt, am besten an einem USB-Hub mit eigenem Netzteil) und die Kamera näher heranhalten.": "Hiç Bluetooth cihazı alınamadı. USB Bluetooth adaptörünü kontrol edin (sıkıca takılı olmalı, tercihen kendi güç kaynağı olan bir USB hub üzerinde) ve kamerayı daha yakına getirin.",
+  "Systemwarnungen eingespielt": "Sistem uyarıları uygulandı",
+  "Streamerbot Deck eingespielt": "Streamerbot Deck uygulandı",
+  "Optionen eingespielt": "Seçenekler uygulandı",
+  "Design und Reihenfolge der Hauptmenüs": "Tasarım ve ana menülerin sırası"
  },
  "patterns": []
 }

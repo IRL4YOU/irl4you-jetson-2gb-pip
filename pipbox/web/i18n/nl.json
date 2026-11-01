@@ -2418,7 +2418,11 @@
   "Die Treiber für Realtek- und Broadcom-Sticks sind im Kernel dieser Box enthalten, es muss nichts eingerichtet oder nachinstalliert werden. Steht ein Stick als „nicht nutzbar“ da, kennt der Kernel (4.9) ihn nicht: dann hilft nur ein anderer Stick, bewährt ist der ASUS USB-BT500 (Realtek RTL8761B). Nachbauten des CSR8510 (Kennung 0a12:0001) verbinden sich mit DJI-Kameras oft nicht zuverlässig. Bitte Stick und Kamera an einem USB-Hub mit eigenem Netzteil betreiben, wenn die Box Überstrom meldet.": "De stuurprogramma's voor Realtek- en Broadcom-sticks zitten in de kernel van deze Box; er hoeft niets te worden ingesteld of nageïnstalleerd. Staat een stick als “niet bruikbaar” vermeld, dan kent de kernel (4.9) hem niet: dan helpt alleen een andere stick, de ASUS USB-BT500 (Realtek RTL8761B) is beproefd. Namaakversies van de CSR8510 (ID 0a12:0001) verbinden vaak niet betrouwbaar met DJI-camera's. Gebruik stick en camera aan een USB-hub met eigen voeding als de Box overstroom meldt.",
   "H.264 (Strom der Kamera; kann der Treiber ihn nicht abholen, nimmt die Box MJPEG)": "H.264 (eigen stream van de camera; kan het stuurprogramma die niet ophalen, dan gebruikt de Box MJPEG)",
   "Prozessor-Details (Kerne, GPU, Video-Hardware)": "Processordetails (kernen, GPU, videohardware)",
-  "Es wurden gar keine Bluetooth-Geräte empfangen. Den USB-Bluetooth-Stick prüfen (fest eingesteckt, am besten an einem USB-Hub mit eigenem Netzteil) und die Kamera näher heranhalten.": "Er zijn helemaal geen Bluetooth-apparaten ontvangen. Controleer de USB-Bluetooth-stick (stevig aangesloten, bij voorkeur op een USB-hub met eigen voeding) en houd de camera dichterbij."
+  "Es wurden gar keine Bluetooth-Geräte empfangen. Den USB-Bluetooth-Stick prüfen (fest eingesteckt, am besten an einem USB-Hub mit eigenem Netzteil) und die Kamera näher heranhalten.": "Er zijn helemaal geen Bluetooth-apparaten ontvangen. Controleer de USB-Bluetooth-stick (stevig aangesloten, bij voorkeur op een USB-hub met eigen voeding) en houd de camera dichterbij.",
+  "Systemwarnungen eingespielt": "Systeemwaarschuwingen toegepast",
+  "Streamerbot Deck eingespielt": "Streamerbot Deck toegepast",
+  "Optionen eingespielt": "Opties toegepast",
+  "Design und Reihenfolge der Hauptmenüs": "Ontwerp en volgorde van de hoofdmenu's"
  },
  "patterns": []
 }

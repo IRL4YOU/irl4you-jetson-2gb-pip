@@ -2418,7 +2418,11 @@
   "Die Treiber für Realtek- und Broadcom-Sticks sind im Kernel dieser Box enthalten, es muss nichts eingerichtet oder nachinstalliert werden. Steht ein Stick als „nicht nutzbar“ da, kennt der Kernel (4.9) ihn nicht: dann hilft nur ein anderer Stick, bewährt ist der ASUS USB-BT500 (Realtek RTL8761B). Nachbauten des CSR8510 (Kennung 0a12:0001) verbinden sich mit DJI-Kameras oft nicht zuverlässig. Bitte Stick und Kamera an einem USB-Hub mit eigenem Netzteil betreiben, wenn die Box Überstrom meldet.": "RealtekおよびBroadcomのスティック用ドライバーはこの Box のカーネルに含まれているため、設定や追加インストールは不要です。スティックが「使用不可」と表示される場合は、カーネル（4.9）がそのスティックを認識していません。その場合は別のスティックを使うしかなく、ASUS USB-BT500（Realtek RTL8761B）が実績のある選択肢です。CSR8510（ID 0a12:0001）の互換品は、DJIカメラと安定して接続できないことがよくあります。Box が過電流を報告する場合は、スティックとカメラを専用電源付きのUSBハブで使用してください。",
   "H.264 (Strom der Kamera; kann der Treiber ihn nicht abholen, nimmt die Box MJPEG)": "H.264（カメラ自身のストリーム。ドライバーが取得できない場合、Box は MJPEG を使用）",
   "Prozessor-Details (Kerne, GPU, Video-Hardware)": "プロセッサの詳細（コア、GPU、映像ハードウェア）",
-  "Es wurden gar keine Bluetooth-Geräte empfangen. Den USB-Bluetooth-Stick prüfen (fest eingesteckt, am besten an einem USB-Hub mit eigenem Netzteil) und die Kamera näher heranhalten.": "Bluetoothデバイスがまったく受信されませんでした。USB Bluetoothアダプターがしっかり差し込まれているか確認し（できれば専用電源付きのUSBハブに接続）、カメラをもっと近づけてください。"
+  "Es wurden gar keine Bluetooth-Geräte empfangen. Den USB-Bluetooth-Stick prüfen (fest eingesteckt, am besten an einem USB-Hub mit eigenem Netzteil) und die Kamera näher heranhalten.": "Bluetoothデバイスがまったく受信されませんでした。USB Bluetoothアダプターがしっかり差し込まれているか確認し（できれば専用電源付きのUSBハブに接続）、カメラをもっと近づけてください。",
+  "Systemwarnungen eingespielt": "システム警告を反映しました",
+  "Streamerbot Deck eingespielt": "Streamerbot Deck を反映しました",
+  "Optionen eingespielt": "オプションを反映しました",
+  "Design und Reihenfolge der Hauptmenüs": "デザインとメインメニューの順序"
  },
  "patterns": []
 }
