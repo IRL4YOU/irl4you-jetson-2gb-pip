@@ -9,7 +9,7 @@ Bild-in-Bild für den **Jetson Nano 2GB** (BELABOX-Image, JetPack 4.6.4 / L4T 32
 ## Was die Box kann
 
 - **Bild-in-Bild mit bis zu vier Kameras** (ein Hauptbild, bis zu drei kleine Bilder), gemischt in der Video-Hardware des Jetson (Decoder, Bildwandler, Compositor, H.265-Encoder). Die CPU bleibt dabei frei: im Dauertest über eine Stunde mit mehreren Kameras und laufender Sendung im Mittel 34 % frei, nie unter 15 %.
-- **Alle Kameras immer bereit:** Tausch von Haupt- und kleinem Bild ohne Unterbrechung, Verzögerung je Kamera bis 750 ms. Fällt eine Kamera aus (Kabel gezogen, Akku leer), läuft die Sendung weiter: der Platz zeigt ein schwarzes Füllbild, bis die Kamera zurück ist.
+- **Alle Kameras immer bereit:** Tausch von Haupt- und kleinem Bild ohne Unterbrechung, Verzögerung je Kamera bis 750 ms. Fällt die Hauptkamera aus (Kabel gezogen, Akku leer), übernimmt nach etwa 2 Sekunden die erste vorhandene Kamera der kleinen Bilder das Hauptbild, bei der Rückkehr nach 3 Sekunden wieder die eigentliche Hauptkamera. Eine ausgefallene kleine Kamera verschwindet aus dem Bild. Die Sendung läuft in jedem Fall weiter; nur wenn gar keine Kamera mehr liefert, bleibt das Hauptbild schwarz.
 - **Senden über SRT und SRTLA** (Bündelung mehrerer Leitungen, zum Beispiel LAN, WLAN und Handy-Hotspot) mit angepasstem `belacoder` und `srtla_send` (Bitratenregler, Wegewahl, Kennzahlen).
 - **Kameras:**
   - **USB-Kamera** (zum Beispiel DJI Osmo Action 4 im USB-Modus, Webcam oder HDMI-USB-Grabber): 1080p mit 30 Bildern je Sekunde und 8000 kbit/s, gemessen genau 30,0 fps. MJPEG der Kamera wird in der Video-Hardware dekodiert und neu kodiert.
