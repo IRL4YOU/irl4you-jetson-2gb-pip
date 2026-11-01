@@ -26,7 +26,7 @@ Bild-in-Bild für den **Jetson Nano 2GB** (BELABOX-Image, JetPack 4.6.4 / L4T 32
 - **Kamerawechsel bei „Eine Kamera“:** Wählst du dort eine andere Kamera als Hauptbild, startet die Sendekette neu (ein paar Sekunden ohne Bild), weil der Hardware-Decoder den Strom nicht wechseln kann. Beim Bild-in-Bild tauschen nur die Rollen, ohne Unterbrechung.
 - **H.264 direkt aus der USB-Kamera** ist mit dem Kernel 4.9 nicht nutzbar; die Box nimmt MJPEG, dekodiert und kodiert es in der Video-Hardware neu (1080p, 30 Bilder pro Sekunde, wählbare Bitrate).
 - **Bluetooth-Sticks:** Bewährt ist der ASUS USB-BT500 (Realtek RTL8761B). Nachbauten des CSR8510 verbinden sich mit DJI-Kameras oft nicht zuverlässig. Bei Überstrom einen USB-Hub mit eigenem Netzteil nehmen.
-- **Das 4-GB-Modell ist nicht getestet.**
+- **Das 4-GB-Modell ist nicht getestet.** Gesperrt ist es nicht: Die Installation prüft das Modell nicht. Wer ein 4-GB-Modell hat, kann das Paket gern ausprobieren und sich bei Fehlern über ein [Issue](https://github.com/IRL4YOU/irl4you-jetson-2gb-pip/issues) melden, am besten mit der Protokolldatei (siehe „Fehler melden“).
 
 ## Installation
 
