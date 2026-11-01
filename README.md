@@ -64,6 +64,18 @@ Wenn etwas nicht geht, hilft die Protokolldatei der Box am meisten:
 2. Die Datei ist bereinigt: Passwörter, Stream-ID, Serveradressen, WLAN-Namen, IP- und MAC-Adressen, Kamera-Schlüssel, Tailscale-Namen und Zugangsschlüssel sind durch Platzhalter ersetzt (gleiche Werte haben gleiche Nummern). Eigene Bezeichnungen (Name des Servers, Name einer Kamera) bleiben lesbar; bitte vor dem Weitergeben kurz durchsehen.
 3. Die Datei an ein [Issue auf GitHub](https://github.com/IRL4YOU/irl4you-jetson-2gb-pip/issues) anhängen, mit Uhrzeit des Problems (die Zeiten in der Datei sind UTC) und einem Satz, was zu sehen war.
 
+## Herkunft und Dank
+
+Dieses Paket baut auf der Arbeit anderer auf. Danke an:
+
+- **IRL4YOU BOX** (MIT): Die Weboberfläche stammt aus diesem Projekt und wurde für den Jetson Nano 2GB und Python 3.6 angepasst.
+- **[Moblin](https://github.com/eerimoq/moblin)** von Erik Moqvist (MIT): Ablauf und Nachrichtenformat der DJI-Kopplung per Bluetooth. Gegenprobe mit [dimadesu/dji-remote](https://github.com/dimadesu/dji-remote) (MIT).
+- **Bittersweet1987** (MIT, mit Erlaubnis des Urhebers): Sitzungsablauf, Befehle und Oberfläche der DJI-Kameras.
+- **[bleak](https://github.com/hbldh/bleak)** von Henrik Blidh (MIT): Bluetooth-Bibliothek.
+- **[BELABOX](https://github.com/BELABOX)** (`belacoder` GPL-3.0, `srtla_send` AGPL-3.0): Sendekette und Bündelung. Dieses Repository enthält nur die eigenen Änderungen als Patch-Dateien.
+
+Die genauen Lizenztexte und Quellen stehen in [NOTICE.md](NOTICE.md). Unabhängiges Zusatzprojekt, kein Produkt von BELABOX, NVIDIA oder DJI.
+
 ## Lizenz
 
 MIT, siehe [LICENSE](LICENSE).
