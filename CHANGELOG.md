@@ -1,5 +1,9 @@
 # Änderungen
 
+## 1.0.3
+- Die Systemwarnungen lassen sich wieder speichern. Auf dem Jetson (Python 3.6) wurden die Standardtexte mit 🟢 und 🟡 abgelehnt, jedes Speichern in diesem Abschnitt schlug fehl. Auch das Senden dieser Texte in den Chat ist jetzt möglich.
+- Die Standardgrenze für den Arbeitsspeicher steht jetzt bei 75 % (vorher 60 %, was auf dem 2-GB-Jetson im Normalbetrieb oft erreicht war).
+
 ## 1.0.2
 - Der Elgato Cam Link bleibt wach (USB-Schlafmodus aus per udev-Regel). Das Kernel-Protokoll wird nicht mehr alle paar Sekunden mit `usb_suspend_both` gefüllt.
 
