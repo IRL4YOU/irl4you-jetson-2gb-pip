@@ -45,7 +45,7 @@ POWER_STAY = 10.0                                        # Sekunden, die eine DJ
 USB_POWER_TEXT = "Die Kamera meldet sich nur kurz am USB und trennt sich wieder, meist fehlt ihr Strom. Bitte einen USB-Hub mit eigenem Netzteil verwenden."
 PROBE_TIMEOUT = 8.0                                      # Sekunden je Probelauf eines Bildformats
 # Bildformate einer USB-Webcam in der Reihenfolge, in der sie probiert werden: (Art, Breite, Höhe, Bildrate)
-USB_CANDIDATES = (("mjpeg", 1920, 1080, 30), ("mjpeg", 1280, 720, 30), ("h264", 1920, 1080, 30), ("h264", 1280, 720, 30), ("raw", 1280, 720, 30), ("raw", 640, 480, 30))      # MJPEG zuerst: Es kodiert die Box mit der eingestellten Bitrate (Action 5 Pro: H.264 aus der Kamera nur 1,3 Mbit/s in 1080p, MJPEG-Bild 52 Mbit/s, nach dem Kodierer der Box ~8 Mbit/s)
+USB_CANDIDATES = (("mjpeg", 1920, 1080, 30), ("mjpeg", 1280, 720, 30), ("h264", 1920, 1080, 30), ("h264", 1280, 720, 30), ("rawhd", 1920, 1080, 30), ("raw", 1280, 720, 30), ("raw", 640, 480, 30))      # MJPEG zuerst: Es kodiert die Box mit der eingestellten Bitrate (Action 5 Pro: H.264 aus der Kamera nur 1,3 Mbit/s in 1080p, MJPEG-Bild 52 Mbit/s, nach dem Kodierer der Box ~8 Mbit/s)
 USB_BAD_AFTER = 3                                        # so oft hintereinander schnell gescheitert: dieses Format wird nicht mehr genommen, das nächste kommt dran
 PROBE_RETRY_PAUSE = 1.0                                  # Sekunden vor dem zweiten Probelauf (die Kamera ist direkt nach dem Stoppen der Einspeisung manchmal kurz belegt)
 BITRATE_RANGE = (1000, 20000)                            # kbit/s
@@ -192,19 +192,25 @@ def usb_candidates(fmt):
 def usb_caps(cand):
     """Beschreibung eines Bildformats für Anzeige und gst: (Text, Caps-Zeichenkette)."""
     kind, w, h, f = cand
-    media = {"mjpeg": "image/jpeg", "h264": "video/x-h264", "raw": "video/x-raw"}[kind]
-    label = {"mjpeg": "MJPEG", "h264": "H.264", "raw": "RAW"}[kind]
+    media = {"mjpeg": "image/jpeg", "h264": "video/x-h264", "raw": "video/x-raw", "rawhd": "video/x-raw"}[kind]
+    label = {"mjpeg": "MJPEG", "h264": "H.264", "raw": "RAW", "rawhd": "RAW"}[kind]
+    if kind == "rawhd":                     # HDMI-USB-Grabber (zum Beispiel Elgato Cam Link 4K): die Bildrate bestimmt die HDMI-Quelle (25, 30, 50, 60), die Box rechnet sie in _usb_decode auf f herunter
+        return "%s %dx%d@%d" % (label, w, h, f), "%s,width=%d,height=%d" % (media, w, h)
     return "%s %dx%d@%d" % (label, w, h, f), "%s,width=%d,height=%d,framerate=%d/1" % (media, w, h, f)
 
 
-def _usb_decode(kind):
+def _usb_decode(kind, fps=30):
     """Teil der Pipeline hinter der Quelle bis zum rohen Bild (für den Probelauf und die Einspeisung). Jetson: MJPEG dekodiert der Hardware-Dekoder (nvv4l2decoder mjpeg=1, Bild in NVMM). nvjpegdec
     schaffte mit einer echten Kamera (Osmo Action 4, 1080p30 über USB 2.0) nur etwa 5 Bilder je Sekunde bei fast 100 % Systemzeit im Aufnahme-Thread, der Hardware-Dekoder über 28 (gemessen: 120 Bilder
-    in 24 s gegen 4,4 s). Rohbilder wandelt videoconvert in I420; H.264 bleibt vorerst ein Strom (Dekoder und Kodierer folgen in der Einspeisung)."""
+    in 24 s gegen 4,4 s). Rohbilder wandelt videoconvert in I420; H.264 bleibt vorerst ein Strom (Dekoder und Kodierer folgen in der Einspeisung).
+    "rawhd" (HDMI-USB-Grabber, 1080p unkomprimiert, zum Beispiel YUY2): videorate rechnet die Bildrate der Quelle auf fps herunter, die Umwandlung der Farbformate macht danach nvvidconv in der
+    Video-Hardware (gemessen am Cam Link 4K: 30 Bilder je Sekunde bei einer Quelle mit 50 Hz, rund 13 % eines Kerns)."""
     if kind == "mjpeg":
         return ["jpegparse", "!", "nvv4l2decoder", "mjpeg=1"]
     if kind == "h264":
         return ["h264parse", "config-interval=-1"]
+    if kind == "rawhd":
+        return ["videorate", "!", "video/x-raw,framerate=%d/1" % fps]
     return ["videoconvert", "!", "video/x-raw,format=I420"]
 
 
@@ -222,7 +228,7 @@ def usb_probe_argv(device, cand):
     """Probelauf: drei Bilder aus der Kamera holen und bis zum Dekoder durchreichen (der Hardware-Kodierer der Sendung bleibt unberührt)."""
     if not re.match(r"^/dev/video\d{1,3}$", device or ""):
         raise ValueError("Gerät ungültig")
-    return ["gst-launch-1.0", "-q", "v4l2src", "device=" + device, "num-buffers=3", "!", usb_caps(cand)[1], "!"] + _usb_decode(cand[0]) + ["!", "fakesink"]
+    return ["gst-launch-1.0", "-q", "v4l2src", "device=" + device, "num-buffers=3", "!", usb_caps(cand)[1], "!"] + _usb_decode(cand[0], cand[3]) + ["!", "fakesink"]
 
 
 def usb_feeder_argv(cfg, device, cand, audio_device=None, rtmp_port=RTMP_PORT, rtmp_app=RTMP_APP):
@@ -237,7 +243,7 @@ def usb_feeder_argv(cfg, device, cand, audio_device=None, rtmp_port=RTMP_PORT, r
         raise ValueError("RTMP-Ziel ungültig")
     kind = cand[0]
     fps = cand[3]
-    v = ["v4l2src", "device=" + device, "!", usb_caps(cand)[1], "!"] + _usb_decode(kind) + ["!"]
+    v = ["v4l2src", "device=" + device, "!", usb_caps(cand)[1], "!"] + _usb_decode(kind, fps) + ["!"]
     if kind == "h264":                                  # H.264 geht unverändert durch (kein Neukodieren, keine Last auf der Video-Hardware)
         v += ["queue", "!", "mux."]
     else:
@@ -451,7 +457,7 @@ class Daemon:
         loop = asyncio.get_event_loop()
         cand = await loop.run_in_executor(None, self._usb_choose_format, cam)
         if cand is None:
-            self._failed("Die Kamera liefert kein Bild. Sie muss eingeschaltet und im Webcam-Modus sein (an der Kamera: USB-Modus „Webcam“)")
+            self._failed("Die Kamera liefert kein Bild. Sie muss eingeschaltet und im Webcam-Modus sein (an der Kamera: USB-Modus „Webcam“). Bei einem HDMI-USB-Grabber muss die HDMI-Quelle ein Bild senden.")
             return None, None
         audio = find_usb_audio(cam, self.asound) if self.cfg["audio"] == "hdmi" else None
         self.usb = dict(self.usb, present=True, name=cam["name"], node=cam["node"], format=usb_caps(cand)[0], audio=(audio or ""))
