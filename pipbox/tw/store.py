@@ -5,6 +5,7 @@ import math
 import os
 import re
 import threading
+import unicodedata
 
 from tw.util import KEY_RE
 
@@ -69,11 +70,16 @@ class TwitchStore:
         return v
 
     @staticmethod
+    def printable(ch):
+        """Wie str.isprintable, aber ein Emoji, das die Unicode-Tabelle von Python 3.6 noch nicht kennt (zum Beispiel 🟢 und 🟡), zählt als druckbar."""
+        return ch.isprintable() or (ord(ch) >= 0x1F000 and unicodedata.category(ch) == "Cn")
+
+    @staticmethod
     def _message(v):
         if not isinstance(v, str) or not 1 <= len(v.strip()) <= 300:
             raise ValueError("Nachricht: 1 bis 300 Zeichen")
         v = v.strip()
-        if any(not ch.isprintable() for ch in v):
+        if any(not TwitchStore.printable(ch) for ch in v):
             raise ValueError("Nachricht: keine Sonderzeichen oder Zeilenumbrüche")
         if v[0] in "/.":
             raise ValueError("Nachricht: darf nicht mit / oder . beginnen")      # "/…" und ".…" wären Chat-Befehle
