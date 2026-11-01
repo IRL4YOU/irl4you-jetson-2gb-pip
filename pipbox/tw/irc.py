@@ -67,8 +67,8 @@ class TwitchChat:
     def clean_text(text):
         """Der Text für PRIVMSG oder None: nur druckbare Zeichen (kein CR, LF, NUL), nicht mit / oder . am Anfang, höchstens MAX_BYTES Byte."""
         t = "".join(" " if unicodedata.category(ch) == "Zs" else ch for ch in text).strip()                  # geschütztes Leerzeichen und Ähnliches -> Leerzeichen
-        bad = ("Cc", "Zl", "Zp", "Cs", "Co", "Cn")
-        if not t or any(unicodedata.category(ch) in bad or ch in "\u202a\u202b\u202c\u202d\u202e\u2066\u2067\u2068\u2069" for ch in t) or t[0] in "/.":
+        bad = ("Cc", "Zl", "Zp", "Cs", "Co")
+        if not t or any(unicodedata.category(ch) in bad or not TwitchStore.printable(ch) and unicodedata.category(ch) == "Cn" or ch in "\u202a\u202b\u202c\u202d\u202e\u2066\u2067\u2068\u2069" for ch in t) or t[0] in "/.":
             return None
         raw = t.encode("utf-8")
         return t if len(raw) <= TwitchChat.MAX_BYTES else raw[:TwitchChat.MAX_BYTES].decode("utf-8", "ignore").rstrip()
