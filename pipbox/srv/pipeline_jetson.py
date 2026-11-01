@@ -100,11 +100,6 @@ def role_layout(c, pip, pip2, pip3):
     return out
 
 
-def is_jetson():
-    """Läuft das hier auf einem Jetson (L4T)? Sonst (Demo auf einem anderen Rechner) gibt es keine Sendekette."""
-    return os.path.exists("/etc/nv_tegra_release")
-
-
 def _audio_main(demux):
     return (f"{demux}.audio ! aacparse ! avdec_aac ! identity name=a_delay signal-handoffs=TRUE ! volume volume=1.0 ! "
             f"audioconvert ! voaacenc bitrate=128000 ! aacparse ! {Q_MUX} ! mux.")

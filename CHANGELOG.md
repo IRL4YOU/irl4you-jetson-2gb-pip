@@ -1,5 +1,11 @@
 # Änderungen
 
+## 0.1.33
+- **Weitere Reste des Rockchip-Pakets entfernt (zweiter Durchgang durch alle Dateien).**
+  - Die Meldung der Bluetooth-Suche („Antennen am Funkmodul prüfen“) sprach von einem eingebauten Funkmodul, das es auf dem Jetson nicht gibt. Jetzt: „Den USB-Bluetooth-Stick prüfen (fest eingesteckt, am besten an einem USB-Hub mit eigenem Netzteil) und die Kamera näher heranhalten.“
+  - `is_jetson()` in `pipeline_jetson.py` (wählte früher zwischen Jetson- und Rockchip-Kette) ist weg; Kommentare ohne Hinweise auf andere Boards; die README nennt das Schwesterprojekt ohne Board-Namen.
+  - Übersetzungen: rund 100 tote Einträge aus der Zeit des anderen Pakets gelöscht (Treiber-Helfer, Überlagerungs-Baustein, Datenschutz-Zonen, NPU, Radxa ROCK 5B Plus, Bluetooth-Chip auf dem Board, Testfunktionen). Nichts davon kommt in der Oberfläche noch vor; geprüft, dass keiner der gelöschten Texte im Quelltext steht.
+
 ## 0.1.32
 - **Reste des Rockchip-Pakets entfernt, die auf dem Jetson tot oder irreführend waren.** Verhalten der Sendekette, der Kameras und der Einstellungen ist unverändert; geprüft im Demo-Modus (Oberfläche, Sicherung, alte Sicherungsdateien) und am Gerät.
   - **Kameradienst (`hdmi_daemon.py`, Dienst `pipbox-hdmi`):** Der Zweig für den HDMI-Eingang des anderen Boards ist weg (`mpph264enc`, `/dev/hdmirx`, Auswertung des HDMI-Empfängers, Meldungen „Kein HDMI-Signal“ und „HDMI-Gerät nicht gefunden“, Prüfung auf Füllzeilen der Action 6 ohne Wirkung, Befehlszeilen `--device`, `--status-file`, `--audio-device`). Es bleibt die USB-Kamera. Der Name „hdmi“ bleibt für Dienst, Kamera-Schlüssel und die Dateien `hdmi.json` und `hdmi-token`, weil er in gespeicherten Einstellungen, Kameralisten und Bildaufbauten steht. Die Einstellung „Quelle“ (HDMI oder USB) entfällt; alte Sicherungen mit „source“ werden weiter angenommen und die Angabe ignoriert.
