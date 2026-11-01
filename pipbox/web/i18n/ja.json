@@ -505,7 +505,7 @@
   "Die Kamera ist für Bluetooth nicht mehr sichtbar (aus, im Ruhemodus oder mit dem Handy verbunden?)": "カメラがBluetoothで見えなくなりました(電源オフ、スリープ中、またはスマートフォンに接続中?)",
   "Die Kamera ist verbunden. Änderungen an der Verbindung gelten ab der nächsten Verbindung, die laufende bleibt bestehen.": "カメラは接続されています。接続の変更は次回の接続から有効になり、現在の接続は維持されます。",
   "Die Kamera konnte dem WLAN \"{1}\" nicht beitreten (Name oder Passwort?)": "カメラがWi-Fi「{1}」に接続できませんでした(名前またはパスワードが違う?)",
-  "Die Kamera liefert kein Bild. Sie muss eingeschaltet und im Webcam-Modus sein (an der Kamera: USB-Modus „Webcam“)": "カメラから映像が来ません。電源が入っていて、Webカメラモードである必要があります(カメラ側: USBモード「Webcam」)",
+  "Die Kamera liefert kein Bild. Sie muss eingeschaltet und im Webcam-Modus sein (an der Kamera: USB-Modus „Webcam“). Bei einem HDMI-USB-Grabber muss die HDMI-Quelle ein Bild senden.": "カメラから映像が来ません。電源が入っていて、Webカメラモードである必要があります(カメラ側: USBモード「Webcam」)。HDMI-USBキャプチャの場合は、HDMI入力元から映像が出ている必要があります。",
   "Die Kamera meldet sich nach dem Trennen oft erst nach etwa einer Minute wieder. Der Dienst versucht es weiter.": "カメラは切断後、約1分たってからでないと再び応答しないことがよくあります。サービスは試行を続けます。",
   "Die Kamera sendet an die angezeigte RTMP-Adresse. Die Adresse gilt für die Verbindung der Kamera: je Kamera hier in der Zeile wählbar (DJI-Kameras in ihrer eigenen Karte), sonst für die Hauptverbindung, die Sie darunter bei „Hauptverbindung“ gewählt haben.": "カメラは表示されているRTMPアドレスに送信します。このアドレスはカメラの接続用です。カメラごとにこの行で選択できます(DJIカメラは専用のカードで選択)。それ以外は、下の「メイン接続」で選んだメイン接続が使われます。",
   "Die Kamera sendet auf den Schlüssel": "カメラは次のキーに送信します",
