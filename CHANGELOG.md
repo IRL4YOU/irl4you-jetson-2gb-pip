@@ -1,5 +1,14 @@
 # Änderungen
 
+## 1.0.0
+- **Erste Version ohne Beta.** Gegenüber 0.1.34 ändert sich nichts am Programm, nur die Versionsnummer und die Texte (README, Webseite). Geprüft am Jetson Nano 2GB (JetPack 4.6.4):
+  - **Dauerbetrieb:** eine Stunde mit mehreren Kameras und laufender Sendung (30,0 fps im Mittel, im Mittel 34 % CPU frei, kein verlorenes UDP-Paket, kein Neustart von belacoder) und eine ganze Nacht ohne ungeplantes Ende.
+  - **Neuinstallation** auf einem rohen BELABOX-Image mit dem Ein-Befehl-Installer (Grundsystem, Pakete, Dienst, belacoder und srtla_send gebaut), danach Neustart: Dienste und SSH starten von selbst, der Bootloader-Hinweis der BELABOX-Oberfläche verschwindet mit dem Systemupdate.
+  - **Kameras:** USB-Kamera (DJI Osmo Action 4) mit 1080p, 30 Bildern pro Sekunde und 8 Mbit/s; DJI Osmo Action 6 per Bluetooth; RTMP-Kameras. Ausfall der Hauptkamera: nach etwa 2 Sekunden übernimmt die nächste, die Sendung steht nicht.
+  - **Verzögerung je Kamera** mit echten Kameras gemessen (500 ms eingestellt, 506 ms gemessen). **Einstellungen sichern** erstellt und geprüft.
+  - **Update** von 0.1.31 auf 0.1.34 über die Update-Karte, ohne Neustart der Box.
+- **Bekannte Grenzen** stehen in der README: kein Verpixeln, kein HDMI-Eingang, keine abgerundeten Ecken, höchstens vier Kameras, Kamerawechsel bei „Eine Kamera“ startet die Sendekette neu, das 4-GB-Modell ist nicht getestet.
+
 ## 0.1.34
 - **Einstellungen sichern: mehr Einstellungen werden mitgenommen und wieder eingespielt.** Neu in der Sicherung: die **Systemwarnungen im Twitch-Chat** (Schwellen, Pause, Texte, Chat-Befehle; Konto und Token bleiben wie bisher draußen), das **Streamerbot Deck** (Adresse und Größen) und die **Optionen der Oberfläche** (Design, Reihenfolge und Ausblenden der Menüs, für Desktop und Mobil). Alte Sicherungsdateien lassen sich weiter einspielen; fehlt ein Teil, bleibt er unverändert. Geprüft im Demo-Modus mit zwei Boxen: Sichern auf A, Einspielen in die leere Box B, erneutes Sichern ergibt dieselbe Datei. Weiterhin nicht dabei (Absicht): Bluetooth-Kopplung, Twitch-Anmeldung, Tailscale, feste Zusatzadresse, Passwort und SSH, Sicherheitseinstellungen (Zugriff über fremde WLANs, Vorschau von außen), öffentliche Statistik (enthält einen Schlüssel), Lüfter.
 
