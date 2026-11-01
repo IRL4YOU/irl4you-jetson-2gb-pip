@@ -68,7 +68,7 @@ Wenn etwas nicht geht, hilft die Protokolldatei der Box am meisten:
 
 Dieses Paket baut auf der Arbeit anderer auf. Danke an:
 
-- **IRL4YOU BOX** (MIT): Die Weboberfläche stammt aus diesem Projekt und wurde für den Jetson Nano 2GB und Python 3.6 angepasst.
+- **[IRL4YOU BOX](https://github.com/IRL4YOU/irl4you-pip)** (MIT): Die Weboberfläche stammt aus diesem Projekt und wurde für den Jetson Nano 2GB und Python 3.6 angepasst.
 - **[Moblin](https://github.com/eerimoq/moblin)** von Erik Moqvist (MIT): Ablauf und Nachrichtenformat der DJI-Kopplung per Bluetooth. Gegenprobe mit [dimadesu/dji-remote](https://github.com/dimadesu/dji-remote) (MIT).
 - **[Bittersweet1987](https://github.com/Bittersweet1987)** (MIT, mit Erlaubnis des Urhebers): Sitzungsablauf, Befehle und Oberfläche der DJI-Kameras.
 - **[bleak](https://github.com/hbldh/bleak)** von Henrik Blidh (MIT): Bluetooth-Bibliothek.
