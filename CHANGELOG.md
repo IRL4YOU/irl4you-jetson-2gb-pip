@@ -1,5 +1,9 @@
 # Änderungen
 
+## 1.0.1
+- **HDMI-USB-Grabber werden unterstützt (getestet: Elgato Cam Link 4K).** Neues Bildformat „RAW 1920x1080@30“ in der automatischen Wahl. Die HDMI-Quelle muss 1080p ausgeben, der Cam Link braucht einen USB-3-Anschluss.
+- Die Meldung „Die Kamera liefert kein Bild“ hat einen Hinweis zum HDMI-Grabber (13 Sprachen).
+
 ## 1.0.0
 - **Erste Version ohne Beta.** Gegenüber 0.1.34 ändert sich nichts am Programm, nur die Versionsnummer und die Texte (README, Webseite). Geprüft am Jetson Nano 2GB (JetPack 4.6.4):
   - **Dauerbetrieb:** eine Stunde mit mehreren Kameras und laufender Sendung (30,0 fps im Mittel, im Mittel 34 % CPU frei, kein verlorenes UDP-Paket, kein Neustart von belacoder) und eine ganze Nacht ohne ungeplantes Ende.
