@@ -505,7 +505,7 @@
   "Die Kamera ist für Bluetooth nicht mehr sichtbar (aus, im Ruhemodus oder mit dem Handy verbunden?)": "Bluetooth 已搜索不到相机（已关机、处于休眠模式，或已连接手机？）",
   "Die Kamera ist verbunden. Änderungen an der Verbindung gelten ab der nächsten Verbindung, die laufende bleibt bestehen.": "摄像头已连接。对连接的更改将从下一次连接起生效，当前连接保持不变。",
   "Die Kamera konnte dem WLAN \"{1}\" nicht beitreten (Name oder Passwort?)": "相机无法加入 Wi-Fi “{1}”（名称或密码有误？）",
-  "Die Kamera liefert kein Bild. Sie muss eingeschaltet und im Webcam-Modus sein (an der Kamera: USB-Modus „Webcam“)": "摄像机没有提供画面。它必须已开机并处于网络摄像头模式（在摄像机上：USB 模式选“Webcam”）",
+  "Die Kamera liefert kein Bild. Sie muss eingeschaltet und im Webcam-Modus sein (an der Kamera: USB-Modus „Webcam“). Bei einem HDMI-USB-Grabber muss die HDMI-Quelle ein Bild senden.": "摄像机没有提供画面。它必须已开机并处于网络摄像头模式（在摄像机上：USB 模式选“Webcam”）。如果使用的是 HDMI-USB 采集器，HDMI 信号源必须输出画面。",
   "Die Kamera meldet sich nach dem Trennen oft erst nach etwa einer Minute wieder. Der Dienst versucht es weiter.": "相机断开后，往往要过大约一分钟才会重新响应。服务会继续尝试。",
   "Die Kamera sendet an die angezeigte RTMP-Adresse. Die Adresse gilt für die Verbindung der Kamera: je Kamera hier in der Zeile wählbar (DJI-Kameras in ihrer eigenen Karte), sonst für die Hauptverbindung, die Sie darunter bei „Hauptverbindung“ gewählt haben.": "相机会向所显示的 RTMP 地址推流。该地址对应相机所用的连接：可在此行中为每台相机单独选择（DJI 相机在其自己的卡片中选择），否则使用您在下方“主连接”中选定的连接。",
   "Die Kamera sendet auf den Schlüssel": "相机推流至密钥",
