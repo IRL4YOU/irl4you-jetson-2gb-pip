@@ -191,7 +191,7 @@ OM = "org.freedesktop.DBus.ObjectManager"
 
 
 def bluez_objects():
-    """Alle Objekte von BlueZ ({Pfad: {Schnittstelle: Eigenschaften}}) über D-Bus, leer, wenn nicht erreichbar. Zuerst python3-dbus (Orange Pi, ROCK); läuft der Dienst in einer
+    """Alle Objekte von BlueZ ({Pfad: {Schnittstelle: Eigenschaften}}) über D-Bus, leer, wenn nicht erreichbar. Zuerst python3-dbus; läuft der Dienst in einer
     eigenen Python-Umgebung ohne dieses Paket (Jetson: Python 3.8 wegen bleak), liest dbus-fast (kommt mit bleak) dasselbe."""
     try:
         import dbus

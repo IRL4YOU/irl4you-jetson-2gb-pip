@@ -168,7 +168,7 @@ def uplink_states(selected):
 
 
 def _alert_text(a):
-    """Satz zu einer Meldung der Statusseite (Temperatur, CPU, RAM haben schon einen Text; USB, Kamera und HDMI nur eine Art)."""
+    """Satz zu einer Meldung der Statusseite (Temperatur, CPU, RAM haben schon einen Text; USB, Kamera und USB-Kamera nur eine Art)."""
     if a.get("text"):
         return str(a["text"])[:120]
     kind = a.get("kind")
@@ -177,7 +177,7 @@ def _alert_text(a):
     if kind == "cam":
         return "Kamera %s ohne Signal" % (a.get("name") or "")
     if kind == "hdmi":
-        return "HDMI-Kamera ohne Signal"
+        return "USB-Kamera: nicht gefunden"
     return "Meldung"
 
 

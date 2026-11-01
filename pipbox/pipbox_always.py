@@ -397,7 +397,7 @@ class SlotController:
         self.delay_fn = delay_fn              # (Einstellung, Schlüssel je Platz) -> Verzögerung in ms je Platz; sie gehört zur Kamera, nicht zur Rolle (PipelineStore.delay_values)
         self.crop_fn = crop_fn                # (Schlüssel, Beschnitt) -> Kanten für den nvvidconv des Platzes (pipeline_jetson.crop_edges); None: kein Beschnitt
         self.padctl_last = None
-        # Ansicht im Betrieb wie beim Rockchip-Baustein: die Oberfläche schreibt "ausgeblendet Tonquelle stumm" in view_file und wartet, bis dieselbe Zeile in
+        # Ansicht im Betrieb: die Oberfläche schreibt "ausgeblendet Tonquelle stumm" in view_file und wartet, bis dieselbe Zeile in
         # view_state zurückgemeldet ist; sonst startet sie die Sendung neu. Hier gehen alle drei über die Steuerdatei (alpha und volume der Pads).
         self.view_file, self.view_state, self.view_values = view_file, view_state, view_values
         self.view = None                      # (ausgeblendet: Bits für kleines Bild 1..3, Tonquelle: -1 Hauptbild oder 0..2, stumm) aus view_file

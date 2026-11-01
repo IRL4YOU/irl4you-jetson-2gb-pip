@@ -63,7 +63,7 @@ function renderCamLights(list){
 let netOpts=[];                                   // Verbindungen der Box (aus /api/network), für die Auswahl je Kamera
 const netLabel=o=>`${o.label}${connNames[o.iface]?" ("+connNames[o.iface]+")":""} · ${o.cam_ip||o.ip}${o.cam_ip&&o.cam_ip!==o.ip?" (feste Adresse)":""}`;
 function camNetHtml(c){
-  if(c.via_src==="hdmi") return `<span class="camnet muted" title="Das Bild kommt vom HDMI-Eingang der Box">HDMI-Eingang</span>`;
+  if(c.via_src==="hdmi") return `<span class="camnet muted" title="Das Bild kommt von der USB-Kamera der Box">USB-Kamera</span>`;
   // Die Adresse oben gilt für die Verbindung der Kamera. Auch DJI-Kameras wählen sie hier in der Zeile (dieselbe Einstellung wie in ihrer Karte, 12. Oktober 2026):
   // Die Änderung gilt ab der nächsten Verbindung der Kamera, darum steht daneben der Knopf "Neu verbinden".
   if((c.key||"").startsWith("dji-")){

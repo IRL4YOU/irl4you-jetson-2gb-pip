@@ -1,20 +1,16 @@
 #!/usr/bin/env python3
-"""HDMI-Dienst (pipbox-hdmi.service): speist den HDMI-Eingang der Box oder eine USB-Webcam (UVC) als Kamera in den RTMP-Eingang der Box ein.
+"""USB-Kamera-Dienst (pipbox-hdmi.service): speist eine USB-Kamera (UVC-Webcam, zum Beispiel eine DJI Osmo Action im USB-Modus oder ein HDMI-USB-Grabber) als Kamera in den RTMP-Eingang der Box ein.
 
-Eine HDMI-Kamera wird dadurch zu einer ganz normalen Kamera ("rtmp://127.0.0.1/publish/<Schlüssel>", wie eine RTMP- oder
-DJI-Kamera): Sie steht in der Kameraliste, im Status und im Bildaufbau, kann Hauptbild oder kleines Bild sein und
-springt im Notbetrieb ein. Die Sendekette bleibt unverändert.
+Die USB-Kamera wird dadurch zu einer ganz normalen Kamera ("rtmp://127.0.0.1/publish/<Schlüssel>", wie eine RTMP- oder DJI-Kamera): Sie steht in der Kameraliste, im Status
+und im Bildaufbau, kann Hauptbild oder kleines Bild sein und springt bei Ausfall des Hauptbildes ein. Die Sendekette bleibt unverändert. Der Name "hdmi" (Dienst, Schlüssel, Dateien
+hdmi.json und hdmi-token) stammt aus der Anfangszeit und bleibt, damit gespeicherte Einstellungen und Kameralisten weiter passen; der Jetson hat keinen HDMI-Eingang.
 
-Der Dienst liest den Zustand des HDMI-Empfängers (Kernel, debugfs), startet bei anliegendem Signal einen gst-launch-Prozess
-(Bild: v4l2src -> videorate -> mpph264enc (Hardware), Ton: HDMI-Ton oder Stille -> AAC, dazu flvmux -> rtmpsink) und startet ihn neu,
-wenn er endet oder das Signal wechselt. Ohne Signal läuft nichts.
+Der Dienst sucht die erste angeschlossene USB-Kamera, die sich als UVC-Webcam meldet (Treiber uvcvideo, Videoknoten mit Nummer 0 der Kamera), probiert der Reihe nach Bildformate
+durch (MJPEG 1080p30, MJPEG 720p30, H.264 1080p30, RAW 720p30, RAW 480p30; jeweils mit einem kurzen Probelauf gegen fakesink), nimmt das erste, das geht, und startet einen
+gst-launch-Prozess: MJPEG wird in der Video-Hardware dekodiert und mit nvv4l2h264enc neu kodiert, H.264 geht unverändert durch. Der Ton kommt vom USB-Mikrofon derselben Kamera
+(ALSA-Karte mit gleicher USB-Adresse), sonst Stille. Endet der Prozess oder wechselt das Gerät, startet er neu; ohne Kamera läuft nichts.
 
-Quelle "usb" (neu): statt des HDMI-Eingangs wird die erste angeschlossene USB-Kamera genommen, die sich als UVC-Webcam meldet (Treiber uvcvideo, Videoknoten mit
-Nummer 0 der Kamera). Der Dienst probiert der Reihe nach Bildformate durch (MJPEG 1080p30, MJPEG 720p30, H.264 1080p30, RAW 720p30, RAW 480p30; jeweils mit
-einem kurzen Probelauf gegen fakesink), nimmt das erste, das geht, kodiert MJPEG und Rohbild mit dem Hardware-Kodierer neu und reicht H.264 unverändert durch. Der
-Ton kommt vom USB-Mikrofon derselben Kamera (ALSA-Karte mit gleicher USB-Adresse), sonst Stille. Eine Kamera, die nur HDMI ausgibt, nimmt weiter die Quelle "hdmi".
-
-Läuft als root (die Hardware-Kodierer, /dev/hdmirx und /dev/snd sind nur für root zugänglich), getrennt von der Weboberfläche.
+Läuft als root (die Hardware-Kodierer und /dev/snd sind nur für root zugänglich), getrennt von der Weboberfläche.
 Schnittstelle: nur 127.0.0.1, JSON-Zeilen über TCP. Jede Anfrage braucht das Token aus <state>/hdmi-token (nur der Benutzer pipbox
 kann es lesen). Der Dienst nimmt nur geprüfte Zahlen und feste Auswahlen entgegen und baut den Befehl selbst (keine Shell).
 """
@@ -37,12 +33,8 @@ LISTEN_HOST, LISTEN_PORT = "127.0.0.1", 9102
 RTMP_PORT = 1935
 RTMP_APP = "publish"
 STAT_URL = "http://127.0.0.1:1936/"                      # nginx-rtmp-Statistik
-HDMI_DEVICE = "/dev/hdmirx"
-HDMI_STATUS = "/sys/kernel/debug/hdmirx/status"          # Zustand des HDMI-Empfängers (nur root)
-HDMI_AUDIO = "hw:CARD=rockchiphdmiin"                    # ALSA-Karte des HDMI-Tons
 KEY_RE = re.compile(r"^[a-z0-9][a-z0-9_-]{0,31}$")       # wie in der Weboberfläche
-DEFAULTS = {"enabled": False, "key": "hdmi", "bitrate": 8000, "fps": 30, "audio": "hdmi", "source": "usb", "usb_format": "auto"}      # Jetson: Quelle "usb" (es gibt keinen HDMI-Eingang)
-SOURCE_CHOICES = ("hdmi", "usb")
+DEFAULTS = {"enabled": False, "key": "hdmi", "bitrate": 8000, "fps": 30, "audio": "hdmi", "usb_format": "auto"}      # audio "hdmi" = Ton der Kamera (der Wert bleibt, weil er in gespeicherten Einstellungen steht)
 USB_FORMAT_CHOICES = ("auto", "mjpeg", "h264")           # Bildformat der USB-Webcam: Automatisch (MJPEG zuerst), MJPEG oder H.264 zuerst; das andere bleibt als Rückfall
 SYS_V4L = "/sys/class/video4linux"
 PROC_ASOUND = "/proc/asound"
@@ -58,7 +50,7 @@ USB_BAD_AFTER = 3                                        # so oft hintereinander
 PROBE_RETRY_PAUSE = 1.0                                  # Sekunden vor dem zweiten Probelauf (die Kamera ist direkt nach dem Stoppen der Einspeisung manchmal kurz belegt)
 BITRATE_RANGE = (1000, 20000)                            # kbit/s
 FPS_CHOICES = (25, 30)
-AUDIO_CHOICES = ("hdmi", "none")
+AUDIO_CHOICES = ("hdmi", "none")                              # "hdmi": Ton der USB-Kamera, "none": ohne Ton
 MUX_LATENCY_NS = 300000000                              # Wartezeit des Muxers (flvmux) der USB-Einspeisung: ohne sie wirft er Bilder weg, die gegenüber dem Ton zu spät sind (gemessen mit der Action 4: nur 21 bis 24 statt 30 Bilder je Sekunde im RTMP-Strom, Lücken bis 1,1 s). Mit 200 bis 300 ms genau 30,0 fps, Abstand 33,3 ms
 NICE = 0                                                 # Die Einspeisung der USB-Kamera läuft mit normaler Priorität: mit nice 10 wurde sie bei hoher Last der Box ausgebremst und lieferte im RTMP-Strom nur 23 bis 30 statt 30 Bilder je Sekunde (gemessen bei laufender Sendung, 4 von 4 Läufen mit nice 0: genau 30,0 fps)
 GRACE = 15.0                                             # so lange darf der Stream brauchen, bis nginx ihn zeigt
@@ -71,27 +63,9 @@ log = logging.getLogger("pipbox-hdmi")
 
 
 # ---------------------------------------------------------------- reine Funktionen (ohne Hardware, gut testbar)
-def parse_hdmirx_status(text):
-    """Liest /sys/kernel/debug/hdmirx/status. Ergebnis: {"plugged", "locked", "width", "height", "fps", "interlaced", "format", "depth"}.
-    "locked" ist nur wahr, wenn alle Kanäle gelockt sind und ein Timing da ist."""
-    out = {"plugged": False, "locked": False, "width": 0, "height": 0, "fps": 0.0, "interlaced": False, "format": "", "depth": 0}
-    if not isinstance(text, str):
-        return out
-    m = re.search(r"^status:\s*(\S+)", text, re.M)
-    out["plugged"] = bool(m and m.group(1).lower() == "plugin")
-    lock = re.findall(r"(?:Clk-Ch|Ch\d)\s*:\s*(\w+)", text)
-    lock = [x for x in lock if x.lower() in ("lock", "unlock", "nolock")]
-    m = re.search(r"^Timing:\s*(\d+)x(\d+)([pi])(\d+(?:\.\d+)?)", text, re.M)
-    if m:
-        out["width"], out["height"] = int(m.group(1)), int(m.group(2))
-        out["interlaced"] = m.group(3) == "i"
-        out["fps"] = float(m.group(4))
-    m = re.search(r"^Color Format:\s*(\S+)", text, re.M)
-    out["format"] = m.group(1) if m else ""
-    m = re.search(r"^Color Depth:\s*(\d+)", text, re.M)
-    out["depth"] = int(m.group(1)) if m else 0
-    out["locked"] = bool(out["plugged"] and lock and all(x.lower() == "lock" for x in lock) and out["width"] and out["height"])
-    return out
+def no_signal():
+    """Zustand "keine Kamera": das Bild der USB-Kamera heißt im Dienst "Signal" (Breite, Höhe, Bildrate, Gerät)."""
+    return {"plugged": False, "locked": False, "width": 0, "height": 0, "fps": 0.0, "interlaced": False, "format": "", "depth": 0}
 
 
 def signal_id(sig):
@@ -126,14 +100,8 @@ def clean_settings(d, current=None):
         out["fps"] = d["fps"]
     if "audio" in d:
         if d["audio"] not in AUDIO_CHOICES:
-            raise ValueError("Ton: HDMI-Ton oder ohne Ton")
+            raise ValueError("Ton: Ton der Kamera oder ohne Ton")
         out["audio"] = d["audio"]
-    if "source" in d:
-        if d["source"] not in SOURCE_CHOICES:
-            raise ValueError("Quelle: HDMI-Eingang oder USB-Webcam")
-        if d["source"] == "hdmi" and not os.path.exists(HDMI_DEVICE) and os.path.exists("/etc/nv_tegra_release"):
-            raise ValueError("Diese Box hat keinen HDMI-Eingang: bitte die USB-Kamera nehmen (auch ein HDMI-USB-Grabber)")
-        out["source"] = d["source"]
     if "usb_format" in d:
         if d["usb_format"] not in USB_FORMAT_CHOICES:
             raise ValueError("Bildformat: Automatisch, MJPEG oder H.264")
@@ -141,32 +109,11 @@ def clean_settings(d, current=None):
     return out
 
 
-# Die Tonquelle eines Geräts (USB-Kamera, HDMI-Eingang) darf nicht der Takt der ganzen Sendekette sein: alsasrc liefert sonst standardmäßig den Takt (provide-clock=true),
+# Die Tonquelle der USB-Kamera darf nicht der Takt der ganzen Sendekette sein: alsasrc liefert sonst standardmäßig den Takt (provide-clock=true),
 # und der Takt der Kamera läuft gegenüber dem der Box (gemessen 12./13. Oktober 2026: etwa 0,44 ms je Sekunde). Die Zeitstempel des Bildes folgen dann diesem Takt, belacoder
-# vergleicht sie mit seiner Uhr, und der Versatz der HDMI-Kamera wuchs gleichmäßig von -0,1 auf +1,5 s in etwa einer Stunde, bis der Verzugs-Schutz den Zweig herausnahm.
+# vergleicht sie mit seiner Uhr, und der Versatz der Kamera wuchs gleichmäßig von -0,1 auf +1,5 s in etwa einer Stunde, bis der Verzugs-Schutz den Zweig herausnahm.
 # Mit provide-clock=false gilt der Systemtakt; der Ton wird per Neuberechnung (resample) an ihn angepasst.
 ALSA_CLOCK = ["provide-clock=false", "slave-method=resample"]
-
-
-def feeder_argv(cfg, rtmp_port=RTMP_PORT, rtmp_app=RTMP_APP, device=HDMI_DEVICE, audio_device=HDMI_AUDIO):
-    """Befehl der Einspeisung als Liste (keine Shell). Alle Werte kommen aus clean_settings()."""
-    cfg = clean_settings(cfg)
-    if not (isinstance(device, str) and re.match(r"^/[A-Za-z0-9_./-]{1,120}$", device)) or "/../" in device + "/":
-        raise ValueError("Gerät ungültig")
-    if not (isinstance(audio_device, str) and re.match(r"^hw:CARD=[A-Za-z0-9_]{1,40}$", audio_device)):
-        raise ValueError("Tongerät ungültig")
-    if not (isinstance(rtmp_app, str) and re.match(r"^[a-z0-9_]{1,20}$", rtmp_app)) or not isinstance(rtmp_port, int):
-        raise ValueError("RTMP-Ziel ungültig")
-    v = ["v4l2src", "device=" + device, "!", "videorate", "!", "video/x-raw,framerate=%d/1" % cfg["fps"], "!",
-         "mpph264enc", "bitrate=%d" % (cfg["bitrate"] * 1000), "gop=%d" % cfg["fps"], "!",
-         "h264parse", "config-interval=-1", "!", "queue", "!", "mux."]
-    if cfg["audio"] == "hdmi":
-        a = ["alsasrc", "device=" + audio_device] + ALSA_CLOCK + ["!", "audioconvert", "!", "voaacenc", "bitrate=128000", "!", "aacparse", "!", "queue", "!", "mux."]
-    else:
-        a = ["audiotestsrc", "wave=silence", "is-live=true", "!", "audio/x-raw,rate=48000,channels=2", "!",
-             "voaacenc", "bitrate=128000", "!", "aacparse", "!", "queue", "!", "mux."]
-    sink = ["flvmux", "name=mux", "streamable=true", "!", "rtmpsink", "location=rtmp://127.0.0.1:%d/%s/%s" % (rtmp_port, rtmp_app, cfg["key"])]
-    return ["gst-launch-1.0", "-q"] + v + a + sink
 
 
 def _read(path, limit=200):
@@ -250,16 +197,6 @@ def usb_caps(cand):
     return "%s %dx%d@%d" % (label, w, h, f), "%s,width=%d,height=%d,framerate=%d/1" % (media, w, h, f)
 
 
-PADDED_H264 = ()                                         # Kameras, deren H.264-Strom unten Füllzeilen hat (Namensteil, klein). Jetson: leer. Beim Rockchip wird die Osmo Action 6 (1088 statt 1080 Zeilen) zugeschnitten und neu kodiert; das ließ sich auf dem Jetson nicht prüfen (siehe CHANGELOG). Der Strom geht hier unverändert durch.
-
-
-def usb_h264_padded(cand, name=""):
-    """True, wenn der H.264-Strom dieser Kamera Füllzeilen enthält: Die Action 6 sendet bei 1080 Zeilen einen Strom mit 1088 (ohne Beschneidung im Strom, unten 8 schwarze Zeilen).
-    Dann wird mit dem Hardware-Dekoder auf das echte Bild zugeschnitten und neu kodiert. Andere Kameras (zum Beispiel die Action 4) gehen unverändert durch."""
-    n = (name or "").lower().replace(" ", "").replace("_", "")
-    return cand[0] == "h264" and cand[2] % 16 != 0 and any(k in n for k in PADDED_H264)
-
-
 def _usb_decode(kind):
     """Teil der Pipeline hinter der Quelle bis zum rohen Bild (für den Probelauf und die Einspeisung). Jetson: MJPEG dekodiert der Hardware-Dekoder (nvv4l2decoder mjpeg=1, Bild in NVMM). nvjpegdec
     schaffte mit einer echten Kamera (Osmo Action 4, 1080p30 über USB 2.0) nur etwa 5 Bilder je Sekunde bei fast 100 % Systemzeit im Aufnahme-Thread, der Hardware-Dekoder über 28 (gemessen: 120 Bilder
@@ -288,7 +225,7 @@ def usb_probe_argv(device, cand):
     return ["gst-launch-1.0", "-q", "v4l2src", "device=" + device, "num-buffers=3", "!", usb_caps(cand)[1], "!"] + _usb_decode(cand[0]) + ["!", "fakesink"]
 
 
-def usb_feeder_argv(cfg, device, cand, audio_device=None, rtmp_port=RTMP_PORT, rtmp_app=RTMP_APP, name=""):
+def usb_feeder_argv(cfg, device, cand, audio_device=None, rtmp_port=RTMP_PORT, rtmp_app=RTMP_APP):
     """Befehl der Einspeisung einer USB-Webcam als Liste (keine Shell). MJPEG, Rohbild und H.264 mit Füllzeilen (Action 6, 1080p) werden mit dem Hardware-Kodierer neu kodiert, übriges H.264 geht unverändert durch.
     audio_device: "plughw:CARD=<id>" oder None (dann Stille, auch bei cfg["audio"] == "none")."""
     cfg = clean_settings(cfg)
@@ -326,43 +263,37 @@ def rtmp_publishing(key, stat_url=None):
     return bool(m and "<publishing/>" in m.group(0))
 
 
-def friendly_error(lines, usb=False):
+def friendly_error(lines):
     """Kurzer deutscher Text aus den letzten Zeilen von gst-launch."""
     text = " ".join(lines)[-600:]
     low = text.lower()
-    if usb and ("no such device" in low or "cannot identify device" in low or "could not open" in low or "device busy" in low or "streamon" in low):
+    if "no such device" in low or "cannot identify device" in low or "could not open" in low or "device busy" in low or "streamon" in low:
         return "Die USB-Kamera ist nicht erreichbar oder wird schon benutzt"
     if "busy" in low and ("alsa" in low or "audio" in low or "snd" in low):
         return "Das Tongerät ist belegt"
-    if "no such device" in low or "cannot identify device" in low or "could not open" in low and "hdmirx" in low:
-        return "HDMI-Gerät nicht gefunden"
-    if "timings invalid" in low or "not lock" in low or "streamon" in low:
-        return "Kein HDMI-Signal"
     if "rtmp" in low and ("connect" in low or "could not" in low or "failed" in low):
         return "Keine Verbindung zum RTMP-Eingang der Box"
-    if ("mpp" in low or "nvv4l2" in low or "nvjpeg" in low or "nvvidconv" in low) and ("fail" in low or "error" in low):
+    if ("nvv4l2" in low or "nvjpeg" in low or "nvvidconv" in low) and ("fail" in low or "error" in low):
         return "Der Hardware-Kodierer meldet einen Fehler"
     return "Die Einspeisung wurde beendet" + (": " + re.sub(r"\s+", " ", lines[-1])[:120] if lines else "")
 
 
 # ---------------------------------------------------------------- Dienst
 class Daemon:
-    def __init__(self, state_dir, rtmp_port=RTMP_PORT, rtmp_app=RTMP_APP, stat_url=STAT_URL, device=HDMI_DEVICE,
-                 status_file=HDMI_STATUS, audio_device=HDMI_AUDIO, read_status=None, spawn=None, publishing=None, clock=time.monotonic,
+    def __init__(self, state_dir, rtmp_port=RTMP_PORT, rtmp_app=RTMP_APP, stat_url=STAT_URL,
+                 spawn=None, publishing=None, clock=time.monotonic,
                  sysfs=SYS_V4L, asound=PROC_ASOUND, probe=None, sysusb=SYS_USB):
         self.state_dir = state_dir
         self.config_file = os.path.join(state_dir, "hdmi.json")
         self.token_path = os.path.join(state_dir, "hdmi-token")
         self.rtmp_port, self.rtmp_app, self.stat_url = rtmp_port, rtmp_app, stat_url
-        self.device, self.status_file, self.audio_device = device, status_file, audio_device
-        self._read_status = read_status or self._read_status_file
         self._spawn = spawn or self._spawn_process
         self._publishing = publishing or (lambda key: rtmp_publishing(key, self.stat_url))
         self.clock = clock
         self.sysfs, self.asound, self.sysusb = sysfs, asound, sysusb
         self.dji_seen = {}                                                                      # Gerätenummer -> (erstmals, zuletzt gesehen) einer DJI-Kamera ohne Webcam-Bild
         self._probe_run = probe or self._probe_process
-        self.usb = {"present": False, "name": "", "node": "", "format": "", "audio": "", "power": False}      # Zustand der USB-Webcam (Quelle "usb")
+        self.usb = {"present": False, "name": "", "node": "", "format": "", "audio": "", "power": False}      # Zustand der USB-Webcam (die USB-Kamera)
         self.usb_choice = None                                                                  # (Knoten, Bildformat) des letzten gelungenen Probelaufs
         self.usb_bad = set()                                                                    # (Knoten, Bildformat), die in der Einspeisung wiederholt schnell scheiterten
         self.usb_cur = None                                                                     # (Knoten, Bildformat) der laufenden Einspeisung
@@ -370,7 +301,7 @@ class Daemon:
         self.token = self._load_token()
         self.cfg = self.load()
         self.state, self.message = "off", ""
-        self.signal = parse_hdmirx_status("")
+        self.signal = no_signal()
         self.signal_known = False
         self.proc = None
         self.tail = collections.deque(maxlen=12)
@@ -420,17 +351,6 @@ class Daemon:
         os.replace(tmp, self.config_file)
 
     # -- Hardware
-    @property
-    def hdmi_input(self):
-        """Hat die Box einen HDMI-Eingang (Rockchip: /dev/hdmirx)? Der Jetson Nano hat keinen: dort gibt es nur die USB-Kamera (Webcam oder HDMI-USB-Grabber)."""
-        return os.path.exists(self.device)
-
-    @property
-    def available(self):
-        if self.cfg.get("source") == "usb":
-            return True                                       # eine USB-Kamera darf fehlen: das ist "wartet", nicht "nicht vorhanden"
-        return os.path.exists(self.device)
-
     @staticmethod
     def _probe_process(argv):
         """Probelauf einer Bildquelle: True, wenn gst-launch ohne Fehler endet."""
@@ -484,7 +404,7 @@ class Daemon:
 
     def _usb_note_failure(self):
         """Die Einspeisung ist schnell gescheitert: nach USB_BAD_AFTER Fehlern hintereinander wird dieses Bildformat übergangen (das nächste kommt dran)."""
-        if self.cfg.get("source") != "usb" or not self.usb_cur or self.clock() - self.started >= STABLE:
+        if not self.usb_cur or self.clock() - self.started >= STABLE:
             self.usb_quick_fails = 0
             return
         self.usb_quick_fails += 1
@@ -495,29 +415,17 @@ class Daemon:
             self.usb_quick_fails = 0
             log.warning("Das Bildformat %s läuft nicht stabil, die Box nimmt das nächste", usb_caps(self.usb_cur[1])[0])
 
-    def _read_status_file(self):
-        with open(self.status_file) as f:
-            return f.read(4096)
-
     async def read_signal(self):
-        if self.cfg.get("source") == "usb":
-            cam = self._usb_pick()
-            self.signal_known = True
-            sig = parse_hdmirx_status("")
-            if cam:
-                f = self.usb_choice[1] if self.usb_choice and self.usb_choice[0] == cam["node"] else None
-                sig.update(plugged=True, locked=True, width=f[1] if f else 0, height=f[2] if f else 0, fps=float(f[3]) if f else 0.0, device=cam["node"])
-            self.usb = dict(self.usb, power=self._usb_power_problem(cam), present=bool(cam), name=cam["name"] if cam else "", node=cam["node"] if cam else "",
-                            format=usb_caps(self.usb_choice[1])[0] if cam and self.usb_choice and self.usb_choice[0] == cam["node"] else "")
-            return sig
-        loop = asyncio.get_event_loop()
-        try:
-            text = await loop.run_in_executor(None, self._read_status)
-        except Exception:
-            self.signal_known = False
-            return parse_hdmirx_status("")
+        """Die erste USB-Kamera und, wenn ihr Bildformat schon feststeht, dessen Größe und Bildrate als "Signal"."""
+        cam = self._usb_pick()
         self.signal_known = True
-        return parse_hdmirx_status(text)
+        sig = no_signal()
+        if cam:
+            f = self.usb_choice[1] if self.usb_choice and self.usb_choice[0] == cam["node"] else None
+            sig.update(plugged=True, locked=True, width=f[1] if f else 0, height=f[2] if f else 0, fps=float(f[3]) if f else 0.0, device=cam["node"])
+        self.usb = dict(self.usb, power=self._usb_power_problem(cam), present=bool(cam), name=cam["name"] if cam else "", node=cam["node"] if cam else "",
+                        format=usb_caps(self.usb_choice[1])[0] if cam and self.usb_choice and self.usb_choice[0] == cam["node"] else "")
+        return sig
 
     async def _spawn_process(self, argv):
         return await asyncio.create_subprocess_exec(
@@ -547,17 +455,14 @@ class Daemon:
             return None, None
         audio = find_usb_audio(cam, self.asound) if self.cfg["audio"] == "hdmi" else None
         self.usb = dict(self.usb, present=True, name=cam["name"], node=cam["node"], format=usb_caps(cand)[0], audio=(audio or ""))
-        return usb_feeder_argv(self.cfg, cam["node"], cand, audio, self.rtmp_port, self.rtmp_app, cam.get("name", "")), cand
+        return usb_feeder_argv(self.cfg, cam["node"], cand, audio, self.rtmp_port, self.rtmp_app), cand
 
     async def _start(self, sig):
-        if self.cfg.get("source") == "usb":
-            argv, cand = await self._usb_argv()
-            if argv is None:
-                return
-            self.usb_cur = (self.usb["node"], cand)
-            sig = dict(sig, width=cand[1], height=cand[2], fps=float(cand[3]), device=self.usb["node"])     # das gewählte Format ist ab jetzt "das Signal" (sonst Neustart beim nächsten Durchgang)
-        else:
-            argv = feeder_argv(self.cfg, self.rtmp_port, self.rtmp_app, self.device, self.audio_device)
+        argv, cand = await self._usb_argv()
+        if argv is None:
+            return
+        self.usb_cur = (self.usb["node"], cand)
+        sig = dict(sig, width=cand[1], height=cand[2], fps=float(cand[3]), device=self.usb["node"])     # das gewählte Format ist ab jetzt "das Signal" (sonst Neustart beim nächsten Durchgang)
         self.tail.clear()
         try:
             self.proc = await self._spawn(argv)
@@ -571,7 +476,7 @@ class Daemon:
         self.state, self.message = "starting", ""
         if getattr(self.proc, "stderr", None) is not None:
             self._reader = asyncio.ensure_future(self._drain(self.proc))
-        log.info("Einspeisung gestartet (%s, %dx%d@%s, %d kbit/s, Schlüssel %s)", self.cfg.get("source", "hdmi"), sig.get("width") or 0, sig.get("height") or 0,
+        log.info("Einspeisung gestartet (USB-Kamera, %dx%d@%s, %d kbit/s, Schlüssel %s)", sig.get("width") or 0, sig.get("height") or 0,
                  sig.get("fps") or "?", self.cfg["bitrate"], self.cfg["key"])
 
     async def _stop(self):
@@ -606,10 +511,6 @@ class Daemon:
     async def tick(self):
         if self.closing:
             return
-        if not self.available:
-            await self._stop()
-            self.state, self.message = "unavailable", "Diese Box hat keinen HDMI-Eingang"
-            return
         sig = await self.read_signal()
         self.signal = sig
         running = self.proc is not None and self.proc.returncode is None
@@ -624,7 +525,7 @@ class Daemon:
             if self.clock() - self.started >= STABLE:
                 self.fails = 0
             self._usb_note_failure()
-            self._failed(friendly_error(list(self.tail), self.cfg.get("source") == "usb") if rc else "Die Einspeisung wurde beendet")
+            self._failed(friendly_error(list(self.tail)) if rc else "Die Einspeisung wurde beendet")
             self.restarts += 1
             return
         if not self.cfg["enabled"]:
@@ -635,7 +536,7 @@ class Daemon:
         if self.signal_known and not sig["locked"]:
             if running:
                 await self._stop()
-            self.state, self.message, self.fails = "waiting", (self._usb_waiting_message() if self.cfg.get("source") == "usb" else "Kein HDMI-Signal"), 0
+            self.state, self.message, self.fails = "waiting", self._usb_waiting_message(), 0
             return
         if running:
             if self.signal_known and signal_id(sig) != self.sig_at_start:
@@ -679,7 +580,7 @@ class Daemon:
 
     # -- Schnittstelle
     def status(self):
-        s = {"ok": True, "available": self.available, "hdmi_input": self.hdmi_input, "state": self.state, "message": self.message, "settings": dict(self.cfg), "usb": dict(self.usb),
+        s = {"ok": True, "state": self.state, "message": self.message, "settings": dict(self.cfg), "usb": dict(self.usb),
              "signal": {k: self.signal[k] for k in ("plugged", "locked", "width", "height", "fps", "interlaced", "format", "depth")},
              "signal_known": self.signal_known, "publishing": self.published, "restarts": self.restarts}
         return s
@@ -746,14 +647,14 @@ class Daemon:
 
     async def main(self, host=LISTEN_HOST, port=LISTEN_PORT):
         server = await asyncio.start_server(self.client, host, port)
-        log.info("bereit auf %s:%d, Quelle: %s, HDMI-Eingang: %s", host, port, self.cfg.get("source", "hdmi"), "vorhanden" if os.path.exists(self.device) else "fehlt")
+        log.info("bereit auf %s:%d", host, port)
         asyncio.ensure_future(self.supervise())
         async with server:
             await server.serve_forever()
 
 
 async def amain(args):
-    daemon = Daemon(args.state, args.rtmp_port, args.rtmp_app, args.stat_url, args.device, args.status_file, args.audio_device)
+    daemon = Daemon(args.state, args.rtmp_port, args.rtmp_app, args.stat_url)
     loop = asyncio.get_running_loop()
     stop = asyncio.Event()
     for sig in (signal.SIGTERM, signal.SIGINT):
@@ -785,9 +686,6 @@ def main():
     ap.add_argument("--rtmp-port", type=int, default=RTMP_PORT)
     ap.add_argument("--rtmp-app", default=RTMP_APP)
     ap.add_argument("--stat-url", default=STAT_URL)
-    ap.add_argument("--device", default=HDMI_DEVICE)
-    ap.add_argument("--status-file", default=HDMI_STATUS)
-    ap.add_argument("--audio-device", default=HDMI_AUDIO)
     args = ap.parse_args()
     logging.basicConfig(level=logging.INFO, format="%(levelname)s %(name)s: %(message)s")
     asyncio.get_event_loop().run_until_complete(amain(args))

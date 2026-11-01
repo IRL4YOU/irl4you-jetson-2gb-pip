@@ -29,7 +29,7 @@ SETTINGS_VERSION = 1
 
 SETTINGS_SECTIONS = (("cameras", "Kameras"), ("pipeline", "Bildaufbau"), ("srtla", "SRTLA-Server und Sendeeinstellungen"),
                      ("autostart", "Automatischer Start"), ("names", "Namen (Verbindungen, WLAN- und Bluetooth-Sticks)"),
-                     ("dji", "DJI-Kameras (Einstellungen)"), ("hdmi", "HDMI-Eingang (Einstellungen)"), ("twitch", "Akku-Warnung im Twitch-Chat (Einstellungen)"),
+                     ("dji", "DJI-Kameras (Einstellungen)"), ("hdmi", "USB-Kamera (Einstellungen)"), ("twitch", "Akku-Warnung im Twitch-Chat (Einstellungen)"),
                      ("camnet", "Netzwerk für Kameras (Standard)"),
                      ("hotspots", "Hotspots"), ("wifi", "Gespeicherte WLAN-Netze"))
 
@@ -38,7 +38,7 @@ class SettingsTransfer:
     """Einstellungen in eine Datei sichern und wieder einspielen (Issue #20), zum Beispiel nach dem Neu-Aufspielen der SD-Karte.
 
     Gesichert werden Kameras, Bildaufbau, SRTLA-Server und Sendeeinstellungen, automatischer Start, Namen der Sticks, DJI-Kameras (ihre Einstellungen, nicht die
-    Bluetooth-Kopplung), der HDMI-Eingang, die Akku-Warnung im Twitch-Chat (ohne Token und Anmeldung), das Netzwerk der Kameras, die Optionen der Oberfläche (Reihenfolge
+    Bluetooth-Kopplung), die USB-Kamera, die Akku-Warnung im Twitch-Chat (ohne Token und Anmeldung), das Netzwerk der Kameras, die Optionen der Oberfläche (Reihenfolge
     und Ausblenden der Menüs), Hotspots und die gespeicherten WLAN-Netze. Nie dabei: das Passwort dieser Oberfläche, SSH, Schlüssel, die Anmeldung der Fernfreigabe,
     Token und Anmeldung bei Twitch.
     Eine Datei mit Passwörtern und Zugangsdaten wird immer mit einem Passwort verschlüsselt (Vault). Beim Einspielen wird jeder Teil streng geprüft; die
@@ -94,7 +94,7 @@ class SettingsTransfer:
         if self.hdmi is not None:
             try:
                 st = self.hdmi.status()
-            except Exception:                                                # der HDMI-Dienst fehlt: der Teil bleibt weg
+            except Exception:                                                # der Kameradienst fehlt: der Teil bleibt weg
                 st = {}
             if st.get("service"):
                 doc["hdmi"] = {k: st["settings"][k] for k in HdmiService.ALLOWED}
@@ -305,7 +305,7 @@ class SettingsTransfer:
 
     def _clean_hdmi(self, raw):
         if not isinstance(raw, dict):
-            raise ValueError("Die HDMI-Einstellungen sind ungültig")
+            raise ValueError("Die Einstellungen der USB-Kamera sind ungültig")
         want = {k: raw[k] for k in HdmiService.ALLOWED if k in raw}
         out = hdmi_daemon.clean_settings(want, None)                         # dieselbe Prüfung wie im Dienst (wirft ValueError mit kurzem Text)
         return {k: out[k] for k in HdmiService.ALLOWED}, []
@@ -626,9 +626,9 @@ class SettingsTransfer:
 
     def _apply_hdmi(self, d):
         if self.hdmi is None:
-            raise RuntimeError("Der HDMI-Dienst ist hier nicht verfügbar")
+            raise RuntimeError("Der Dienst der USB-Kamera ist hier nicht verfügbar")
         self.hdmi.set(dict(d))
-        return "HDMI-Einstellungen eingespielt"
+        return "Einstellungen der USB-Kamera eingespielt"
 
     def _apply_twitch(self, d):
         if self.twitch is None:

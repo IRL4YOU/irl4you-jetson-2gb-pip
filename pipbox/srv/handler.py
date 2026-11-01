@@ -462,7 +462,7 @@ class Handler(PostRoutes, GetRoutes, BaseHTTPRequestHandler):
         if not m or not self.cams.remove(m.group(1)):
             return self.reply(404, {"error": "nicht gefunden"})
         if cam and cam.get("key") == HDMI_KEY and self.hdmi:
-            self.hdmi.on_camera_removed()                    # die Kamera "HDMI" ist weg: die Einspeisung ausschalten
+            self.hdmi.on_camera_removed()                    # die USB-Kamera ist weg: die Einspeisung ausschalten
         if cam:
             self.cams.forget(cam.get("key"))                 # ein noch sendender Stream kommt nicht von selbst zurück
             if getattr(self, "djisvc", None):

@@ -558,7 +558,7 @@ def analyze_flv(data):
 
 def gst_caps_of(text):
     """Aus der Ausgabe von `gst-launch-1.0 -v`: die Eigenschaften (Caps) am Ausgang des Parsers (h264parse) und des Hardware-Dekoders
-    (Jetson: nvv4l2decoder, Rockchip: mppvideodec)."""
+    (Jetson: nvv4l2decoder)."""
     found = {}
     for line in text.splitlines():
         if "caps = " not in line:
@@ -566,14 +566,14 @@ def gst_caps_of(text):
         caps = line.split("caps = ", 1)[1].strip()
         if "h264parse" in line and ".GstPad:src" in line and caps.startswith("video/x-h264") and "in" not in found:
             found["in"] = caps
-        if ("GstMppVideoDec" in line or "nvv4l2decoder" in line) and ".GstPad:src" in line and caps.startswith("video/x-raw") and "out" not in found:
+        if "nvv4l2decoder" in line and ".GstPad:src" in line and caps.startswith("video/x-raw") and "out" not in found:
             found["out"] = caps
     return found
 
 
 def hw_decoder():
-    """Element des Hardware-Dekoders: nvv4l2decoder auf dem Jetson (L4T), sonst mppvideodec (Rockchip)."""
-    return "nvv4l2decoder" if os.path.exists("/etc/nv_tegra_release") else "mppvideodec"
+    """Element des Hardware-Dekoders der Box: nvv4l2decoder."""
+    return "nvv4l2decoder"
 
 
 def decoder_probe(seconds=4, xml=None):
@@ -816,7 +816,7 @@ def net_counters():
 
 
 KERNEL_BAD = re.compile(r"(?i)fail|error|fault|timeout|timed out|reset|overflow|oom|out of memory|segfault|throttl|hung task|bug:|warn|undervolt|brownout|panic|watchdog|disconnect|denied|lockup|stall")
-KERNEL_SUBSYS = re.compile(r"(?i)tegra|nvhost|nvmap|host1x|nvdec|nvenc|vic|nvgpu|nvdisplay|mpp|rkvdec|rkvenc|vdpu|rga|iep|iommu|mali|drm|cma|thermal|usb|dwc|xhci|mmc|nvme|ext4|cpufreq|regulator|ethernet|r8125|stmmac|wlan|brcm|rtl|bluetooth")
+KERNEL_SUBSYS = re.compile(r"(?i)tegra|nvhost|nvmap|host1x|nvdec|nvenc|vic|nvgpu|nvdisplay|iommu|drm|cma|thermal|usb|dwc|xhci|mmc|nvme|ext4|cpufreq|regulator|ethernet|r8125|stmmac|wlan|brcm|rtl|bluetooth")
 KERNEL_SEVERE = re.compile(r"(?i)oom|out of memory|segfault|hung task|panic|undervolt|brownout|throttl|lockup")
 KERNEL_NOISE = re.compile(r"(?i)looking up|probing|supply property|no regulator|fiq_debugger")
 

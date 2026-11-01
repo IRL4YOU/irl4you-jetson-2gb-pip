@@ -307,7 +307,7 @@ class PostRoutes:
         return NOT_HANDLED
 
     def post_cameras(self, path, d):
-        """HDMI, Update, Kameras"""
+        """USB-Kamera, Update, Kameras"""
         if path == "/api/hdmi":
             return self.reply(200, self.hdmi.set(d))
         if path == "/api/update":

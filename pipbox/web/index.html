@@ -208,18 +208,16 @@
     <div id="djierr" class="err"></div>
   </div>
   </details>
-  <details class="subsec" id="hdmi_sec"><summary>HDMI- und USB-Kameras</summary><div id="hdmicard">
+  <details class="subsec" id="hdmi_sec"><summary>USB-Kameras</summary><div id="hdmicard">
     <details class="dcam" id="hdmi_cam" open>
-      <summary><span class="dname" id="hdmi_name">HDMI-Eingang</span><span class="dright"><span class="dstate" id="hdmi_state"></span></span></summary>
+      <summary><span class="dname" id="hdmi_name">USB-Kamera</span><span class="dright"><span class="dstate" id="hdmi_state"></span></span></summary>
       <div class="dbody">
-        <label class="f">Quelle<select id="hdmi_source"><option value="hdmi">HDMI-Eingang</option><option value="usb">USB-Webcam</option></select></label>
         <div class="dsub muted" id="hdmi_signal"></div>
         <label class="chk"><input type="checkbox" id="hdmi_on"> Als Kamera senden</label>
         <details class="dsec" id="hdmi_vsec"><summary>Bild und Ton <span class="muted" id="hdmi_vsum"></span></summary>
           <div class="dgrid">
-            <label class="f">Bildrate<select id="hdmi_fps"><option value="30">30 fps</option><option value="25">25 fps</option></select></label>
             <label class="f">Bitrate (Mbit/s)<input id="hdmi_br" type="number" min="1" max="20" step="0.5"></label>
-            <label class="f">Ton<select id="hdmi_audio"><option value="hdmi">HDMI-Ton</option><option value="none">ohne Ton</option></select></label>
+            <label class="f">Ton<select id="hdmi_audio"><option value="hdmi">Ton der Kamera</option><option value="none">ohne Ton</option></select></label>
             <label class="f" id="hdmi_fmtrow">Bildformat<select id="hdmi_fmt"><option value="auto">Automatisch (MJPEG zuerst)</option><option value="mjpeg">MJPEG (die Box kodiert mit der Bitrate neu)</option><option value="h264">H.264 (Strom der Kamera; kann der Treiber ihn nicht abholen, nimmt die Box MJPEG)</option></select></label>
           </div>
           <div class="actions"><button id="hdmi_save" type="button">Speichern</button></div>
@@ -227,7 +225,7 @@
         <div id="hdmi_err" class="err"></div>
       </div>
     </details>
-    <div class="ph" data-hlp>Das Bild wird in der Box zu einer normalen Kamera („HDMI“ oder „USB-Kamera“) und steht dann in „Bildaufbau“ wie alle anderen. USB-Webcam: eine Kamera, die sich als Webcam (UVC) meldet, zum Beispiel eine Action-Kamera im Webcam-Modus; die Box probiert die Bildformate selbst durch. Ungeprüft mit echter Hardware.</div>
+    <div class="ph" data-hlp>Die USB-Kamera wird in der Box zu einer normalen Kamera und steht dann in „Bildaufbau“ wie alle anderen. Geeignet ist eine Kamera, die sich als Webcam (UVC) meldet, zum Beispiel eine Action-Kamera im Webcam-Modus (getestet: DJI Osmo Action 4) oder ein HDMI-USB-Grabber. Die Box probiert die Bildformate selbst durch.</div>
   </div>
   </details>
   <details class="subsec" id="tw_sec"><summary>Akku-Warnung im Twitch-Chat (nur bei DJI) <span class="muted" id="tw_sum"></span></summary>
@@ -348,7 +346,7 @@
         <option value="0">aus (Encoder startet neu, etwa 5 s ohne Bild)</option>
         <option value="2">Hauptbild und erstes kleines Bild</option>
         <option value="4">alle Kameras (mehr Rechenlast)</option></select></label>
-    <label class="muted" style="display:block;margin-top:12px"><input type="checkbox" id="p_always"> Alle Kameras immer bereit: Kameras können jederzeit dazukommen, ausfallen und zurückkehren, ohne dass die Sendung neu startet. Fällt die Hauptkamera aus, übernimmt die nächste. Ohne Kamera sendet die Box Schwarz mit Stille. Dafür braucht die Box mehr Rechenlast: Bitte für ausreichend Kühlung sorgen. Das Bild wird gleichmäßiger, weil jede Kamera einen Puffer bekommt.</label>
+    <label class="muted" style="display:block;margin-top:12px"><input type="checkbox" id="p_always"> Alle Kameras immer bereit: Kameras können jederzeit dazukommen, ausfallen und zurückkehren, ohne dass die Sendung neu startet. <span class="piponly">Fällt die Hauptkamera aus, übernimmt die nächste.</span> Ohne Kamera sendet die Box Schwarz mit Stille. Dafür braucht die Box mehr Rechenlast: Bitte für ausreichend Kühlung sorgen. Das Bild wird gleichmäßiger, weil jede Kamera einen Puffer bekommt.</label>
     </details>
     <details class="subsec piponly" id="pipe_facecam"><summary>Facecam</summary>
       <div class="ph">Die Facecam ist die Kamera, deren Ton immer mitgeht, egal ob ihr Bild groß oder klein ist und wohin sie getauscht wird. Wählen Sie das Bild, in dem sie gerade zu sehen ist. Ohne Facecam folgt der Ton dem Hauptbild. Die Tonquelle lässt sich in der Fußleiste von Hand ändern, beim nächsten Tausch geht der Ton wieder zur Facecam. Die Wahl gilt sofort, ohne „Bildaufbau speichern“.</div>
@@ -489,7 +487,7 @@
           <li>Sendewege, Kameranetz und Hotspots (Netzwerkkarten werden über die MAC-Adresse zugeordnet)</li>
           <li>Gespeicherte WLAN-Netze (Passwörter nur mit dem Haken oben)</li>
           <li>DJI-Kameras: Name, Bildeinstellungen und Verbindung (Passwort nur mit dem Haken oben)</li>
-          <li>HDMI-Eingang und Automatischer Start</li>
+          <li>USB-Kamera und Automatischer Start</li>
           <li>Eigene Namen für Verbindungen und Sticks</li>
           <li>Twitch: Kanal, Schwelle und Nachricht der Akku-Warnung</li>
         </ul></div>
@@ -552,7 +550,7 @@
       <div class="actions"><button type="button" id="lay_reset" class="sec">Reihenfolge zurücksetzen</button></div>
     </details>
     <details class="subsec" id="opt_fan" hidden><summary>Lüfter</summary>
-      <div class="ph" style="margin-top:0">Der Jetson Nano kann nicht erkennen, ob ein Lüfter am Lüfteranschluss steckt, und liefert keine Drehzahl. Die Zeile „Lüfter: … % (Ansteuerung)“ in der Karte „System“ zeigt nur, womit die Box den Anschluss ansteuert. Wird der Lüfter extern versorgt (zum Beispiel über USB), wählen Sie „Nein“: Dann entfällt die Zeile.</div>
+      <div class="ph" style="margin-top:0">Der Jetson Nano kann nicht erkennen, ob ein Lüfter am Lüfteranschluss steckt, und liefert keine Drehzahl. Die Zeile „Lüfter: … % (Ansteuerung)“ in der Karte „System“ zeigt nur, womit die Box den Anschluss ansteuert. Wird der Lüfter extern versorgt (zum Beispiel über USB), wähle „Nein“: Dann entfällt die Zeile.</div>
       <label class="muted">Lüfter am Anschluss der Box<select id="fan_mode"><option value="auto">Automatisch (Zeile nur, wenn der Anschluss angesteuert wird)</option><option value="yes">Ja (Zeile immer zeigen)</option><option value="no">Nein, extern versorgt (Zeile ausblenden)</option></select></label>
       <div id="fan_msg" class="ph" role="status"></div>
     </details>

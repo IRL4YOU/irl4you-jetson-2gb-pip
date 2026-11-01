@@ -45,7 +45,7 @@ function djiCardHtml(c){
     <div class="dsub muted">${esc(c.model||"")} <span class="ddetail"></span></div>
     <div class="actions"><button type="button" class="d-connect">Verbinden</button><button type="button" class="sec d-reconnect">Neu verbinden</button><button type="button" class="sec d-disconnect">Trennen</button></div>
     <div class="actions" style="justify-content:space-between;align-items:center"><label class="chk" style="margin:0"><input type="checkbox" class="d-auto"${c.autoconnect?" checked":""}> Automatisch verbinden und streamen</label><button type="button" class="del d-remove">Entfernen</button></div>
-    <label class="chk"><input type="checkbox" class="d-statusonly"${c.status_only?" checked":""}> Nur Akkustand lesen (DJI-Kameras, Kamera sendet per HDMI)</label>
+    <label class="chk"><input type="checkbox" class="d-statusonly"${c.status_only?" checked":""}> Nur Akkustand lesen (DJI-Kameras, Kamera sendet per USB)</label>
   </div></details>`;
 }
 // Netze in der Nähe: Ergebnis der letzten Suche der WLAN-Karte (Karte "Verbindungen"). Gesucht wird einmal von selbst (alle 5 Minuten höchstens, nur ohne
