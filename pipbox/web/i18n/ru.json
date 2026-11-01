@@ -2418,7 +2418,11 @@
   "Die Treiber für Realtek- und Broadcom-Sticks sind im Kernel dieser Box enthalten, es muss nichts eingerichtet oder nachinstalliert werden. Steht ein Stick als „nicht nutzbar“ da, kennt der Kernel (4.9) ihn nicht: dann hilft nur ein anderer Stick, bewährt ist der ASUS USB-BT500 (Realtek RTL8761B). Nachbauten des CSR8510 (Kennung 0a12:0001) verbinden sich mit DJI-Kameras oft nicht zuverlässig. Bitte Stick und Kamera an einem USB-Hub mit eigenem Netzteil betreiben, wenn die Box Überstrom meldet.": "Драйверы для адаптеров Realtek и Broadcom входят в ядро этой Box, ничего настраивать или доустанавливать не нужно. Если адаптер отображается как «использовать нельзя», ядро (4.9) его не знает: тогда поможет только другой адаптер, проверен ASUS USB-BT500 (Realtek RTL8761B). Подделки CSR8510 (идентификатор 0a12:0001) часто подключаются к камерам DJI ненадёжно. Если Box сообщает о перегрузке по току, подключайте адаптер и камеру через USB-хаб с собственным блоком питания.",
   "H.264 (Strom der Kamera; kann der Treiber ihn nicht abholen, nimmt die Box MJPEG)": "H.264 (собственный поток камеры; если драйвер не может его получить, Box использует MJPEG)",
   "Prozessor-Details (Kerne, GPU, Video-Hardware)": "Сведения о процессоре (ядра, GPU, видеооборудование)",
-  "Es wurden gar keine Bluetooth-Geräte empfangen. Den USB-Bluetooth-Stick prüfen (fest eingesteckt, am besten an einem USB-Hub mit eigenem Netzteil) und die Kamera näher heranhalten.": "Не обнаружено ни одного Bluetooth-устройства. Проверьте USB-адаптер Bluetooth (плотно вставлен, лучше всего в USB-хаб с собственным блоком питания) и поднесите камеру ближе."
+  "Es wurden gar keine Bluetooth-Geräte empfangen. Den USB-Bluetooth-Stick prüfen (fest eingesteckt, am besten an einem USB-Hub mit eigenem Netzteil) und die Kamera näher heranhalten.": "Не обнаружено ни одного Bluetooth-устройства. Проверьте USB-адаптер Bluetooth (плотно вставлен, лучше всего в USB-хаб с собственным блоком питания) и поднесите камеру ближе.",
+  "Systemwarnungen eingespielt": "Системные предупреждения применены",
+  "Streamerbot Deck eingespielt": "Streamerbot Deck применён",
+  "Optionen eingespielt": "Параметры применены",
+  "Design und Reihenfolge der Hauptmenüs": "Оформление и порядок главных меню"
  },
  "patterns": []
 }

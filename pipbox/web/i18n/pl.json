@@ -2418,7 +2418,11 @@
   "Die Treiber für Realtek- und Broadcom-Sticks sind im Kernel dieser Box enthalten, es muss nichts eingerichtet oder nachinstalliert werden. Steht ein Stick als „nicht nutzbar“ da, kennt der Kernel (4.9) ihn nicht: dann hilft nur ein anderer Stick, bewährt ist der ASUS USB-BT500 (Realtek RTL8761B). Nachbauten des CSR8510 (Kennung 0a12:0001) verbinden sich mit DJI-Kameras oft nicht zuverlässig. Bitte Stick und Kamera an einem USB-Hub mit eigenem Netzteil betreiben, wenn die Box Überstrom meldet.": "Sterowniki adapterów Realtek i Broadcom są częścią jądra tego Boxa, nic nie trzeba konfigurować ani doinstalowywać. Jeśli adapter jest oznaczony jako „nie można użyć”, jądro (4.9) go nie zna: wtedy pomoże tylko inny adapter, sprawdzony jest ASUS USB-BT500 (Realtek RTL8761B). Podróbki CSR8510 (identyfikator 0a12:0001) często nie łączą się niezawodnie z kamerami DJI. Jeśli Box zgłasza przetężenie, używaj adaptera i kamery z hubem USB z własnym zasilaczem.",
   "H.264 (Strom der Kamera; kann der Treiber ihn nicht abholen, nimmt die Box MJPEG)": "H.264 (własny strumień kamery; jeśli sterownik nie może go pobrać, Box używa MJPEG)",
   "Prozessor-Details (Kerne, GPU, Video-Hardware)": "Szczegóły procesora (rdzenie, GPU, sprzęt wideo)",
-  "Es wurden gar keine Bluetooth-Geräte empfangen. Den USB-Bluetooth-Stick prüfen (fest eingesteckt, am besten an einem USB-Hub mit eigenem Netzteil) und die Kamera näher heranhalten.": "Nie odebrano żadnych urządzeń Bluetooth. Sprawdź adapter USB Bluetooth (mocno wetknięty, najlepiej w hubie USB z własnym zasilaczem) i przysuń kamerę bliżej."
+  "Es wurden gar keine Bluetooth-Geräte empfangen. Den USB-Bluetooth-Stick prüfen (fest eingesteckt, am besten an einem USB-Hub mit eigenem Netzteil) und die Kamera näher heranhalten.": "Nie odebrano żadnych urządzeń Bluetooth. Sprawdź adapter USB Bluetooth (mocno wetknięty, najlepiej w hubie USB z własnym zasilaczem) i przysuń kamerę bliżej.",
+  "Systemwarnungen eingespielt": "Ostrzeżenia systemowe zastosowane",
+  "Streamerbot Deck eingespielt": "Streamerbot Deck zastosowany",
+  "Optionen eingespielt": "Opcje zastosowane",
+  "Design und Reihenfolge der Hauptmenüs": "Wygląd i kolejność menu głównych"
  },
  "patterns": []
 }

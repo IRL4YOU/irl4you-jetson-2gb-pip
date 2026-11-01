@@ -2418,7 +2418,11 @@
   "Die Treiber für Realtek- und Broadcom-Sticks sind im Kernel dieser Box enthalten, es muss nichts eingerichtet oder nachinstalliert werden. Steht ein Stick als „nicht nutzbar“ da, kennt der Kernel (4.9) ihn nicht: dann hilft nur ein anderer Stick, bewährt ist der ASUS USB-BT500 (Realtek RTL8761B). Nachbauten des CSR8510 (Kennung 0a12:0001) verbinden sich mit DJI-Kameras oft nicht zuverlässig. Bitte Stick und Kamera an einem USB-Hub mit eigenem Netzteil betreiben, wenn die Box Überstrom meldet.": "Los controladores de los adaptadores Realtek y Broadcom ya vienen incluidos en el kernel de esta Box; no hay que configurar ni instalar nada. Si un adaptador aparece como «no utilizable», el kernel (4.9) no lo conoce: entonces solo ayuda otro adaptador; el ASUS USB-BT500 (Realtek RTL8761B) ha dado buen resultado. Las imitaciones del CSR8510 (ID 0a12:0001) a menudo no se conectan de forma fiable con las cámaras DJI. Utiliza el adaptador y la cámara en un hub USB con fuente de alimentación propia si la Box indica sobrecorriente.",
   "H.264 (Strom der Kamera; kann der Treiber ihn nicht abholen, nimmt die Box MJPEG)": "H.264 (flujo propio de la cámara; si el controlador no puede obtenerlo, la Box usa MJPEG)",
   "Prozessor-Details (Kerne, GPU, Video-Hardware)": "Detalles del procesador (núcleos, GPU, hardware de vídeo)",
-  "Es wurden gar keine Bluetooth-Geräte empfangen. Den USB-Bluetooth-Stick prüfen (fest eingesteckt, am besten an einem USB-Hub mit eigenem Netzteil) und die Kamera näher heranhalten.": "No se ha recibido ningún dispositivo Bluetooth. Compruebe el adaptador USB Bluetooth (bien conectado, a ser posible a un hub USB con fuente de alimentación propia) y acerque más la cámara."
+  "Es wurden gar keine Bluetooth-Geräte empfangen. Den USB-Bluetooth-Stick prüfen (fest eingesteckt, am besten an einem USB-Hub mit eigenem Netzteil) und die Kamera näher heranhalten.": "No se ha recibido ningún dispositivo Bluetooth. Compruebe el adaptador USB Bluetooth (bien conectado, a ser posible a un hub USB con fuente de alimentación propia) y acerque más la cámara.",
+  "Systemwarnungen eingespielt": "Avisos del sistema aplicados",
+  "Streamerbot Deck eingespielt": "Streamerbot Deck aplicado",
+  "Optionen eingespielt": "Opciones aplicadas",
+  "Design und Reihenfolge der Hauptmenüs": "Diseño y orden de los menús principales"
  },
  "patterns": []
 }

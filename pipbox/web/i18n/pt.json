@@ -2418,7 +2418,11 @@
   "Die Treiber für Realtek- und Broadcom-Sticks sind im Kernel dieser Box enthalten, es muss nichts eingerichtet oder nachinstalliert werden. Steht ein Stick als „nicht nutzbar“ da, kennt der Kernel (4.9) ihn nicht: dann hilft nur ein anderer Stick, bewährt ist der ASUS USB-BT500 (Realtek RTL8761B). Nachbauten des CSR8510 (Kennung 0a12:0001) verbinden sich mit DJI-Kameras oft nicht zuverlässig. Bitte Stick und Kamera an einem USB-Hub mit eigenem Netzteil betreiben, wenn die Box Überstrom meldet.": "Os drivers dos adaptadores Realtek e Broadcom já estão incluídos no kernel desta Box; não é preciso configurar nem instalar nada. Se um adaptador aparecer como “não utilizável”, o kernel (4.9) não o conhece: nesse caso só ajuda outro adaptador; o ASUS USB-BT500 (Realtek RTL8761B) é comprovado. Imitações do CSR8510 (ID 0a12:0001) muitas vezes não se conectam de forma confiável às câmeras DJI. Use o adaptador e a câmera em um hub USB com fonte de alimentação própria se a Box informar sobrecorrente.",
   "H.264 (Strom der Kamera; kann der Treiber ihn nicht abholen, nimmt die Box MJPEG)": "H.264 (fluxo próprio da câmera; se o driver não conseguir obtê-lo, a Box usa MJPEG)",
   "Prozessor-Details (Kerne, GPU, Video-Hardware)": "Detalhes do processador (núcleos, GPU, hardware de vídeo)",
-  "Es wurden gar keine Bluetooth-Geräte empfangen. Den USB-Bluetooth-Stick prüfen (fest eingesteckt, am besten an einem USB-Hub mit eigenem Netzteil) und die Kamera näher heranhalten.": "Nenhum dispositivo Bluetooth foi recebido. Verifique o adaptador Bluetooth USB (bem encaixado, de preferência em um hub USB com fonte de alimentação própria) e aproxime mais a câmera."
+  "Es wurden gar keine Bluetooth-Geräte empfangen. Den USB-Bluetooth-Stick prüfen (fest eingesteckt, am besten an einem USB-Hub mit eigenem Netzteil) und die Kamera näher heranhalten.": "Nenhum dispositivo Bluetooth foi recebido. Verifique o adaptador Bluetooth USB (bem encaixado, de preferência em um hub USB com fonte de alimentação própria) e aproxime mais a câmera.",
+  "Systemwarnungen eingespielt": "Avisos do sistema aplicados",
+  "Streamerbot Deck eingespielt": "Streamerbot Deck aplicado",
+  "Optionen eingespielt": "Opções aplicadas",
+  "Design und Reihenfolge der Hauptmenüs": "Design e ordem dos menus principais"
  },
  "patterns": []
 }

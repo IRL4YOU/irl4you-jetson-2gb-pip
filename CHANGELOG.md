@@ -1,5 +1,8 @@
 # Änderungen
 
+## 0.1.34
+- **Einstellungen sichern: mehr Einstellungen werden mitgenommen und wieder eingespielt.** Neu in der Sicherung: die **Systemwarnungen im Twitch-Chat** (Schwellen, Pause, Texte, Chat-Befehle; Konto und Token bleiben wie bisher draußen), das **Streamerbot Deck** (Adresse und Größen) und die **Optionen der Oberfläche** (Design, Reihenfolge und Ausblenden der Menüs, für Desktop und Mobil). Alte Sicherungsdateien lassen sich weiter einspielen; fehlt ein Teil, bleibt er unverändert. Geprüft im Demo-Modus mit zwei Boxen: Sichern auf A, Einspielen in die leere Box B, erneutes Sichern ergibt dieselbe Datei. Weiterhin nicht dabei (Absicht): Bluetooth-Kopplung, Twitch-Anmeldung, Tailscale, feste Zusatzadresse, Passwort und SSH, Sicherheitseinstellungen (Zugriff über fremde WLANs, Vorschau von außen), öffentliche Statistik (enthält einen Schlüssel), Lüfter.
+
 ## 0.1.33
 - **Weitere Reste des Rockchip-Pakets entfernt (zweiter Durchgang durch alle Dateien).**
   - Die Meldung der Bluetooth-Suche („Antennen am Funkmodul prüfen“) sprach von einem eingebauten Funkmodul, das es auf dem Jetson nicht gibt. Jetzt: „Den USB-Bluetooth-Stick prüfen (fest eingesteckt, am besten an einem USB-Hub mit eigenem Netzteil) und die Kamera näher heranhalten.“
