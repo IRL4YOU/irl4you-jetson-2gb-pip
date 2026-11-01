@@ -100,6 +100,10 @@ install -m 644 "$HERE/install/pipbox-send-ctl.path" /etc/systemd/system/pipbox-s
 install -m 644 "$HERE/install/pipbox-dji.service" /etc/systemd/system/pipbox-dji.service
 # USB-Kamera als Kamera (Webcam, HDMI-USB-Grabber): speist sie in den RTMP-Eingang ein, solange sie steckt
 install -m 644 "$HERE/install/pipbox-hdmi.service" /etc/systemd/system/pipbox-hdmi.service
+# Elgato-Grabber (Cam Link): USB-Schlafmodus aus; die Regel gilt für Geräte, die neu angesteckt werden, und gleich für die gerade steckenden
+install -m 644 "$HERE/install/60-pipbox-usb-power.rules" /etc/udev/rules.d/60-pipbox-usb-power.rules
+udevadm control --reload-rules >/dev/null 2>&1 || true
+udevadm trigger --action=add --subsystem-match=usb --attr-match=idVendor=0fd9 >/dev/null 2>&1 || true
 # Vorschau des gesendeten Bildes: Socket, der Dienst startet erst bei Bedarf (liest den lokalen SRT-Strom mit und dekodiert ihn mit der Video-Hardware)
 install -m 644 "$HERE/install/pipbox-preview.socket" /etc/systemd/system/pipbox-preview.socket
 install -m 644 "$HERE/install/pipbox-preview.service" /etc/systemd/system/pipbox-preview.service
