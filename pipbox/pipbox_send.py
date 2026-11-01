@@ -23,7 +23,7 @@ import time
 
 sys.path.insert(0, "/opt/pipbox")
 import server  # noqa: E402  (nur Prüf- und Erzeugungsfunktionen, startet nichts)
-from srv import pipeline_jetson  # noqa: E402  (Jetson: Nvidia-Kette, kein Rockchip-Baustein nötig)
+from srv import pipeline_jetson  # noqa: E402  (Nvidia-Kette)
 import pipbox_always  # noqa: E402  (Zubringer und Auswahl im Modus "alle Kameras immer bereit")
 try:
     import pipbox_watch  # noqa: E402  (Wächter: erkennt Hänger von belacoder, sichert ein Diagnosepaket, startet neu)
@@ -411,7 +411,7 @@ class Sender:
         self.tail = collections.deque(maxlen=90)             # die letzten Ausgabezeilen von belacoder (ohne Adressen und Rauschen), für den Bericht bei einem unerwarteten Ende
         self.events = collections.deque(maxlen=120)          # Ereigniszeilen von belacoder (nur feste Meldungen ohne Adressen und Schlüssel)
         self.links = collections.deque(maxlen=300)           # Zustandszeilen der Wegewahl (srtla_send "links: ...")
-        self.watch = (pipbox_watch.JetsonHangWatch() if pipeline_jetson.is_jetson() else pipbox_watch.HangWatch()) if pipbox_watch else None
+        self.watch = pipbox_watch.HangWatch() if pipbox_watch else None
         self.hang_n = 0
         self._hang_t = 0.0
         self.stop_ev = threading.Event()
@@ -868,7 +868,7 @@ class Sender:
             print(f"send: Neustart nicht möglich ({type(e).__name__})", flush=True)
 
     def hang_check_jetson(self, env):
-        """Wächter für den Jetson (pipbox_watch.JetsonHangWatch): steht die Kennzahlen-Datei von belacoder still, hängen seine Threads im Kernel oder liefert der Encoder keine Bilder mehr,
+        """Wächter für den Jetson (pipbox_watch.HangWatch): steht die Kennzahlen-Datei von belacoder still, hängen seine Threads im Kernel oder liefert der Encoder keine Bilder mehr,
         wird ein Diagnosepaket gesichert (hang-diagnose.txt) und belacoder neu gestartet. Höchstens einmal je Sekunde geprüft."""
         if self.watch is None or time.monotonic() - self._hang_t < 1.0:
             return
@@ -886,15 +886,15 @@ class Sender:
             fps = float(json.loads(text).get("fps"))
         except (ValueError, TypeError, AttributeError):
             fps = None
-        hit = self.watch.check_jetson(mt, fps, pipbox_watch.d_state_threads(p.pid))
+        hit = self.watch.check(mt, fps, pipbox_watch.d_state_threads(p.pid))
         if hit is None or not self.watch.allow():
             return
         slots = []
         feeders = getattr(self.always, "feeders", None)
         for slot, r in sorted(getattr(feeders, "relays", {}).items()):
-            slots.append((slot, "Tor %s, Füllbild %s" % ("offen" if r.gate else "zu", "aus" if r.fill_done else "an"), ""))
+            slots.append((slot, "Tor %s, Füllbild %s" % ("offen" if r.gate else "zu", "aus" if r.fill_done else "an")))
         report = pipbox_watch.build_report(hit, p.pid, time.monotonic() - (self.watch.started or time.monotonic()), text,
-                                           [f"{t} {e}" for t, e in list(self.events)], slots, slot_fmt="  Platz %s: %s%s")
+                                           [f"{t} {e}" for t, e in list(self.events)], slots)
         saved = pipbox_watch.write_report(STATE, report)
         self.watch.acted_now()
         self.hang_n += 1

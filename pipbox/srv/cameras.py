@@ -231,7 +231,7 @@ class CameraStore:
             via, src, host = None, "main", main
             over = addr_for(c["key"]) if addr_for else None
             if c["key"] == HDMI_KEY:
-                src = "hdmi"                       # das Bild kommt vom HDMI-Eingang der Box: keine Adresse, keine Verbindung zu wählen
+                src = "hdmi"                       # das Bild kommt von der USB-Kamera der Box: keine Adresse, keine Verbindung zu wählen
             elif over and over[0]:
                 host, via, src = over[0], over[1], "dji"
             elif c.get("iface") and self.host_for_iface(c["iface"]):
@@ -245,4 +245,4 @@ class CameraStore:
         return out
 
 
-HDMI_KEY = "hdmi"           # Schlüssel der HDMI-Kamera: der HDMI-Dienst speist das Bild des HDMI-Eingangs unter diesem Namen in den RTMP-Eingang der Box ein
+HDMI_KEY = "hdmi"           # Schlüssel der USB-Kamera (er heißt aus der Anfangszeit "hdmi" und bleibt, weil er in gespeicherten Kameralisten und Bildaufbauten steht): der Kameradienst speist das Bild unter diesem Namen in den RTMP-Eingang der Box ein

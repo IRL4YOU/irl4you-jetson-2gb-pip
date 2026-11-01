@@ -95,7 +95,7 @@ class DjiService:
         return (d.get("cameras") or {}) if isinstance(d, dict) else {}
 
     def addr_for_key(self, key):
-        """Geräteadresse der DJI-Kamera mit diesem Stream-Schlüssel (dji-xxxxxx) oder None. Nur-Akku-Kameras (Schlüssel des HDMI-Eingangs) zählen nicht."""
+        """Geräteadresse der DJI-Kamera mit diesem Stream-Schlüssel (dji-xxxxxx) oder None. Nur-Akku-Kameras (Schlüssel der USB-Kamera) zählen nicht."""
         if not (isinstance(key, str) and key.startswith("dji-")):
             return None
         for addr, cfg in self._config().items():
@@ -189,7 +189,7 @@ class DjiService:
         have = {c["key"] for c in self.cams.cams}
         for c in cameras:
             key = c.get("rtmp_key")
-            if key and key not in have and key != HDMI_KEY:      # Nur-Akku-Kameras tragen den Schlüssel des HDMI-Eingangs: der legt seine Kamera selbst an
+            if key and key not in have and key != HDMI_KEY:      # Nur-Akku-Kameras tragen den Schlüssel der USB-Kamera: der Kameradienst legt seine Kamera selbst an
                 try:
                     self.cams.add(c.get("name") or c.get("model") or "DJI-Kamera", key, self._free_role())
                     have.add(key)
@@ -235,7 +235,7 @@ class DjiService:
             cfg = self._config().get(str(req.get("addr", "")).upper()) or {}
             cam = next((c for c in self.cams.cams if c["key"] == cfg.get("rtmp_key")), None)
             if cfg.get("status_only"):
-                cam = None                                    # die Kamera der Liste gehört dem HDMI-Eingang, nicht umbenennen
+                cam = None                                    # die Kamera der Liste gehört der USB-Kamera, nicht umbenennen
             if cam and str(req["name"]).strip() and cam["name"] != str(req["name"]).strip()[:40]:
                 self.cams.update(cam["id"], name=str(req["name"]))
         gone_key = None
@@ -248,7 +248,7 @@ class DjiService:
             old_key = (self._config().get(str(req.get("addr", "")).upper()) or {}).get("rtmp_key")
         res = self._call(req)
         if old_key and old_key.startswith("dji-") and not res.get("error"):
-            # Der Akku erscheint nun bei der HDMI-Kamera: der bisherige eigene Eintrag der Kamera in der Kameraliste entfällt
+            # Der Akku erscheint nun bei der USB-Kamera: der bisherige eigene Eintrag der Kamera in der Kameraliste entfällt
             cam = next((c for c in self.cams.cams if c["key"] == old_key), None)
             if cam:
                 self.cams.remove(cam["id"])

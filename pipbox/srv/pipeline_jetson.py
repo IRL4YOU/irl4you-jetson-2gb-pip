@@ -1,4 +1,4 @@
-"""Pipeline-Text für belacoder auf dem Jetson Nano (Nvidia-Hardware statt Rockchip).
+"""Pipeline-Text für belacoder auf dem Jetson Nano (Nvidia-Hardware).
 
 Aufbau wie die Jetson-Pipelines des BELABOX-Pakets (belacoder-pipelines-tegra): RTMP von nginx, Hardware-Decoder nvv4l2decoder, H.265 mit
 nvv4l2h265enc, MPEG-TS an den appsink. Bild-in-Bild macht nvcompositor (Mischen in der Videohardware, ohne dass die CPU die Bilder liest).
@@ -101,7 +101,7 @@ def role_layout(c, pip, pip2, pip3):
 
 
 def is_jetson():
-    """Läuft das hier auf einem Jetson (L4T)? Dann baut PipelineStore.build() diese Kette statt der Rockchip-Kette."""
+    """Läuft das hier auf einem Jetson (L4T)? Sonst (Demo auf einem anderen Rechner) gibt es keine Sendekette."""
     return os.path.exists("/etc/nv_tegra_release")
 
 

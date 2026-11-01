@@ -47,7 +47,7 @@ let lastNet=null;
 // Zeile "Alles im grünen Bereich" und Hinweise: ungespeicherte Änderungen am Bildaufbau (Vorschau, Kameras, Ecken ...) stehen rot davor und führen zum Speichern-Knopf
 let lastAlerts=[], healthSig="";
 const dismissedAlerts=new Set();                                                                    // geschlossene Meldungen (Art + Zeit), bis die Box sie nicht mehr liefert
-// Kurze Meldungen mit "i": USB-Gerät getrennt, Kamera ausgefallen, HDMI ohne Signal. Eine Zeile (Art, Zeit), dahinter ein "i" mit ein bis zwei Sätzen.
+// Kurze Meldungen mit "i": USB-Gerät getrennt, Kamera ausgefallen, USB-Kamera nicht gefunden. Eine Zeile (Art, Zeit), dahinter ein "i" mit ein bis zwei Sätzen.
 // Die Uhrzeit steht in der Ortszeit des Geräts (heute: "um 23:04", sonst "gestern um 23:04"). Namen von Kameras werden nie übersetzt.
 const USB_LABEL={wlan:"USB-WLAN-Adapter getrennt",bt:"USB-Bluetooth-Adapter getrennt",net:"USB-Router getrennt",cam:"USB-Kamera getrennt",other:"USB-Gerät getrennt"};
 function alertWhen(t){
@@ -72,15 +72,14 @@ function alertParts(a){                                                         
             info:dji?"Bluetooth getrennt, Akku leer oder Kamera ausgeschaltet. Kamera aufwecken und die Verbindung prüfen."
                     :"Die Kamera sendet nicht mehr. Akku, WLAN-Verbindung und Kabel prüfen."};
   }
-  if(a.kind==="hdmi"&&a.src==="usb") return {main:`<span>USB-Kamera: nicht gefunden</span> · <span>${alertWhen(a.t)}</span>`, info:"Kamera anstecken und einschalten: Sie muss sich als USB-Webcam (UVC) melden, bei Action-Kameras im Webcam-Modus."};
-  if(a.kind==="hdmi") return {main:`<span>HDMI: kein Signal</span> · <span>${alertWhen(a.t)}</span>`, info:"Kabel prüfen und die Kamera einschalten: Sie muss ein Bild ausgeben."};
+  if(a.kind==="hdmi") return {main:`<span>USB-Kamera: nicht gefunden</span> · <span>${alertWhen(a.t)}</span>`, info:"Kamera anstecken und einschalten: Sie muss sich als USB-Webcam (UVC) melden, bei Action-Kameras im Webcam-Modus."};
   if(a.kind==="dstate"&&(a.names||[]).length) return {main:a.text||"", info:`<span>Wartet im Kernel:</span> <b translate="no">${esc(a.names.join(", "))}</b>`};     // Name@Wartestelle im Kernel; hilft, die Ursache zu finden
   return {main:a.text||"", info:""};
 }
 const alertText=a=>alertParts(a).main;
 function alertBox(x){                                                                                // Meldung im Block "Status": Zeile, "i" und der Text dazu (zugeklappt)
   const p=alertParts(x);
-  const close=(x.kind==="usb"||x.kind==="cam"||x.kind==="hdmi")?`<button type="button" class="abtn" data-akind="${x.kind}" data-at="${x.t}" aria-label="Schließen" title="Schließen">×</button>`:"";     // USB-, Kamera- und HDMI-Meldungen lassen sich wegklicken (zum Beispiel nach einem bewussten Abziehen)
+  const close=(x.kind==="usb"||x.kind==="cam"||x.kind==="hdmi")?`<button type="button" class="abtn" data-akind="${x.kind}" data-at="${x.t}" aria-label="Schließen" title="Schließen">×</button>`:"";     // USB-, Kamera- und USB-Kamera-Meldungen lassen sich wegklicken (zum Beispiel nach einem bewussten Abziehen)
   return `<div class="alert ${x.level}">${close}<span class="atx">${p.main}</span>${p.info?` <button type="button" class="ibtn" aria-expanded="false" aria-label="Hilfe anzeigen" title="Hilfe">i</button><div class="hlp">${p.info}</div>`:""}</div>`;
 }
 function paintHealth(){

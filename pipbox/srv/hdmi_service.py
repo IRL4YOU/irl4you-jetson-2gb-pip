@@ -1,4 +1,4 @@
-"""HDMI- und USB-Kameras: Anbindung an den HDMI-Dienst."""
+"""USB-Kamera: Anbindung an den Kameradienst (pipbox-hdmi; der Name stammt aus der Anfangszeit und bleibt)."""
 
 import json
 import os
@@ -11,16 +11,15 @@ from srv.cameras import HDMI_KEY
 
 
 class HdmiService:
-    """Dünne Schicht zum HDMI-Dienst (pipbox-hdmi, hdmi_daemon.py): leitet die Befehle der Oberfläche als JSON-Zeilen an 127.0.0.1:9102
-    weiter (mit dem Token, das nur der Benutzer pipbox lesen kann), trägt die Kamera "HDMI" in die Kameraliste ein und liefert den Zustand.
-    Der Dienst selbst läuft als root (Hardware-Kodierer, HDMI-Eingang) und nimmt nur geprüfte Zahlen und feste Auswahlen entgegen.
-    Im Demo-Modus gibt es keinen Dienst: ein Eingang mit Signal, der sich ein- und ausschalten lässt."""
+    """Dünne Schicht zum Kameradienst (pipbox-hdmi, hdmi_daemon.py): leitet die Befehle der Oberfläche als JSON-Zeilen an 127.0.0.1:9102
+    weiter (mit dem Token, das nur der Benutzer pipbox lesen kann), trägt die USB-Kamera (Schlüssel "hdmi") in die Kameraliste ein und liefert den Zustand.
+    Der Dienst selbst läuft als root (Hardware-Kodierer) und nimmt nur geprüfte Zahlen und feste Auswahlen entgegen.
+    Im Demo-Modus gibt es keinen Dienst: eine USB-Kamera, die sich ein- und ausschalten lässt."""
     HOST, PORT = "127.0.0.1", 9102
-    CAMERA_NAMES = ("HDMI", "HDMI-Eingang", "HDMI 2")
-    USB_NAMES = ("USB-Kamera", "USB-Webcam", "USB 2")        # Name der Kamera, wenn die Quelle die USB-Webcam ist (der Schlüssel bleibt "hdmi")
-    ALLOWED = ("enabled", "bitrate", "fps", "audio", "source", "usb_format")        # was die Oberfläche ändern darf (der Schlüssel ist fest)
+    USB_NAMES = ("USB-Kamera", "USB-Webcam", "USB 2")        # Name der Kamera in der Liste (der Schlüssel bleibt "hdmi")
+    ALLOWED = ("enabled", "bitrate", "fps", "audio", "usb_format")        # was die Oberfläche ändern darf (der Schlüssel ist fest)
     TTL = 1.5
-    DOWN = "Der HDMI-Dienst läuft nicht (Software-Update oder install.sh ausführen)"
+    DOWN = "Der Dienst der USB-Kamera läuft nicht (Software-Update oder install.sh ausführen)"
 
     def __init__(self, state_dir, cams, demo=False):
         self.token_path = os.path.join(state_dir, "hdmi-token")
@@ -31,7 +30,7 @@ class HdmiService:
         self.fake = dict(hdmi_daemon.DEFAULTS) if demo else None
 
     def _call(self, req, timeout=4):
-        """Eine Anfrage an den HDMI-Dienst (eine JSON-Zeile hin, die Antwort mit passender Nummer zurück)."""
+        """Eine Anfrage an den Kameradienst (eine JSON-Zeile hin, die Antwort mit passender Nummer zurück)."""
         try:
             with open(self.token_path) as f:
                 tok = f.read().strip()
@@ -69,26 +68,22 @@ class HdmiService:
 
     def _fake_status(self):
         f = self.fake
-        usb = f.get("source") == "usb"
-        return {"ok": True, "available": True, "hdmi_input": True, "state": "streaming" if f["enabled"] else "off", "message": "", "settings": dict(f),
-                "signal": ({"plugged": True, "locked": True, "width": 1280, "height": 720, "fps": 30.0, "interlaced": False, "format": "", "depth": 0} if usb else
-                           {"plugged": True, "locked": True, "width": 1920, "height": 1080, "fps": 60.0, "interlaced": False, "format": "RGB", "depth": 8}),
-                "usb": ({"present": True, "name": "Beispiel-Webcam", "node": "/dev/video2", "format": "MJPEG 1280x720@30", "audio": "plughw:CARD=Beispiel"} if usb else
-                        {"present": False, "name": "", "node": "", "format": "", "audio": ""}),
+        return {"ok": True, "state": "streaming" if f["enabled"] else "off", "message": "", "settings": dict(f),
+                "signal": {"plugged": True, "locked": True, "width": 1280, "height": 720, "fps": 30.0, "interlaced": False, "format": "", "depth": 0},
+                "usb": {"present": True, "name": "Beispiel-Webcam", "node": "/dev/video2", "format": "MJPEG 1280x720@30", "audio": "plughw:CARD=Beispiel"},
                 "signal_known": True, "publishing": bool(f["enabled"]), "restarts": 0}
 
     def _listed(self):
         return bool(self.cams) and any(c["key"] == HDMI_KEY for c in self.cams.cams)
 
-    def ensure_listed(self, source="hdmi"):
-        """Die Kamera (Schlüssel "hdmi", Name je nach Quelle "HDMI" oder "USB-Kamera") steht in der Kameraliste der Box (damit sie als Bildquelle gewählt werden kann)."""
+    def ensure_listed(self):
+        """Die USB-Kamera (Schlüssel "hdmi", Name "USB-Kamera") steht in der Kameraliste der Box (damit sie als Bildquelle gewählt werden kann)."""
         if not self.cams or self._listed():
             return
         roles = {c["role"] for c in self.cams.cams}
         role = "main" if "main" not in roles else "pip" if "pip" not in roles else "extra"
         taken = {c["name"].casefold() for c in self.cams.cams}
-        names = self.USB_NAMES if source == "usb" else self.CAMERA_NAMES
-        name = next((n for n in names if n.casefold() not in taken), "USB-Kamera 2" if source == "usb" else "HDMI-Kamera")
+        name = next((n for n in self.USB_NAMES if n.casefold() not in taken), "USB-Kamera 2")
         try:
             self.cams.add(name, HDMI_KEY, role)
         except ValueError:
@@ -100,18 +95,18 @@ class HdmiService:
         with self.lock:
             if self._hit[1] is not None and now - self._hit[0] < self.TTL:
                 return dict(self._hit[1])
-        out = {"service": False, "available": None, "state": "down", "message": self.DOWN, "settings": {k: hdmi_daemon.DEFAULTS[k] for k in self.ALLOWED}, "signal": {},
+        out = {"service": False, "state": "down", "message": self.DOWN, "settings": {k: hdmi_daemon.DEFAULTS[k] for k in self.ALLOWED}, "signal": {},
                "usb": {}, "signal_known": False, "publishing": None, "restarts": 0}
         try:
             resp = self._fake_status() if self.demo else self._call({"cmd": "status"})
-            for k in ("available", "hdmi_input", "state", "message", "signal", "usb", "signal_known", "publishing", "restarts"):
+            for k in ("state", "message", "signal", "usb", "signal_known", "publishing", "restarts"):
                 if k in resp:
                     out[k] = resp[k]
             st = resp.get("settings") if isinstance(resp.get("settings"), dict) else {}
             out["settings"] = {k: st.get(k, hdmi_daemon.DEFAULTS[k]) for k in self.ALLOWED}
             out["service"] = True
             if out["settings"]["enabled"]:
-                self.ensure_listed(out["settings"].get("source", "hdmi"))
+                self.ensure_listed()
         except (RuntimeError, ValueError) as e:
             out["message"] = str(e) or self.DOWN
         out["listed"] = self._listed()
@@ -120,7 +115,7 @@ class HdmiService:
         return dict(out)
 
     def set(self, req):
-        """Einstellungen übernehmen (enabled, bitrate in kbit/s, fps, audio). Wirft ValueError (kurze Meldung) oder RuntimeError (Dienst fehlt)."""
+        """Einstellungen übernehmen (enabled, bitrate in kbit/s, fps, audio, usb_format). Wirft ValueError (kurze Meldung) oder RuntimeError (Dienst fehlt)."""
         if not isinstance(req, dict):
             raise ValueError("Ungültige Anfrage")
         settings = {k: req[k] for k in self.ALLOWED if k in req}
@@ -130,19 +125,13 @@ class HdmiService:
         elif settings:
             self._call({"cmd": "set", "settings": settings})
         if settings.get("enabled") is True:
-            self.ensure_listed(settings.get("source") or (self.fake or {}).get("source") or self._last_source())
+            self.ensure_listed()
         with self.lock:
             self._hit = (0.0, None)
         return self.status()
 
-    def _last_source(self):
-        """Quelle laut dem zuletzt gelesenen Zustand (für den Namen der Kamera beim Einschalten ohne neue Quelle)."""
-        with self.lock:
-            st = self._hit[1] or {}
-        return (st.get("settings") or {}).get("source", "hdmi")
-
     def on_camera_removed(self):
-        """Die Kamera "HDMI" wurde aus der Liste entfernt: die Einspeisung dazu ausschalten (sonst käme die Kamera von selbst wieder)."""
+        """Die USB-Kamera wurde aus der Liste entfernt: die Einspeisung dazu ausschalten (sonst käme die Kamera von selbst wieder)."""
         try:
             self.set({"enabled": False})
         except (RuntimeError, ValueError):

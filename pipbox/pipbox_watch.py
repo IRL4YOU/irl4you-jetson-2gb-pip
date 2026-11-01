@@ -1,46 +1,25 @@
-"""Wächter für die Sendekette (Issue #51): erkennt zwei Hänger von belacoder, schreibt vor dem Neustart ein Diagnosepaket und startet belacoder neu.
+"""Wächter für die Sendekette: erkennt drei Hänger von belacoder, schreibt vor dem Neustart ein Diagnosepaket und startet belacoder neu.
 
-Bekannte Hänger (8. und 9. Oktober 2026 auf der eigenen Box, 9. Oktober bei powerswissi, Issue #51):
-  "stats"  Die Statistikdatei von belacoder (einmal je Sekunde) steht still, der Prozess lebt weiter (futex_wait). Der Mischer blockiert nach
-           "Feed … stopped (switched off)": Nach der Statistik steht auch die Steuerung (Befehle für Kameras, Bildaufbau) still.
-  "dstate" Threads von belacoder hängen im Kernel (Zustand D, "2 Prozesse blockiert (D-State)" in der Oberfläche), vermutlich im Treiber des Hardware-
-           Dekoders; dabei fiel bei powerswissi die Bitrate auf etwa 0,8 Mbit/s (Issue #51, Kommentar vom 9. Oktober 17:10 Ortszeit).
-  "feed"   Eine Kamera sendet bei nginx mit Bild, der Regler hält ihren Zweig für laufend (Zustand 3), aber im Mischer kommen seit Sekunden keine
-           Bilder an (in_fN und dmx_fN gleich 0). Der Encoder gibt dann nur noch das letzte Bild mit etwa 1,3 Mbit/s aus ("hängender Upload").
-Die Ursache steckt im Zweigneustart des Mischers (belacoder/belacoder-live-feeds.patch, feed_stop/feed_start) und ist noch nicht gefunden.
-Bis dahin hilft nur ein Neustart von belacoder. Dieser Wächter macht ihn selbst und sichert vorher, was zur Ursache führt: alle Threads von belacoder mit
-Zustand, Wartestelle im Kernel (wchan) und CPU-Zeit, die Statistik, die letzten Ereignisse und was nginx je Platz meldet. Das Paket enthält keine
-Schlüssel und keine Adressen (nur Plätze), liegt in /var/lib/pipbox/hang-diagnose.txt und steht in den Protokollen der Oberfläche."""
+  "dstate"  Threads von belacoder hängen im Kernel (Zustand D, "2 Prozesse blockiert (D-State)" in der Oberfläche), vermutlich im Treiber der Video-Hardware.
+  "stats"   Die Kennzahlen-Datei von belacoder (einmal je Sekunde) steht still: die Hauptschleife des Prozesses hängt.
+  "output"  Der Encoder liefert seit OUT_DEAD_S keine Bilder mehr (Feld fps der Kennzahlen unter 1), der Prozess lebt aber: die Ausgabe steht.
+Bis die Ursache solcher Hänger gefunden ist, hilft nur ein Neustart von belacoder. Der Wächter macht ihn selbst und sichert vorher, was zur Ursache führt: alle Threads
+von belacoder mit Zustand, Wartestelle im Kernel (wchan) und CPU-Zeit, die Kennzahlen, die letzten Ereignisse und den Zustand der Weichen. Das Paket enthält keine Schlüssel
+und keine Adressen (nur Plätze), liegt in /var/lib/pipbox/hang-diagnose.txt und steht in den Protokollen der Oberfläche."""
 import collections
 import os
 import re
 import time
 
-STALE_S = 15.0           # so lange darf die Statistikdatei von belacoder alt sein
-START_GRACE_S = 30.0     # nach dem Start von belacoder: so lange wird nichts bewertet (die Zweige laufen erst an)
+STALE_S = 15.0           # so lange darf die Kennzahlen-Datei von belacoder alt sein
+START_GRACE_S = 30.0     # nach dem Start von belacoder: so lange wird nichts bewertet (die Kette läuft erst an)
 DSTATE_S = 12.0          # so lange darf ein Thread von belacoder im Zustand D (Kernel, nicht unterbrechbar) bleiben
-FEED_DEAD_S = 25.0       # so lange darf ein Zweig, dessen Kamera mit Bild sendet, ohne Bilder bleiben
-SOFT_WINDOW_S = 300.0    # hängt derselbe Zweig innerhalb dieser Zeit nach dem Zurücksetzen noch einmal, wird belacoder neu gestartet
+OUT_DEAD_S = 12.0        # so lange darf der Encoder ohne Bilder bleiben (die Ausgabe steht dann; der Empfänger wirft eine Sendung ohne Daten nach 14 s hinaus)
 COOLDOWN_S = 90.0        # nach einem Eingriff mindestens so lange Ruhe
 MAX_PER_HOUR = 4         # mehr Eingriffe je Stunde macht der Wächter nicht (ein Dauerfehler wäre sonst eine Neustartschleife)
 REPORT_KEEP = 6          # so viele Pakete bleiben
 REPORT_MARK = "===== HÄNGER "
 REPORT_FILE = "hang-diagnose.txt"
-
-OUT_DEAD_S = 12.0        # Jetson: so lange darf der Encoder ohne Bilder bleiben (die Ausgabe steht dann; der Empfänger wirft eine Sendung ohne Daten nach 14 s hinaus)
-
-FPS = re.compile(r"\b(in|dmx|dec|vr)_f(\d)=([0-9.]+)/")
-FEED = re.compile(r"\bfeed_sbf(\d)=(\d)")
-
-
-def parse_live(text):
-    """Aus der ersten Zeile der Statistik von belacoder: {"in": {Platz: Bilder je Sekunde}, "dmx": …, "dec": …, "vr": …, "feed": {Platz: Zustand}}."""
-    out = {"in": {}, "dmx": {}, "dec": {}, "vr": {}, "feed": {}}
-    for m in FPS.finditer(text or ""):
-        out[m.group(1)][int(m.group(2))] = float(m.group(3))
-    for m in FEED.finditer(text or ""):
-        out["feed"][int(m.group(1))] = int(m.group(2))
-    return out
 
 
 class HangWatch:
@@ -49,99 +28,19 @@ class HangWatch:
     def __init__(self, clock=time.monotonic, wall=time.time):
         self.clock, self.wall = clock, wall
         self.started = None
-        self.dead = {}
         self.dstate_since = None
+        self.silent_since = None
         self.acted = collections.deque()          # Zeiten (monotonic) der Eingriffe
-        self.soft = {}                            # Platz -> Zeit, zu der nur sein Zweig zurückgesetzt wurde
 
     def started_now(self):
         """belacoder wurde (neu) gestartet."""
         self.started = self.clock()
-        self.soft = {}
-        self.dead = {}
         self.dstate_since = None
-
-    def check(self, stats_mtime, line, expected, d_threads=0):
-        """None oder {"kind": "stats"|"dstate"|"feed", "slot": Platz|None, "text": …}. d_threads: Zahl der Threads von belacoder im Zustand D.
-        stats_mtime: Änderungszeit der Statistikdatei (Wanduhr) oder None; line: ihre erste Zeile; expected: {Platz: True} für Kameras, die mit Bild
-        senden und deren Zweig der Regler für laufend hält (Zustand 3)."""
-        now = self.clock()
-        if self.started is None or now - self.started < START_GRACE_S:
-            return None
-        if d_threads > 0:
-            self.dstate_since = self.dstate_since if self.dstate_since is not None else now
-            if now - self.dstate_since >= DSTATE_S:
-                return {"kind": "dstate", "slot": None, "text": "%d Thread(s) von belacoder hängen seit %d s im Kernel (Zustand D)" % (d_threads, int(now - self.dstate_since))}
-        else:
-            self.dstate_since = None
-        if stats_mtime is None or self.wall() - stats_mtime > STALE_S:
-            self.dead = {}
-            age = "fehlt" if stats_mtime is None else "%d s alt" % int(self.wall() - stats_mtime)
-            return {"kind": "stats", "slot": None, "text": "Statistik von belacoder steht still (%s)" % age}
-        v = parse_live(line)
-        for slot in list(self.dead):
-            if slot not in expected:
-                del self.dead[slot]
-        for slot in expected:
-            fps, dmx = v["in"].get(slot), v["dmx"].get(slot)
-            if fps is not None and fps < 1.0 and (dmx is None or dmx < 1.0):
-                self.dead.setdefault(slot, now)
-            else:
-                self.dead.pop(slot, None)
-        for slot, since in sorted(self.dead.items()):
-            if now - since >= FEED_DEAD_S:
-                return {"kind": "feed", "slot": slot, "text": "Platz %d: Kamera sendet, aber seit %d s kommen keine Bilder im Mischer an" % (slot, int(now - since))}
-        return None
-
-    def soft_ok(self, hit):
-        """Hängt genau EIN Zweig (alle anderen liefern Bilder), wird zuerst nur dieser Zweig zurückgesetzt (`feed sbfN off`, der Regler startet ihn wieder), statt belacoder und damit
-        die Sendung für alle neu zu starten. Hängen mehrere Zweige oder derselbe noch einmal innerhalb von SOFT_WINDOW_S, bleibt es beim Neustart von belacoder."""
-        if hit.get("kind") != "feed" or hit.get("slot") is None or set(self.dead) != {hit["slot"]}:
-            return False
-        t = self.soft.get(hit["slot"])
-        return t is None or self.clock() - t > SOFT_WINDOW_S
-
-    def soft_done(self, slot):
-        self.soft[slot] = self.clock()
-        self.dead.pop(slot, None)
-
-    def allow(self):
-        """Darf jetzt eingegriffen werden (Ruhezeit, höchstens MAX_PER_HOUR je Stunde)?"""
-        now = self.clock()
-        while self.acted and now - self.acted[0] > 3600:
-            self.acted.popleft()
-        if self.acted and now - self.acted[-1] < COOLDOWN_S:
-            return False
-        return len(self.acted) < MAX_PER_HOUR
-
-    def acted_now(self):
-        self.acted.append(self.clock())
-        self.dead = {}
-        self.dstate_since = None
-
-
-class JetsonHangWatch(HangWatch):
-    """Jetson: die Fassung ohne Mischer-Zweige. Es gibt weder die Statistikzeile mit in_fN/dmx_fN noch Zweig-Zustände, geprüft wird also nur:
-      "dstate"  Threads von belacoder hängen im Kernel (Zustand D), wie oben.
-      "stats"   Die Kennzahlen-Datei von belacoder (einmal je Sekunde) steht still: die Hauptschleife des Prozesses hängt.
-      "output"  Der Encoder liefert seit OUT_DEAD_S keine Bilder mehr (Feld fps der Kennzahlen unter 1), der Prozess lebt aber: die Ausgabe steht.
-    Dasselbe Verfahren wie beim anderen Paket: Diagnosepaket sichern, dann belacoder neu starten; Ruhezeit und Höchstzahl je Stunde gelten unverändert."""
-
-    def __init__(self, clock=time.monotonic, wall=time.time):
-        super().__init__(clock, wall)
         self.silent_since = None
 
-    def started_now(self):
-        super().started_now()
-        self.silent_since = None
-
-    def acted_now(self):
-        super().acted_now()
-        self.silent_since = None
-
-    def check_jetson(self, stats_mtime, fps, d_threads=0):
+    def check(self, stats_mtime, fps, d_threads=0):
         """None oder {"kind": "dstate"|"stats"|"output", "slot": None, "text": …}. stats_mtime: Änderungszeit der Kennzahlen-Datei (Wanduhr) oder None; fps: Bilder
-        je Sekunde, die der Encoder laut Kennzahlen liefert, oder None."""
+        je Sekunde, die der Encoder laut Kennzahlen liefert, oder None; d_threads: Zahl der Threads von belacoder im Zustand D."""
         now = self.clock()
         if self.started is None or now - self.started < START_GRACE_S:
             return None
@@ -161,6 +60,20 @@ class JetsonHangWatch(HangWatch):
         else:
             self.silent_since = None
         return None
+
+    def allow(self):
+        """Darf jetzt eingegriffen werden (Ruhezeit, höchstens MAX_PER_HOUR je Stunde)?"""
+        now = self.clock()
+        while self.acted and now - self.acted[0] > 3600:
+            self.acted.popleft()
+        if self.acted and now - self.acted[-1] < COOLDOWN_S:
+            return False
+        return len(self.acted) < MAX_PER_HOUR
+
+    def acted_now(self):
+        self.acted.append(self.clock())
+        self.dstate_since = None
+        self.silent_since = None
 
 
 # ----------------------------------------------------------------------------------------------------------------------- Diagnosepaket
@@ -241,8 +154,8 @@ def thread_table(pid, proc="/proc", sleep=time.sleep, interval=1.0):
     return "\n".join(rows)
 
 
-def build_report(hit, pid, uptime_s, live_text, events, slots, proc="/proc", sleep=time.sleep, wall=time.time, slot_fmt=None):
-    """Das Paket als Text. slots: [(Platz, "Bild WxH, Ton ja/nein", Zustand des Zweigs)]. Nur Zahlen und Namen von Elementen, nie Schlüssel oder Adressen."""
+def build_report(hit, pid, uptime_s, live_text, events, slots, proc="/proc", sleep=time.sleep, wall=time.time):
+    """Das Paket als Text. slots: [(Platz, Zustand der Weiche)]. Nur Zahlen und Namen von Elementen, nie Schlüssel oder Adressen."""
     parts = [
         "%s%s UTC · %s" % (REPORT_MARK, time.strftime("%Y-%m-%d %H:%M:%S", time.gmtime(wall())), hit["text"]),
         "Art: %s | belacoder läuft seit %d s" % (hit["kind"], int(uptime_s)),
@@ -252,9 +165,9 @@ def build_report(hit, pid, uptime_s, live_text, events, slots, proc="/proc", sle
     for line in _read(f"{proc}/{pid}/status", 4000).splitlines():
         if re.match(r"^(Name|State|Threads|voluntary_ctxt_switches|nonvoluntary_ctxt_switches|VmRSS):", line):
             parts.append("  " + line)
-    parts += ["", "Threads (Messung über 1 s):", thread_table(pid, proc, sleep), "", "Threads im Zustand D (ganzes System):", blocked_tasks(proc), "", "Plätze (was nginx meldet und was der Regler glaubt):"]
-    for slot, pub, state in slots:
-        parts.append((slot_fmt or "  Platz %s: %s | Zweig-Zustand %s (1 gestoppt, 2 läuft ohne Bild, 3 Bilder kommen)") % (slot, pub, state))
+    parts += ["", "Threads (Messung über 1 s):", thread_table(pid, proc, sleep), "", "Threads im Zustand D (ganzes System):", blocked_tasks(proc), "", "Plätze (Zustand der Weichen):"]
+    for slot, state in slots:
+        parts.append("  Platz %s: %s" % (slot, state))
     parts += ["", "Statistik von belacoder (erste Zeilen):", live_text.strip()[:6000], "", "Letzte Ereignisse:"]
     parts += ["  " + e for e in events[-25:]]
     return "\n".join(parts) + "\n"

@@ -18,6 +18,16 @@ Bild-in-Bild für den **Jetson Nano 2GB** (BELABOX-Image, JetPack 4.6.4 / L4T 32
 - **Weboberfläche** (Port 8780, 14 Sprachen): Live, Vorschau, Status, Bildaufbau (Positionen, Rahmen, Beschnitt, Facecam), Verbindungen (WLAN, Bluetooth, Upload-Leitungen), SRTLA-Einstellungen, Streamer.bot-Deck, Chat und Systemwarnungen im Twitch-Chat, öffentliche Statistik für OBS und Homepage, Einstellungen sichern, Protokolle.
 - **Update über die Oberfläche** (Karte Software-Update, mit Fortschritt) und **Fernzugriff über Tailscale**.
 
+## Bekannte Grenzen
+
+- **Kein Verpixeln** (Köpfe, Kennzeichen) und **kein HDMI-Eingang**: Der Jetson Nano hat keinen. Kameras kommen über USB (Webcam oder HDMI-USB-Grabber), RTMP oder DJI-Bluetooth.
+- **Keine abgerundeten Ecken** bei den kleinen Bildern: Der Compositor der Video-Hardware (`nvcompositor`) kennt keine Rundung, die Einstellung ist in der Oberfläche ausgeblendet. Rahmen, Beschnitt, Deckkraft und alle sechs Positionen gibt es.
+- **Höchstens vier Kameras** gleichzeitig im Bild (ein Hauptbild, drei kleine).
+- **Kamerawechsel bei „Eine Kamera“:** Wählst du dort eine andere Kamera als Hauptbild, startet die Sendekette neu (ein paar Sekunden ohne Bild), weil der Hardware-Decoder den Strom nicht wechseln kann. Beim Bild-in-Bild tauschen nur die Rollen, ohne Unterbrechung.
+- **H.264 direkt aus der USB-Kamera** ist mit dem Kernel 4.9 nicht nutzbar; die Box nimmt MJPEG, dekodiert und kodiert es in der Video-Hardware neu (1080p, 30 Bilder pro Sekunde, wählbare Bitrate).
+- **Bluetooth-Sticks:** Bewährt ist der ASUS USB-BT500 (Realtek RTL8761B). Nachbauten des CSR8510 verbinden sich mit DJI-Kameras oft nicht zuverlässig. Bei Überstrom einen USB-Hub mit eigenem Netzteil nehmen.
+- **Das 4-GB-Modell ist nicht getestet.**
+
 ## Installation
 
 Voraussetzung: Jetson Nano 2GB mit BELABOX-Image, Internet und ein Terminal (SSH). **Nicht während einer Übertragung.**

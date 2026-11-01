@@ -16,7 +16,7 @@ $("cams").addEventListener("click",async e=>{
   }catch(x){ alert(x.message); }
   tick(); if(typeof djiLoad==="function") djiLoad();
 });
-const qrCan=c=>!!c.url&&c.via_src!=="hdmi"&&!(c.key||"").startsWith("dji-");   // RTMP-Kameras wie ein Handy; DJI und HDMI richtet die Box selbst ein
+const qrCan=c=>!!c.url&&c.via_src!=="hdmi"&&!(c.key||"").startsWith("dji-");   // RTMP-Kameras wie ein Handy; DJI und die USB-Kamera richtet die Box selbst ein
 var camDragging=false;
 function renderCams(list){
   if(camDragging) return;                       // beim Ziehen bleibt die Liste stehen, sonst springt die Zeile unter dem Finger weg

@@ -11,9 +11,9 @@ Die Sendekette wird dabei nicht angefasst (kein Abzweig in der Pipeline, kein Ei
 Mischer abbrechen, hier wird nur mitgelesen. Ohne Zuschauer läuft nichts. Eine Vorschau endet, wenn der Browser die Verbindung schließt, nach
 MAX_SECONDS oder wenn der Sender stoppt.
 
-Gemessen auf der Rockchip-Box (Orange Pi 5 Plus, 1080p30 HEVC, 640x360, 30 Bilder/s): H.264 rund 1,7 Mbit/s, Motion-JPEG 3 bis 7 Mbit/s; die Sendung bleibt unberührt.
+Die Vorschau ist klein (640x360, 30 Bilder/s): H.264 braucht rund 1,7 Mbit/s, Motion-JPEG 3 bis 7 Mbit/s; die Sendung bleibt unberührt.
 
-Rechte: Der Webserver läuft als Benutzer pipbox und darf weder rohe Pakete lesen noch den Hardware-Dekoder benutzen (/dev/mpp_service gehört root). Die Arbeit macht darum ein
+Rechte: Der Webserver läuft als Benutzer pipbox und darf weder rohe Pakete lesen noch den Hardware-Dekoder benutzen (er gehört root). Die Arbeit macht darum ein
 eigener kleiner Dienst (pipbox-preview.service, Aufruf: pipbox_preview.py --serve) nur mit dem Recht CAP_NET_RAW. Er wird von systemd erst gestartet, wenn jemand die Vorschau
 öffnet (pipbox-preview.socket), und beendet sich nach IDLE_EXIT Sekunden ohne Zuschauer. Der Webserver spricht über einen Unix-Socket (Gruppe pipbox, Modus 0660) mit ihm:
 eine JSON-Zeile hin, eine JSON-Zeile zurück, danach (nur bei "stream") die Motion-JPEG-Daten, bis eine Seite schließt."""

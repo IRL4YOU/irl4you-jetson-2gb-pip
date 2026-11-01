@@ -21,7 +21,7 @@ from compat36 import ThreadingHTTPServer  # noqa: F401  (Python 3.6)
 
 import controller_keys            # Tasten gekoppelter Bluetooth-Controller und ihre Funktionen
 import dji                         # Namen von USB-Sticks (WLAN, Bluetooth) aus /sys, liegt neben dieser Datei
-import hdmi_daemon                 # Prüfung der HDMI-Einstellungen (dieselbe wie im HDMI-Dienst), liegt neben dieser Datei
+import hdmi_daemon                 # Prüfung der Einstellungen der USB-Kamera (dieselbe wie im Kameradienst), liegt neben dieser Datei
 from tw.emotes import (ThirdPartyEmotes)  # noqa: E402,F401
 from tw.events import (TwitchEvents, WebSocketLite)  # noqa: E402,F401
 from tw.irc import (ChatPaths, TwitchChat, _IrcLines, _ascii_digits)  # noqa: E402,F401

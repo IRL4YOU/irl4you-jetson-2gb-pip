@@ -45,7 +45,6 @@ LISTEN_HOST, LISTEN_PORT = "127.0.0.1", 9101
 RTMP_PORT = 1935
 RTMP_APP = "publish"
 STAT_URL = "http://127.0.0.1:1936/"          # nginx-rtmp-Statistik
-ONBOARD_USB_ID = "13d3:3572"                 # eingebautes Realtek-Modul der ROCK 5B+ (empfängt dort nichts): Stick zuerst
 
 log = logging.getLogger("pipbox-dji")
 
@@ -408,7 +407,7 @@ def preferred_adapter():
         return None
     if not names:
         return None
-    names.sort(key=lambda n: (dji.usb_id_for_hci(n) == ONBOARD_USB_ID, int(n[3:])))
+    names.sort(key=lambda n: int(n[3:]))
     return names[0]
 
 
@@ -465,7 +464,7 @@ def friendly_error(e):
     return None
 
 
-STATUS_ONLY_KEY = "hdmi"     # Schlüssel des HDMI-Eingangs der Box: Der Akkustand erscheint bei der HDMI-Kamera (Status)
+STATUS_ONLY_KEY = "hdmi"     # Schlüssel der USB-Kamera der Box: Der Akkustand erscheint bei der USB-Kamera (Status)
 
 
 def camera_key(addr, taken=()):
@@ -1357,7 +1356,7 @@ class Daemon:
                                "oder einen USB-Bluetooth-Stick verwenden.")
 
     def _apply_status_only(self, cam):
-        """Der Schlüssel folgt dem Modus: Nur-Akku-Kameras tragen den Schlüssel des HDMI-Eingangs, sonst einen eigenen dji-Schlüssel."""
+        """Der Schlüssel folgt dem Modus: Nur-Akku-Kameras tragen den Schlüssel der USB-Kamera, sonst einen eigenen dji-Schlüssel."""
         taken = {c.cfg.get("rtmp_key") for c in self.cameras.values() if c is not cam}
         if cam.cfg.get("status_only"):
             cam.cfg["rtmp_key"] = STATUS_ONLY_KEY

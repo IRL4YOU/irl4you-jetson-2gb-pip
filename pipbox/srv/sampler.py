@@ -352,7 +352,7 @@ class UsbWatch:
 
 
 class OutageWatch:
-    """Merkt sich, wenn eine Kamera ausfällt (sie hat gesendet und sendet nicht mehr) oder der HDMI-Eingang kein Signal hat, und liefert kurze Meldungen für die
+    """Merkt sich, wenn eine Kamera ausfällt (sie hat gesendet und sendet nicht mehr) oder die USB-Kamera nicht zu finden ist, und liefert kurze Meldungen für die
     Oberfläche: {"kind": "cam"|"hdmi", ...}. Eine Kamera gilt als ausgefallen, wenn sie seit dem Start des Dienstes einmal gesendet hat und jetzt länger als DOWN
     Sekunden nicht mehr; die Meldung verschwindet, sobald sie wieder sendet (oder nach MAX Stunden). Ohne Zustand auf der Platte: nach einem Neustart des Dienstes
     beginnt die Beobachtung neu."""
@@ -368,7 +368,7 @@ class OutageWatch:
         self.closed = set()            # vom Nutzer mit dem × geschlossene Meldungen: (Art, Zeit des Ausfalls); kommt die Kamera wieder, gilt ein neuer Ausfall wieder
 
     def dismiss(self, kind, t):
-        """Eine Meldung "Kamera ausgefallen" oder "HDMI: kein Signal" schließen (zum Beispiel nach einem bewussten Abziehen). Gibt zurück, ob die Art bekannt ist."""
+        """Eine Meldung "Kamera ausgefallen" oder "USB-Kamera: nicht gefunden" schließen (zum Beispiel nach einem bewussten Abziehen). Gibt zurück, ob die Art bekannt ist."""
         if kind not in ("cam", "hdmi") or isinstance(t, bool) or not isinstance(t, (int, float)):
             raise ValueError("Ungültige Anfrage")
         with self.lock:
@@ -404,9 +404,9 @@ class OutageWatch:
                 if k not in keys:
                     self.seen.pop(k, None)
                     self.since.pop(k, None)
-            # HDMI-Eingang: Dienst meldet einen Fehler oder (eingeschaltet) kein Signal
+            # USB-Kamera (Dienst pipbox-hdmi): der Dienst meldet einen Fehler oder (eingeschaltet) die Kamera ist nicht zu finden
             bad = False
-            if isinstance(hdmi, dict) and hdmi.get("service") is not False and hdmi.get("available") is not False:
+            if isinstance(hdmi, dict) and hdmi.get("service") is not False:
                 en = bool((hdmi.get("settings") or {}).get("enabled"))
                 sig = hdmi.get("signal") or {}
                 bad = hdmi.get("state") == "error" or (en and hdmi.get("signal_known") and sig.get("plugged") is False)
@@ -414,7 +414,7 @@ class OutageWatch:
                 if self.hdmi_since is None:
                     self.hdmi_since = now
                 if self.DOWN <= now - self.hdmi_since <= self.MAX and ("hdmi", int(self.hdmi_since)) not in self.closed:
-                    out.append({"level": "warn", "kind": "hdmi", "src": (hdmi.get("settings") or {}).get("source", "hdmi"), "t": int(self.hdmi_since)})
+                    out.append({"level": "warn", "kind": "hdmi", "src": "usb", "t": int(self.hdmi_since)})
             else:
                 self.hdmi_since = None
         return out
@@ -530,7 +530,7 @@ class Sampler:
         try:
             for d in sorted(os.listdir("/sys/class/hwmon")):
                 base = f"/sys/class/hwmon/{d}"
-                if "pwmfan" in (read(base + "/name", "") or "").strip():          # "pwmfan" (Rockchip) oder "tegra_pwmfan" (Jetson)
+                if "pwmfan" in (read(base + "/name", "") or "").strip():          # "tegra_pwmfan" (Jetson)
                     for fn in ("pwm1", "cur_pwm"):
                         v = read(base + "/" + fn)
                         if v is not None and 0 <= int(v) <= 255:
@@ -572,7 +572,7 @@ class Sampler:
         """Jetson: Die Lüfterzeile erscheint nur, wenn die Box den Lüfter wirklich ansteuert. Der Jetson Nano meldet den PWM-Ausgang auch dann, wenn gar kein Lüfter
         am Anschluss steckt oder ein externer Lüfter den Kühlkörper bläst; es gibt weder eine Drehzahl noch eine Steckererkennung. Bleibt der Ausgang auf 0 (die
         automatische Regelung des Kernels schaltet erst bei höheren Temperaturen ein), ist die Zeile unnötig und verwirrt. Sobald er einmal größer als 0 war, bleibt
-        sie bis zum Neustart des Dienstes sichtbar. Rockchip: unverändert."""
+        sie bis zum Neustart des Dienstes sichtbar."""
         if pwm is None or not os.path.exists("/etc/nv_tegra_release"):
             return pwm
         mode = self.fan_mode()
