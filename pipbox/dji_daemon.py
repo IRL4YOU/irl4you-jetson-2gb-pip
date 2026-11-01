@@ -400,7 +400,7 @@ def rtmp_video_kbps(key, stat_url=None):
 
 
 def preferred_adapter():
-    """hciN des Adapters für Suche und Verbindung: ein Stick zuerst, das eingebaute Modul zuletzt. None = BlueZ-Standard."""
+    """hciN des Adapters für Suche und Verbindung: der erste Adapter (der Bluetooth-Stick). None = BlueZ-Standard."""
     try:
         names = [n for n in os.listdir(dji.SYSFS_BT) if re.fullmatch(r"hci\d+", n)]
     except OSError:
@@ -1352,8 +1352,8 @@ class Daemon:
         results.sort(key=lambda r: -(r["rssi"] or -999))
         self.scan_results = results
         if not found:
-            self.scan_error = ("Es wurden gar keine Bluetooth-Geräte empfangen. Antennen am Funkmodul prüfen "
-                               "oder einen USB-Bluetooth-Stick verwenden.")
+            self.scan_error = ("Es wurden gar keine Bluetooth-Geräte empfangen. Den USB-Bluetooth-Stick prüfen "
+                               "(fest eingesteckt, am besten an einem USB-Hub mit eigenem Netzteil) und die Kamera näher heranhalten.")
 
     def _apply_status_only(self, cam):
         """Der Schlüssel folgt dem Modus: Nur-Akku-Kameras tragen den Schlüssel der USB-Kamera, sonst einen eigenen dji-Schlüssel."""

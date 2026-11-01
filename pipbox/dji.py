@@ -171,7 +171,7 @@ def usb_id_from_modalias(modalias):
 
 def adapter_problems(adapter_ids, usb_devs):
     """Sticks, die steckten, aus denen der Kernel aber keinen Bluetooth-Adapter gemacht hat: Liste von {"id","name","hint"}.
-    adapter_ids: USB-Kennungen der Adapter, die BlueZ kennt. Der eingebaute Adapter anderer Boxen hat keine USB-Kennung und stört nicht."""
+    adapter_ids: USB-Kennungen der Adapter, die BlueZ kennt. Ein Adapter ohne USB-Kennung (nicht per USB angeschlossen) stört nicht."""
     have = set(adapter_ids)
     out = []
     for d in usb_devs:
