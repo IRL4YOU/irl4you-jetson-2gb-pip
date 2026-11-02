@@ -1,8 +1,10 @@
 // USB-Kameras
 // USB-Kamera (Karte "Kameras", Abschnitt "USB-Kameras"): der Kameradienst der Box (Dienst und Schlüssel heißen aus der Anfangszeit noch "hdmi") speist die USB-Kamera als Kamera ein
 let hdmiData=null, hdmiDirty=false, hdmiBusy=false;
+function hdmiIsTest(d){ return !!(d&&d.settings&&d.settings.source==="test"); }
 function hdmiSignalText(d){
   if(!d.service) return d.message||"";
+  if(hdmiIsTest(d)) return "Bewegtes Testbild mit Zeitanzeige und Stereo-Testton (links tief, rechts hoch)";                  // ohne Kamera: die Box erzeugt Bild und Ton selbst
   const u=d.usb||{};
   if(!u.present) return u.power&&d.message?d.message:"Keine USB-Kamera angeschlossen";                    // bei Strommangel steht der Hinweis des Dienstes da
   return [u.name,u.format].filter(Boolean).join(" · ")+(u.format&&!u.audio&&(d.settings||{}).audio!=="none"?" · kein Ton der Kamera gefunden":"");
@@ -13,15 +15,16 @@ function hdmiStateText(d){
 }
 function hdmiButtons(){
   const usable=!!(hdmiData&&hdmiData.service)&&!hdmiBusy;
-  ["hdmi_on","hdmi_br","hdmi_audio","hdmi_fmt","hdmi_save"].forEach(id=>{ $(id).disabled=!usable; });
+  ["hdmi_on","hdmi_src","hdmi_br","hdmi_audio","hdmi_fmt","hdmi_save"].forEach(id=>{ $(id).disabled=!usable; });
 }
 function hdmiFill(d){
   hdmiData=d; const st=hdmiStateText(d), e=$("hdmi_state");
   e.textContent=st; e.style.color=d.state==="streaming"?"var(--ok)":(d.state==="error"||!d.service?"var(--crit)":"");
   $("hdmi_signal").textContent=hdmiSignalText(d);
-  const s=d.settings||{};
-  $("hdmi_vsum").textContent=`${(s.bitrate/1000).toFixed(1).replace(/\.0$/,"")} Mbit/s · ${s.audio==="none"?"ohne Ton":"Ton der Kamera"}`;
-  if(!hdmiDirty){ $("hdmi_on").checked=!!s.enabled; $("hdmi_br").value=String(s.bitrate/1000); $("hdmi_audio").value=s.audio; $("hdmi_fmt").value=s.usb_format||"auto"; }
+  const s=d.settings||{}, test=hdmiIsTest(d), tone=test?"Testton":"Ton der Kamera";
+  $("hdmi_name").textContent=test?"Testbild":"USB-Kamera"; $("hdmi_fmtrow").style.display=test?"none":""; $("hdmi_audio").options[0].textContent=tone;
+  $("hdmi_vsum").textContent=`${(s.bitrate/1000).toFixed(1).replace(/\.0$/,"")} Mbit/s · ${s.audio==="none"?"ohne Ton":tone}`;
+  if(!hdmiDirty){ $("hdmi_on").checked=!!s.enabled; $("hdmi_src").value=s.source||"usb"; $("hdmi_br").value=String(s.bitrate/1000); $("hdmi_audio").value=s.audio; $("hdmi_fmt").value=s.usb_format||"auto"; }
   const err=$("hdmi_err"); if(d.state==="error"&&d.message){ err.textContent=d.message; err.style.color=""; } else if(err.dataset.keep!=="1") err.textContent="";
   hdmiButtons();
 }
@@ -36,7 +39,7 @@ async function hdmiPost(body,done){
   hdmiBusy=false; hdmiButtons();
 }
 $("hdmi_on").addEventListener("change",()=>hdmiPost({enabled:$("hdmi_on").checked}));
-$("hdmi_save").addEventListener("click",()=>hdmiPost({bitrate:Math.round(parseFloat($("hdmi_br").value)*1000),audio:$("hdmi_audio").value,usb_format:$("hdmi_fmt").value},"Gespeichert."));
+$("hdmi_save").addEventListener("click",()=>hdmiPost({source:$("hdmi_src").value,bitrate:Math.round(parseFloat($("hdmi_br").value)*1000),audio:$("hdmi_audio").value,usb_format:$("hdmi_fmt").value},"Gespeichert."));
 ["input","change"].forEach(ev=>$("hdmi_vsec").addEventListener(ev,()=>{ hdmiDirty=true; }));
 $("hdmi_cam").addEventListener("toggle",()=>{ if($("hdmi_cam").open) hdmiLoad(); });
 hdmiLoad(); setInterval(()=>{ if(due("hdmi","c_cams",20000)) hdmiLoad(); },3000);
