@@ -2428,7 +2428,17 @@
   "Testbild-Kamera": "กล้องภาพทดสอบ",
   "Testton": "เสียงทดสอบสเตอริโอ",
   "Bewegtes Testbild mit Zeitanzeige und Stereo-Testton (links tief, rechts hoch)": "ภาพทดสอบเคลื่อนไหวพร้อมนาฬิกาและเสียงทดสอบสเตอริโอ (ซ้ายเสียงต่ำ ขวาเสียงสูง)",
-  "Quelle: USB-Kamera oder Testbild": "แหล่งที่มา: กล้อง USB หรือภาพทดสอบ"
+  "Quelle: USB-Kamera oder Testbild": "แหล่งที่มา: กล้อง USB หรือภาพทดสอบ",
+  "klein": "เล็ก",
+  "normal": "ปกติ",
+  "groß": "ใหญ่",
+  "· gerade nicht verbunden": "· ขณะนี้ไม่ได้เชื่อมต่อ",
+  "Lüfter": "พัดลม",
+  "Der Jetson Nano kann nicht erkennen, ob ein Lüfter am Lüfteranschluss steckt, und liefert keine Drehzahl. Die Zeile „Lüfter: … % (Ansteuerung)“ in der Karte „System“ zeigt nur, womit die Box den Anschluss ansteuert. Wird der Lüfter extern versorgt (zum Beispiel über USB), wähle „Nein“: Dann entfällt die Zeile.": "Jetson Nano ไม่สามารถตรวจสอบได้ว่ามีพัดลมต่ออยู่กับขั้วต่อพัดลมหรือไม่ และไม่ให้ค่าความเร็วรอบ บรรทัด “พัดลม: … % (การควบคุม)” ในการ์ด “ระบบ” แสดงเพียงว่ากล่องควบคุมขั้วต่อด้วยอะไร หากพัดลมได้รับไฟจากภายนอก (เช่นผ่าน USB) ให้เลือก “ไม่” บรรทัดนี้จะหายไป",
+  "Lüfter am Anschluss der Box": "พัดลมที่ขั้วต่อของกล่อง",
+  "Automatisch (Zeile nur, wenn der Anschluss angesteuert wird)": "อัตโนมัติ (แสดงบรรทัดเมื่อมีการควบคุมขั้วต่อเท่านั้น)",
+  "Ja (Zeile immer zeigen)": "ใช่ (แสดงบรรทัดเสมอ)",
+  "Nein, extern versorgt (Zeile ausblenden)": "ไม่ ใช้ไฟจากภายนอก (ซ่อนบรรทัด)"
  },
  "patterns": []
 }
