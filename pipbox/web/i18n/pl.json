@@ -2428,7 +2428,17 @@
   "Testbild-Kamera": "Kamera z obrazem testowym",
   "Testton": "Stereofoniczny dźwięk testowy",
   "Bewegtes Testbild mit Zeitanzeige und Stereo-Testton (links tief, rechts hoch)": "Ruchomy obraz testowy z zegarem i stereofonicznym dźwiękiem testowym (po lewej niski, po prawej wysoki)",
-  "Quelle: USB-Kamera oder Testbild": "Źródło: kamera USB lub obraz testowy"
+  "Quelle: USB-Kamera oder Testbild": "Źródło: kamera USB lub obraz testowy",
+  "klein": "mała",
+  "normal": "normalna",
+  "groß": "duża",
+  "· gerade nicht verbunden": "· obecnie niepołączone",
+  "Lüfter": "Wentylator",
+  "Der Jetson Nano kann nicht erkennen, ob ein Lüfter am Lüfteranschluss steckt, und liefert keine Drehzahl. Die Zeile „Lüfter: … % (Ansteuerung)“ in der Karte „System“ zeigt nur, womit die Box den Anschluss ansteuert. Wird der Lüfter extern versorgt (zum Beispiel über USB), wähle „Nein“: Dann entfällt die Zeile.": "Jetson Nano nie potrafi rozpoznać, czy do złącza wentylatora podłączono wentylator, i nie podaje prędkości obrotowej. Wiersz „Wentylator: … % (sterowanie)” na karcie „System” pokazuje tylko, czym box steruje złączem. Jeśli wentylator jest zasilany zewnętrznie (na przykład przez USB), wybierz „Nie”: wiersz zniknie.",
+  "Lüfter am Anschluss der Box": "Wentylator na złączu boxa",
+  "Automatisch (Zeile nur, wenn der Anschluss angesteuert wird)": "Automatycznie (wiersz tylko, gdy złącze jest sterowane)",
+  "Ja (Zeile immer zeigen)": "Tak (zawsze pokazuj wiersz)",
+  "Nein, extern versorgt (Zeile ausblenden)": "Nie, zasilany zewnętrznie (ukryj wiersz)"
  },
  "patterns": []
 }
