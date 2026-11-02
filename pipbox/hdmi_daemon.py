@@ -34,7 +34,10 @@ RTMP_PORT = 1935
 RTMP_APP = "publish"
 STAT_URL = "http://127.0.0.1:1936/"                      # nginx-rtmp-Statistik
 KEY_RE = re.compile(r"^[a-z0-9][a-z0-9_-]{0,31}$")       # wie in der Weboberfläche
-DEFAULTS = {"enabled": False, "key": "hdmi", "bitrate": 8000, "fps": 30, "audio": "hdmi", "usb_format": "auto"}      # audio "hdmi" = Ton der Kamera (der Wert bleibt, weil er in gespeicherten Einstellungen steht)
+DEFAULTS = {"enabled": False, "key": "hdmi", "bitrate": 8000, "fps": 30, "audio": "hdmi", "source": "usb", "usb_format": "auto"}      # audio "hdmi" = Ton der Kamera (der Wert bleibt, weil er in gespeicherten Einstellungen steht)
+SOURCE_CHOICES = ("usb", "test")                         # Quelle der Einspeisung: die USB-Kamera oder das eingebaute Testbild (läuft ohne Kamera, prüft die ganze Kette bis zum Server)
+TEST_SIZE = (1280, 720)
+TEST_TONES = ((440, "0x1"), (660, "0x2"))                # Testton: links 440 Hz, rechts 660 Hz (Kanalmaske des Interleavers)
 USB_FORMAT_CHOICES = ("auto", "mjpeg", "h264")           # Bildformat der USB-Webcam: Automatisch (MJPEG zuerst), MJPEG oder H.264 zuerst; das andere bleibt als Rückfall
 SYS_V4L = "/sys/class/video4linux"
 PROC_ASOUND = "/proc/asound"
@@ -102,6 +105,10 @@ def clean_settings(d, current=None):
         if d["audio"] not in AUDIO_CHOICES:
             raise ValueError("Ton: Ton der Kamera oder ohne Ton")
         out["audio"] = d["audio"]
+    if "source" in d:
+        if d["source"] not in SOURCE_CHOICES:
+            raise ValueError("Quelle: USB-Kamera oder Testbild")
+        out["source"] = d["source"]
     if "usb_format" in d:
         if d["usb_format"] not in USB_FORMAT_CHOICES:
             raise ValueError("Bildformat: Automatisch, MJPEG oder H.264")
@@ -254,6 +261,30 @@ def usb_feeder_argv(cfg, device, cand, audio_device=None, rtmp_port=RTMP_PORT, r
     else:
         a = ["audiotestsrc", "wave=silence", "is-live=true", "!", "audio/x-raw,rate=48000,channels=2", "!",
              "voaacenc", "bitrate=128000", "!", "aacparse", "!", "queue", "!", "mux."]
+    sink = ["flvmux", "name=mux", "streamable=true", "latency=%d" % MUX_LATENCY_NS, "!", "rtmpsink", "location=rtmp://127.0.0.1:%d/%s/%s" % (rtmp_port, rtmp_app, cfg["key"])]
+    return ["gst-launch-1.0", "-q"] + v + a + sink
+
+
+def test_feeder_argv(cfg, rtmp_port=RTMP_PORT, rtmp_app=RTMP_APP):
+    """Befehl der Einspeisung des Testbilds als Liste (keine Shell): bewegter Ball mit Text und Laufzeit (Systemspeicher), dann der Hardware-Kodierer wie bei der USB-Kamera. Ton: Stereo-Testton
+    (links 440 Hz, rechts 660 Hz, zwei Mono-Quellen über interleave), bei "ohne Ton" Stille. Gleiche Form wie in der BOX, nur der Kodierer ist hier nvv4l2h264enc."""
+    cfg = clean_settings(cfg)
+    if not (isinstance(rtmp_app, str) and re.match(r"^[a-z0-9_]{1,20}$", rtmp_app)) or not isinstance(rtmp_port, int):
+        raise ValueError("RTMP-Ziel ungültig")
+    w, h = TEST_SIZE
+    fps = cfg["fps"]
+    v = ["videotestsrc", "is-live=true", "pattern=ball", "!", "video/x-raw,format=NV12,width=%d,height=%d,framerate=%d/1" % (w, h, fps), "!",
+         "textoverlay", "text=IRL4YOU BOX Testbild", "valignment=top", "halignment=left", "font-desc=Monospace 28", "!",
+         "timeoverlay", "valignment=bottom", "halignment=left", "font-desc=Monospace 28", "!"] + _nv_encode(cfg, fps) + ["!", "queue", "!", "mux."]
+    if cfg["audio"] == "hdmi":
+        a = []
+        for pad, (freq, mask) in enumerate(TEST_TONES):
+            a += ["audiotestsrc", "is-live=true", "wave=sine", "freq=%d" % freq, "volume=0.1", "!", "audio/x-raw,rate=48000,channels=1,channel-mask=(bitmask)%s" % mask, "!",
+                  "queue", "!", "il.sink_%d" % pad]
+        a += ["interleave", "name=il", "!", "audio/x-raw,rate=48000,channels=2", "!"]
+    else:
+        a = ["audiotestsrc", "is-live=true", "wave=silence", "!", "audio/x-raw,rate=48000,channels=2", "!"]
+    a += ["voaacenc", "bitrate=128000", "!", "aacparse", "!", "queue", "!", "mux."]
     sink = ["flvmux", "name=mux", "streamable=true", "latency=%d" % MUX_LATENCY_NS, "!", "rtmpsink", "location=rtmp://127.0.0.1:%d/%s/%s" % (rtmp_port, rtmp_app, cfg["key"])]
     return ["gst-launch-1.0", "-q"] + v + a + sink
 
@@ -422,7 +453,13 @@ class Daemon:
             log.warning("Das Bildformat %s läuft nicht stabil, die Box nimmt das nächste", usb_caps(self.usb_cur[1])[0])
 
     async def read_signal(self):
-        """Die erste USB-Kamera und, wenn ihr Bildformat schon feststeht, dessen Größe und Bildrate als "Signal"."""
+        """Die erste USB-Kamera und, wenn ihr Bildformat schon feststeht, dessen Größe und Bildrate als "Signal". Beim Testbild: immer ein Signal (feste Größe, Bildrate aus den Einstellungen), ohne Kamera."""
+        if self.cfg.get("source") == "test":
+            self.signal_known = True
+            sig = no_signal()
+            sig.update(plugged=True, locked=True, width=TEST_SIZE[0], height=TEST_SIZE[1], fps=float(self.cfg["fps"]), device="test")
+            self.usb = dict(self.usb, power=False, present=False, name="", node="", format="", audio="")
+            return sig
         cam = self._usb_pick()
         self.signal_known = True
         sig = no_signal()
@@ -464,11 +501,15 @@ class Daemon:
         return usb_feeder_argv(self.cfg, cam["node"], cand, audio, self.rtmp_port, self.rtmp_app), cand
 
     async def _start(self, sig):
-        argv, cand = await self._usb_argv()
-        if argv is None:
-            return
-        self.usb_cur = (self.usb["node"], cand)
-        sig = dict(sig, width=cand[1], height=cand[2], fps=float(cand[3]), device=self.usb["node"])     # das gewählte Format ist ab jetzt "das Signal" (sonst Neustart beim nächsten Durchgang)
+        test = self.cfg.get("source") == "test"
+        if test:
+            argv, self.usb_cur = test_feeder_argv(self.cfg, self.rtmp_port, self.rtmp_app), None
+        else:
+            argv, cand = await self._usb_argv()
+            if argv is None:
+                return
+            self.usb_cur = (self.usb["node"], cand)
+            sig = dict(sig, width=cand[1], height=cand[2], fps=float(cand[3]), device=self.usb["node"])     # das gewählte Format ist ab jetzt "das Signal" (sonst Neustart beim nächsten Durchgang)
         self.tail.clear()
         try:
             self.proc = await self._spawn(argv)
@@ -482,7 +523,7 @@ class Daemon:
         self.state, self.message = "starting", ""
         if getattr(self.proc, "stderr", None) is not None:
             self._reader = asyncio.ensure_future(self._drain(self.proc))
-        log.info("Einspeisung gestartet (USB-Kamera, %dx%d@%s, %d kbit/s, Schlüssel %s)", sig.get("width") or 0, sig.get("height") or 0,
+        log.info("Einspeisung gestartet (%s, %dx%d@%s, %d kbit/s, Schlüssel %s)", "Testbild" if test else "USB-Kamera", sig.get("width") or 0, sig.get("height") or 0,
                  sig.get("fps") or "?", self.cfg["bitrate"], self.cfg["key"])
 
     async def _stop(self):
