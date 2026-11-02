@@ -2428,7 +2428,17 @@
   "Testbild-Kamera": "Test görüntülü kamera",
   "Testton": "Stereo test sesi",
   "Bewegtes Testbild mit Zeitanzeige und Stereo-Testton (links tief, rechts hoch)": "Saatli hareketli test görüntüsü ve stereo test sesi (solda alçak, sağda yüksek)",
-  "Quelle: USB-Kamera oder Testbild": "Kaynak: USB kamera veya test görüntüsü"
+  "Quelle: USB-Kamera oder Testbild": "Kaynak: USB kamera veya test görüntüsü",
+  "klein": "küçük",
+  "normal": "normal",
+  "groß": "büyük",
+  "· gerade nicht verbunden": "· şu anda bağlı değil",
+  "Lüfter": "Fan",
+  "Der Jetson Nano kann nicht erkennen, ob ein Lüfter am Lüfteranschluss steckt, und liefert keine Drehzahl. Die Zeile „Lüfter: … % (Ansteuerung)“ in der Karte „System“ zeigt nur, womit die Box den Anschluss ansteuert. Wird der Lüfter extern versorgt (zum Beispiel über USB), wähle „Nein“: Dann entfällt die Zeile.": "Jetson Nano, fan konektörüne bir fan takılı olup olmadığını algılayamaz ve devir bilgisi vermez. “Sistem” kartındaki “Fan: … % (kontrol)” satırı yalnızca kutunun konektörü neyle sürdüğünü gösterir. Fan harici olarak (örneğin USB üzerinden) besleniyorsa “Hayır”ı seçin: satır kaybolur.",
+  "Lüfter am Anschluss der Box": "Kutunun konektöründeki fan",
+  "Automatisch (Zeile nur, wenn der Anschluss angesteuert wird)": "Otomatik (satır yalnızca konektör sürülürken)",
+  "Ja (Zeile immer zeigen)": "Evet (satırı her zaman göster)",
+  "Nein, extern versorgt (Zeile ausblenden)": "Hayır, harici beslemeli (satırı gizle)"
  },
  "patterns": []
 }
