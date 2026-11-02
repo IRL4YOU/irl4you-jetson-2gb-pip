@@ -2428,7 +2428,17 @@
   "Testbild-Kamera": "テスト映像カメラ",
   "Testton": "ステレオテスト音",
   "Bewegtes Testbild mit Zeitanzeige und Stereo-Testton (links tief, rechts hoch)": "時計付きの動くテスト映像とステレオテスト音(左が低音、右が高音)",
-  "Quelle: USB-Kamera oder Testbild": "ソース: USBカメラまたはテスト映像"
+  "Quelle: USB-Kamera oder Testbild": "ソース: USBカメラまたはテスト映像",
+  "klein": "小",
+  "normal": "標準",
+  "groß": "大",
+  "· gerade nicht verbunden": "· 現在未接続",
+  "Lüfter": "ファン",
+  "Der Jetson Nano kann nicht erkennen, ob ein Lüfter am Lüfteranschluss steckt, und liefert keine Drehzahl. Die Zeile „Lüfter: … % (Ansteuerung)“ in der Karte „System“ zeigt nur, womit die Box den Anschluss ansteuert. Wird der Lüfter extern versorgt (zum Beispiel über USB), wähle „Nein“: Dann entfällt die Zeile.": "Jetson Nano は、ファンコネクタにファンが接続されているかを検出できず、回転数も取得できません。「システム」カードの「ファン: … %(制御)」の行は、ボックスがコネクタをどう制御しているかだけを示します。ファンを外部電源(たとえば USB)で動かす場合は「いいえ」を選んでください。この行は表示されなくなります。",
+  "Lüfter am Anschluss der Box": "ボックスのコネクタのファン",
+  "Automatisch (Zeile nur, wenn der Anschluss angesteuert wird)": "自動(コネクタを制御しているときだけ表示)",
+  "Ja (Zeile immer zeigen)": "はい(常に行を表示)",
+  "Nein, extern versorgt (Zeile ausblenden)": "いいえ、外部電源(行を非表示)"
  },
  "patterns": []
 }
