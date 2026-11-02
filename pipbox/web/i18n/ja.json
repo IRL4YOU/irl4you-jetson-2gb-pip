@@ -2422,7 +2422,13 @@
   "Systemwarnungen eingespielt": "システム警告を反映しました",
   "Streamerbot Deck eingespielt": "Streamerbot Deck を反映しました",
   "Optionen eingespielt": "オプションを反映しました",
-  "Design und Reihenfolge der Hauptmenüs": "デザインとメインメニューの順序"
+  "Design und Reihenfolge der Hauptmenüs": "デザインとメインメニューの順序",
+  "Testbild": "テスト映像",
+  "Testbild 2": "テスト映像 2",
+  "Testbild-Kamera": "テスト映像カメラ",
+  "Testton": "ステレオテスト音",
+  "Bewegtes Testbild mit Zeitanzeige und Stereo-Testton (links tief, rechts hoch)": "時計付きの動くテスト映像とステレオテスト音(左が低音、右が高音)",
+  "Quelle: USB-Kamera oder Testbild": "ソース: USBカメラまたはテスト映像"
  },
  "patterns": []
 }
