@@ -2434,7 +2434,17 @@
   "Testbild-Kamera": "Test picture camera",
   "Testton": "Stereo test tone",
   "Bewegtes Testbild mit Zeitanzeige und Stereo-Testton (links tief, rechts hoch)": "Moving test picture with clock and stereo test tone (low on the left, high on the right)",
-  "Quelle: USB-Kamera oder Testbild": "Source: USB camera or test picture"
+  "Quelle: USB-Kamera oder Testbild": "Source: USB camera or test picture",
+  "klein": "small",
+  "normal": "normal",
+  "groß": "large",
+  "· gerade nicht verbunden": "· currently not connected",
+  "Lüfter": "Fan",
+  "Der Jetson Nano kann nicht erkennen, ob ein Lüfter am Lüfteranschluss steckt, und liefert keine Drehzahl. Die Zeile „Lüfter: … % (Ansteuerung)“ in der Karte „System“ zeigt nur, womit die Box den Anschluss ansteuert. Wird der Lüfter extern versorgt (zum Beispiel über USB), wähle „Nein“: Dann entfällt die Zeile.": "The Jetson Nano cannot tell whether a fan is plugged into the fan connector and reports no speed. The line “Fan: … % (control)” in the “System” card only shows what the box drives the connector with. If the fan is powered externally (for example via USB), choose “No”: the line then disappears.",
+  "Lüfter am Anschluss der Box": "Fan on the box connector",
+  "Automatisch (Zeile nur, wenn der Anschluss angesteuert wird)": "Automatic (line only when the connector is driven)",
+  "Ja (Zeile immer zeigen)": "Yes (always show the line)",
+  "Nein, extern versorgt (Zeile ausblenden)": "No, powered externally (hide the line)"
  },
  "patterns": []
 }
