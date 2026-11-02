@@ -1,5 +1,8 @@
 # Änderungen
 
+## 1.0.9
+- Sprachdateien aufgeräumt: Nicht mehr benötigte Einträge entfernt, alle 13 Sprachen haben jetzt dieselben Einträge.
+
 ## 1.0.8
 - Fehlende Übersetzungen ergänzt (Einstellung „Lüfter“, Schriftgröße, Verbindungsanzeige) in allen 13 Sprachen.
 
