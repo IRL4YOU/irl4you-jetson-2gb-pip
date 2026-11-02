@@ -27,7 +27,7 @@ case "${1:-install}" in
     done
     systemctl daemon-reload >/dev/null 2>&1 || true
     rm -rf "$APP" "$DEST"
-    rm -f /usr/local/bin/srtla_send /usr/local/bin/srtla_send.sig
+    rm -f /usr/local/bin/srtla_send /usr/local/bin/srtla_send.sig /usr/local/bin/apt-get
     echo "Jetson 2GB PIP entfernt. Zustand in $STATE, Benutzer pipbox und nachinstallierte Pakete bleiben."
     exit 0 ;;
   install) ;;
@@ -104,6 +104,15 @@ install -m 644 "$HERE/install/pipbox-hdmi.service" /etc/systemd/system/pipbox-hd
 install -m 644 "$HERE/install/60-pipbox-usb-power.rules" /etc/udev/rules.d/60-pipbox-usb-power.rules
 udevadm control --reload-rules >/dev/null 2>&1 || true
 udevadm trigger --action=add --subsystem-match=usb --attr-match=idVendor=0fd9 >/dev/null 2>&1 || true
+# BELABOX prüft stündlich mit apt-get auf Updates; das soll die Sendung nicht stören: apt-get mit niedrigster Priorität (Umleitung, steht im Suchpfad vor /usr/bin)
+if [ -x /usr/bin/apt-get ]; then
+  cat > /usr/local/bin/apt-get <<'EOF'
+#!/bin/sh
+# Jetson 2GB PIP: apt-get mit niedrigster Prioritaet, damit die Sendung nicht gestoert wird
+exec nice -n 19 ionice -c3 /usr/bin/apt-get "$@"
+EOF
+  chmod 755 /usr/local/bin/apt-get
+fi
 # Vorschau des gesendeten Bildes: Socket, der Dienst startet erst bei Bedarf (liest den lokalen SRT-Strom mit und dekodiert ihn mit der Video-Hardware)
 install -m 644 "$HERE/install/pipbox-preview.socket" /etc/systemd/system/pipbox-preview.socket
 install -m 644 "$HERE/install/pipbox-preview.service" /etc/systemd/system/pipbox-preview.service
