@@ -2422,7 +2422,13 @@
   "Systemwarnungen eingespielt": "시스템 경고를 적용했습니다",
   "Streamerbot Deck eingespielt": "Streamerbot Deck을 적용했습니다",
   "Optionen eingespielt": "옵션을 적용했습니다",
-  "Design und Reihenfolge der Hauptmenüs": "디자인 및 주 메뉴 순서"
+  "Design und Reihenfolge der Hauptmenüs": "디자인 및 주 메뉴 순서",
+  "Testbild": "테스트 화면",
+  "Testbild 2": "테스트 화면 2",
+  "Testbild-Kamera": "테스트 화면 카메라",
+  "Testton": "스테레오 테스트음",
+  "Bewegtes Testbild mit Zeitanzeige und Stereo-Testton (links tief, rechts hoch)": "시계가 있는 움직이는 테스트 화면과 스테레오 테스트음(왼쪽 저음, 오른쪽 고음)",
+  "Quelle: USB-Kamera oder Testbild": "소스: USB 카메라 또는 테스트 화면"
  },
  "patterns": []
 }
