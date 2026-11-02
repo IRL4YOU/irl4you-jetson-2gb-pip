@@ -2428,7 +2428,17 @@
   "Testbild-Kamera": "Câmera com imagem de teste",
   "Testton": "Tom de teste estéreo",
   "Bewegtes Testbild mit Zeitanzeige und Stereo-Testton (links tief, rechts hoch)": "Imagem de teste em movimento com relógio e tom de teste estéreo (grave à esquerda, agudo à direita)",
-  "Quelle: USB-Kamera oder Testbild": "Fonte: câmera USB ou imagem de teste"
+  "Quelle: USB-Kamera oder Testbild": "Fonte: câmera USB ou imagem de teste",
+  "klein": "pequeno",
+  "normal": "normal",
+  "groß": "grande",
+  "· gerade nicht verbunden": "· no momento não conectado",
+  "Lüfter": "Ventilador",
+  "Der Jetson Nano kann nicht erkennen, ob ein Lüfter am Lüfteranschluss steckt, und liefert keine Drehzahl. Die Zeile „Lüfter: … % (Ansteuerung)“ in der Karte „System“ zeigt nur, womit die Box den Anschluss ansteuert. Wird der Lüfter extern versorgt (zum Beispiel über USB), wähle „Nein“: Dann entfällt die Zeile.": "O Jetson Nano não consegue saber se há um ventilador ligado ao conector do ventilador e não informa rotação. A linha «Ventilador: … % (controle)» no cartão «Sistema» mostra apenas com o que a caixa controla o conector. Se o ventilador for alimentado externamente (por exemplo por USB), escolha «Não»: a linha desaparece.",
+  "Lüfter am Anschluss der Box": "Ventilador no conector da caixa",
+  "Automatisch (Zeile nur, wenn der Anschluss angesteuert wird)": "Automático (linha só quando o conector é controlado)",
+  "Ja (Zeile immer zeigen)": "Sim (sempre mostrar a linha)",
+  "Nein, extern versorgt (Zeile ausblenden)": "Não, alimentado externamente (ocultar a linha)"
  },
  "patterns": []
 }
