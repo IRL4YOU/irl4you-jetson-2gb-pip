@@ -216,6 +216,7 @@
         <label class="chk"><input type="checkbox" id="hdmi_on"> Als Kamera senden</label>
         <details class="dsec" id="hdmi_vsec"><summary>Bild und Ton <span class="muted" id="hdmi_vsum"></span></summary>
           <div class="dgrid">
+            <label class="f">Quelle<select id="hdmi_src"><option value="usb">USB-Kamera</option><option value="test">Testbild</option></select></label>
             <label class="f">Bitrate (Mbit/s)<input id="hdmi_br" type="number" min="1" max="20" step="0.5"></label>
             <label class="f">Ton<select id="hdmi_audio"><option value="hdmi">Ton der Kamera</option><option value="none">ohne Ton</option></select></label>
             <label class="f" id="hdmi_fmtrow">Bildformat<select id="hdmi_fmt"><option value="auto">Automatisch (MJPEG zuerst)</option><option value="mjpeg">MJPEG (die Box kodiert mit der Bitrate neu)</option><option value="h264">H.264 (Strom der Kamera; kann der Treiber ihn nicht abholen, nimmt die Box MJPEG)</option></select></label>
