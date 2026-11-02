@@ -1,5 +1,8 @@
 # Änderungen
 
+## 1.0.7
+- Ton wird in Stereo gesendet.
+
 ## 1.0.6
 - **Testbild als Kamera-Quelle.** In der Karte „USB-Kameras“ lässt sich unter „Quelle“ das Testbild wählen: ein bewegtes Bild mit Zeitanzeige und ein Stereo-Testton (links tief, rechts hoch). Es braucht keine Kamera und läuft über denselben Weg wie jede andere Kamera, so lässt sich die ganze Kette bis zum Server prüfen. Die neuen Texte gibt es in 13 Sprachen.
 
