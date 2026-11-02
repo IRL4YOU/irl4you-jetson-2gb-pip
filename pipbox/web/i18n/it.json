@@ -2428,7 +2428,17 @@
   "Testbild-Kamera": "Telecamera con immagine di prova",
   "Testton": "Tono di prova stereo",
   "Bewegtes Testbild mit Zeitanzeige und Stereo-Testton (links tief, rechts hoch)": "Immagine di prova in movimento con orologio e tono di prova stereo (grave a sinistra, acuto a destra)",
-  "Quelle: USB-Kamera oder Testbild": "Sorgente: camera USB o immagine di prova"
+  "Quelle: USB-Kamera oder Testbild": "Sorgente: camera USB o immagine di prova",
+  "klein": "piccolo",
+  "normal": "normale",
+  "groß": "grande",
+  "· gerade nicht verbunden": "· al momento non connesso",
+  "Lüfter": "Ventola",
+  "Der Jetson Nano kann nicht erkennen, ob ein Lüfter am Lüfteranschluss steckt, und liefert keine Drehzahl. Die Zeile „Lüfter: … % (Ansteuerung)“ in der Karte „System“ zeigt nur, womit die Box den Anschluss ansteuert. Wird der Lüfter extern versorgt (zum Beispiel über USB), wähle „Nein“: Dann entfällt die Zeile.": "Il Jetson Nano non può riconoscere se una ventola è collegata al connettore della ventola e non fornisce alcun numero di giri. La riga «Ventola: … % (controllo)» nella scheda «Sistema» mostra solo con che cosa la box pilota il connettore. Se la ventola è alimentata esternamente (ad esempio via USB), scegli «No»: la riga scompare.",
+  "Lüfter am Anschluss der Box": "Ventola sul connettore della box",
+  "Automatisch (Zeile nur, wenn der Anschluss angesteuert wird)": "Automatico (riga solo se il connettore è pilotato)",
+  "Ja (Zeile immer zeigen)": "Sì (mostra sempre la riga)",
+  "Nein, extern versorgt (Zeile ausblenden)": "No, alimentata esternamente (nascondi la riga)"
  },
  "patterns": []
 }
