@@ -159,7 +159,7 @@ def build_always(c, pip, pip2, pip3):
         apads.append(f"sink_{n + 1}::volume={1.0 if n == slot_sel else 0.0}")
         out.append(f"udpsrc port={FEED_PORT + 2 * n + 1} address=127.0.0.1 buffer-size=1048576 do-timestamp=true caps=\"{FEED_AUDIO_CAPS}\" !\n"
                    f"queue max-size-time=2000000000 max-size-buffers=0 max-size-bytes=0 leaky=downstream ! amix.sink_{n + 1}\n")
-    out.append("audiomixer name=amix " + " ".join(apads) + " ! audioconvert ! identity name=a_delay signal-handoffs=TRUE ! volume volume=1.0 ! "
+    out.append("audiomixer name=amix " + " ".join(apads) + f" ! {FEED_AUDIO_CAPS} ! audioconvert ! identity name=a_delay signal-handoffs=TRUE ! volume volume=1.0 ! "
                f"voaacenc bitrate=128000 ! aacparse ! {Q_MUX} ! mux.\n")
     out.append("mpegtsmux name=mux !\nappsink name=appsink")
     return "\n".join(out)
