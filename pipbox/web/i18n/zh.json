@@ -2428,7 +2428,17 @@
   "Testbild-Kamera": "测试画面摄像头",
   "Testton": "立体声测试音",
   "Bewegtes Testbild mit Zeitanzeige und Stereo-Testton (links tief, rechts hoch)": "带时钟的动态测试画面和立体声测试音(左低右高)",
-  "Quelle: USB-Kamera oder Testbild": "来源:USB 摄像头或测试画面"
+  "Quelle: USB-Kamera oder Testbild": "来源:USB 摄像头或测试画面",
+  "klein": "小",
+  "normal": "正常",
+  "groß": "大",
+  "· gerade nicht verbunden": "· 当前未连接",
+  "Lüfter": "风扇",
+  "Der Jetson Nano kann nicht erkennen, ob ein Lüfter am Lüfteranschluss steckt, und liefert keine Drehzahl. Die Zeile „Lüfter: … % (Ansteuerung)“ in der Karte „System“ zeigt nur, womit die Box den Anschluss ansteuert. Wird der Lüfter extern versorgt (zum Beispiel über USB), wähle „Nein“: Dann entfällt die Zeile.": "Jetson Nano 无法识别风扇接口上是否接有风扇,也不提供转速。“系统”卡片中的“风扇:… %(控制)”一行只显示盒子用什么来驱动该接口。如果风扇由外部供电(例如通过 USB),请选择“否”:该行将不再显示。",
+  "Lüfter am Anschluss der Box": "盒子接口上的风扇",
+  "Automatisch (Zeile nur, wenn der Anschluss angesteuert wird)": "自动(仅在驱动接口时显示该行)",
+  "Ja (Zeile immer zeigen)": "是(始终显示该行)",
+  "Nein, extern versorgt (Zeile ausblenden)": "否,外部供电(隐藏该行)"
  },
  "patterns": []
 }
