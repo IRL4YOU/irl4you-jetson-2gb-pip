@@ -2428,7 +2428,17 @@
   "Testbild-Kamera": "Камера с тестовым изображением",
   "Testton": "Стереотестовый тон",
   "Bewegtes Testbild mit Zeitanzeige und Stereo-Testton (links tief, rechts hoch)": "Движущееся тестовое изображение с часами и стереотестовым тоном (слева низкий, справа высокий)",
-  "Quelle: USB-Kamera oder Testbild": "Источник: USB-камера или тестовое изображение"
+  "Quelle: USB-Kamera oder Testbild": "Источник: USB-камера или тестовое изображение",
+  "klein": "маленький",
+  "normal": "обычный",
+  "groß": "большой",
+  "· gerade nicht verbunden": "· сейчас не подключено",
+  "Lüfter": "Вентилятор",
+  "Der Jetson Nano kann nicht erkennen, ob ein Lüfter am Lüfteranschluss steckt, und liefert keine Drehzahl. Die Zeile „Lüfter: … % (Ansteuerung)“ in der Karte „System“ zeigt nur, womit die Box den Anschluss ansteuert. Wird der Lüfter extern versorgt (zum Beispiel über USB), wähle „Nein“: Dann entfällt die Zeile.": "Jetson Nano не может определить, подключён ли вентилятор к разъёму вентилятора, и не сообщает скорость вращения. Строка «Вентилятор: … % (управление)» в карточке «Система» показывает только то, чем бокс управляет разъёмом. Если вентилятор питается извне (например, через USB), выберите «Нет»: тогда строка исчезнет.",
+  "Lüfter am Anschluss der Box": "Вентилятор на разъёме бокса",
+  "Automatisch (Zeile nur, wenn der Anschluss angesteuert wird)": "Автоматически (строка только при управлении разъёмом)",
+  "Ja (Zeile immer zeigen)": "Да (всегда показывать строку)",
+  "Nein, extern versorgt (Zeile ausblenden)": "Нет, питание извне (скрыть строку)"
  },
  "patterns": []
 }
