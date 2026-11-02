@@ -2422,7 +2422,13 @@
   "Systemwarnungen eingespielt": "系统警告已应用",
   "Streamerbot Deck eingespielt": "Streamerbot Deck 已应用",
   "Optionen eingespielt": "选项已应用",
-  "Design und Reihenfolge der Hauptmenüs": "外观和主菜单的顺序"
+  "Design und Reihenfolge der Hauptmenüs": "外观和主菜单的顺序",
+  "Testbild": "测试画面",
+  "Testbild 2": "测试画面 2",
+  "Testbild-Kamera": "测试画面摄像头",
+  "Testton": "立体声测试音",
+  "Bewegtes Testbild mit Zeitanzeige und Stereo-Testton (links tief, rechts hoch)": "带时钟的动态测试画面和立体声测试音(左低右高)",
+  "Quelle: USB-Kamera oder Testbild": "来源:USB 摄像头或测试画面"
  },
  "patterns": []
 }
