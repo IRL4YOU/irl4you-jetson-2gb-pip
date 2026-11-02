@@ -1,5 +1,8 @@
 # Änderungen
 
+## 1.0.5
+- Das stündliche Suchen nach Updates von BELABOX (`apt-get update`) läuft jetzt mit niedrigster Priorität, damit es die Sendung nicht stört. Die Installation legt dafür eine Umleitung `/usr/local/bin/apt-get` an, `uninstall` entfernt sie wieder.
+
 ## 1.0.4
 - Nachbesserung wegen einer Versionsnummern-Überschneidung: Die Nummer 1.0.3 war schon online, bevor alle Dateien hochgeladen waren. Wer früh aktualisiert hat, bekam die Korrektur der Systemwarnungen nur zum Teil. 1.0.4 bringt sie vollständig.
 
