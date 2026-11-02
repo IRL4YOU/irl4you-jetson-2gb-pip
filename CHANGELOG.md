@@ -1,5 +1,8 @@
 # Änderungen
 
+## 1.0.8
+- Fehlende Übersetzungen ergänzt (Einstellung „Lüfter“, Schriftgröße, Verbindungsanzeige) in allen 13 Sprachen.
+
 ## 1.0.7
 - Ton wird in Stereo gesendet.
 
