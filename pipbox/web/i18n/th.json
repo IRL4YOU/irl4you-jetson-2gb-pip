@@ -2422,7 +2422,13 @@
   "Systemwarnungen eingespielt": "ใช้การเตือนระบบแล้ว",
   "Streamerbot Deck eingespielt": "ใช้ Streamerbot Deck แล้ว",
   "Optionen eingespielt": "ใช้ตัวเลือกแล้ว",
-  "Design und Reihenfolge der Hauptmenüs": "การออกแบบและลำดับของเมนูหลัก"
+  "Design und Reihenfolge der Hauptmenüs": "การออกแบบและลำดับของเมนูหลัก",
+  "Testbild": "ภาพทดสอบ",
+  "Testbild 2": "ภาพทดสอบ 2",
+  "Testbild-Kamera": "กล้องภาพทดสอบ",
+  "Testton": "เสียงทดสอบสเตอริโอ",
+  "Bewegtes Testbild mit Zeitanzeige und Stereo-Testton (links tief, rechts hoch)": "ภาพทดสอบเคลื่อนไหวพร้อมนาฬิกาและเสียงทดสอบสเตอริโอ (ซ้ายเสียงต่ำ ขวาเสียงสูง)",
+  "Quelle: USB-Kamera oder Testbild": "แหล่งที่มา: กล้อง USB หรือภาพทดสอบ"
  },
  "patterns": []
 }
