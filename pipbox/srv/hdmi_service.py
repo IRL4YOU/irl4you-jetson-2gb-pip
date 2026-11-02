@@ -17,7 +17,8 @@ class HdmiService:
     Im Demo-Modus gibt es keinen Dienst: eine USB-Kamera, die sich ein- und ausschalten lässt."""
     HOST, PORT = "127.0.0.1", 9102
     USB_NAMES = ("USB-Kamera", "USB-Webcam", "USB 2")        # Name der Kamera in der Liste (der Schlüssel bleibt "hdmi")
-    ALLOWED = ("enabled", "bitrate", "fps", "audio", "usb_format")        # was die Oberfläche ändern darf (der Schlüssel ist fest)
+    TEST_NAMES = ("Testbild", "Testbild 2")                  # Name, wenn die Quelle das Testbild ist (beim ersten Eintragen)
+    ALLOWED = ("enabled", "bitrate", "fps", "audio", "source", "usb_format")        # was die Oberfläche ändern darf (der Schlüssel ist fest)
     TTL = 1.5
     DOWN = "Der Dienst der USB-Kamera läuft nicht (Software-Update oder install.sh ausführen)"
 
@@ -68,22 +69,25 @@ class HdmiService:
 
     def _fake_status(self):
         f = self.fake
+        test = f.get("source") == "test"
         return {"ok": True, "state": "streaming" if f["enabled"] else "off", "message": "", "settings": dict(f),
-                "signal": {"plugged": True, "locked": True, "width": 1280, "height": 720, "fps": 30.0, "interlaced": False, "format": "", "depth": 0},
-                "usb": {"present": True, "name": "Beispiel-Webcam", "node": "/dev/video2", "format": "MJPEG 1280x720@30", "audio": "plughw:CARD=Beispiel"},
+                "signal": {"plugged": True, "locked": True, "width": 1280, "height": 720, "fps": float(f["fps"]) if test else 30.0, "interlaced": False, "format": "", "depth": 0},
+                "usb": ({"present": False, "name": "", "node": "", "format": "", "audio": ""} if test else
+                        {"present": True, "name": "Beispiel-Webcam", "node": "/dev/video2", "format": "MJPEG 1280x720@30", "audio": "plughw:CARD=Beispiel"}),
                 "signal_known": True, "publishing": bool(f["enabled"]), "restarts": 0}
 
     def _listed(self):
         return bool(self.cams) and any(c["key"] == HDMI_KEY for c in self.cams.cams)
 
-    def ensure_listed(self):
-        """Die USB-Kamera (Schlüssel "hdmi", Name "USB-Kamera") steht in der Kameraliste der Box (damit sie als Bildquelle gewählt werden kann)."""
+    def ensure_listed(self, source="usb"):
+        """Die USB-Kamera (Schlüssel "hdmi", Name "USB-Kamera", beim Testbild "Testbild") steht in der Kameraliste der Box (damit sie als Bildquelle gewählt werden kann)."""
         if not self.cams or self._listed():
             return
         roles = {c["role"] for c in self.cams.cams}
         role = "main" if "main" not in roles else "pip" if "pip" not in roles else "extra"
         taken = {c["name"].casefold() for c in self.cams.cams}
-        name = next((n for n in self.USB_NAMES if n.casefold() not in taken), "USB-Kamera 2")
+        names = self.TEST_NAMES if source == "test" else self.USB_NAMES
+        name = next((n for n in names if n.casefold() not in taken), "Testbild-Kamera" if source == "test" else "USB-Kamera 2")
         try:
             self.cams.add(name, HDMI_KEY, role)
         except ValueError:
@@ -106,7 +110,7 @@ class HdmiService:
             out["settings"] = {k: st.get(k, hdmi_daemon.DEFAULTS[k]) for k in self.ALLOWED}
             out["service"] = True
             if out["settings"]["enabled"]:
-                self.ensure_listed()
+                self.ensure_listed(out["settings"].get("source"))
         except (RuntimeError, ValueError) as e:
             out["message"] = str(e) or self.DOWN
         out["listed"] = self._listed()
@@ -115,7 +119,7 @@ class HdmiService:
         return dict(out)
 
     def set(self, req):
-        """Einstellungen übernehmen (enabled, bitrate in kbit/s, fps, audio, usb_format). Wirft ValueError (kurze Meldung) oder RuntimeError (Dienst fehlt)."""
+        """Einstellungen übernehmen (enabled, bitrate in kbit/s, fps, audio, source, usb_format). Wirft ValueError (kurze Meldung) oder RuntimeError (Dienst fehlt)."""
         if not isinstance(req, dict):
             raise ValueError("Ungültige Anfrage")
         settings = {k: req[k] for k in self.ALLOWED if k in req}
@@ -124,8 +128,8 @@ class HdmiService:
             self.fake = hdmi_daemon.clean_settings(settings, self.fake)
         elif settings:
             self._call({"cmd": "set", "settings": settings})
-        if settings.get("enabled") is True:
-            self.ensure_listed()
+        if settings.get("enabled") is True and "source" in settings:
+            self.ensure_listed(settings["source"])
         with self.lock:
             self._hit = (0.0, None)
         return self.status()
