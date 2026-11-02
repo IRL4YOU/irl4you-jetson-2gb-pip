@@ -2422,7 +2422,13 @@
   "Systemwarnungen eingespielt": "Alertes système appliquées",
   "Streamerbot Deck eingespielt": "Streamerbot Deck appliqué",
   "Optionen eingespielt": "Options appliquées",
-  "Design und Reihenfolge der Hauptmenüs": "Design et ordre des menus principaux"
+  "Design und Reihenfolge der Hauptmenüs": "Design et ordre des menus principaux",
+  "Testbild": "Image de test",
+  "Testbild 2": "Image de test 2",
+  "Testbild-Kamera": "Caméra avec image de test",
+  "Testton": "Son de test stéréo",
+  "Bewegtes Testbild mit Zeitanzeige und Stereo-Testton (links tief, rechts hoch)": "Image de test animée avec horloge et son de test stéréo (grave à gauche, aigu à droite)",
+  "Quelle: USB-Kamera oder Testbild": "Source : caméra USB ou image de test"
  },
  "patterns": []
 }
