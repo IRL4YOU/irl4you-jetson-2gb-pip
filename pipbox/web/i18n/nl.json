@@ -2428,7 +2428,17 @@
   "Testbild-Kamera": "Camera met testbeeld",
   "Testton": "Stereo-testtoon",
   "Bewegtes Testbild mit Zeitanzeige und Stereo-Testton (links tief, rechts hoch)": "Bewegend testbeeld met klok en stereo-testtoon (links laag, rechts hoog)",
-  "Quelle: USB-Kamera oder Testbild": "Bron: USB-camera of testbeeld"
+  "Quelle: USB-Kamera oder Testbild": "Bron: USB-camera of testbeeld",
+  "klein": "klein",
+  "normal": "normaal",
+  "groß": "groot",
+  "· gerade nicht verbunden": "· op dit moment niet verbonden",
+  "Lüfter": "Ventilator",
+  "Der Jetson Nano kann nicht erkennen, ob ein Lüfter am Lüfteranschluss steckt, und liefert keine Drehzahl. Die Zeile „Lüfter: … % (Ansteuerung)“ in der Karte „System“ zeigt nur, womit die Box den Anschluss ansteuert. Wird der Lüfter extern versorgt (zum Beispiel über USB), wähle „Nein“: Dann entfällt die Zeile.": "De Jetson Nano kan niet herkennen of er een ventilator op de ventilatoraansluiting zit en geeft geen toerental door. De regel „Ventilator: … % (aansturing)” in de kaart „Systeem” laat alleen zien waarmee de box de aansluiting aanstuurt. Wordt de ventilator extern gevoed (bijvoorbeeld via USB), kies dan „Nee”: de regel verdwijnt dan.",
+  "Lüfter am Anschluss der Box": "Ventilator op de aansluiting van de box",
+  "Automatisch (Zeile nur, wenn der Anschluss angesteuert wird)": "Automatisch (regel alleen als de aansluiting wordt aangestuurd)",
+  "Ja (Zeile immer zeigen)": "Ja (regel altijd tonen)",
+  "Nein, extern versorgt (Zeile ausblenden)": "Nee, extern gevoed (regel verbergen)"
  },
  "patterns": []
 }
