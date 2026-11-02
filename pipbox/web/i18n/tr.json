@@ -2422,7 +2422,13 @@
   "Systemwarnungen eingespielt": "Sistem uyarıları uygulandı",
   "Streamerbot Deck eingespielt": "Streamerbot Deck uygulandı",
   "Optionen eingespielt": "Seçenekler uygulandı",
-  "Design und Reihenfolge der Hauptmenüs": "Tasarım ve ana menülerin sırası"
+  "Design und Reihenfolge der Hauptmenüs": "Tasarım ve ana menülerin sırası",
+  "Testbild": "Test görüntüsü",
+  "Testbild 2": "Test görüntüsü 2",
+  "Testbild-Kamera": "Test görüntülü kamera",
+  "Testton": "Stereo test sesi",
+  "Bewegtes Testbild mit Zeitanzeige und Stereo-Testton (links tief, rechts hoch)": "Saatli hareketli test görüntüsü ve stereo test sesi (solda alçak, sağda yüksek)",
+  "Quelle: USB-Kamera oder Testbild": "Kaynak: USB kamera veya test görüntüsü"
  },
  "patterns": []
 }
