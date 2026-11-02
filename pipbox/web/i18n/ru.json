@@ -2422,7 +2422,13 @@
   "Systemwarnungen eingespielt": "Системные предупреждения применены",
   "Streamerbot Deck eingespielt": "Streamerbot Deck применён",
   "Optionen eingespielt": "Параметры применены",
-  "Design und Reihenfolge der Hauptmenüs": "Оформление и порядок главных меню"
+  "Design und Reihenfolge der Hauptmenüs": "Оформление и порядок главных меню",
+  "Testbild": "Тестовое изображение",
+  "Testbild 2": "Тестовое изображение 2",
+  "Testbild-Kamera": "Камера с тестовым изображением",
+  "Testton": "Стереотестовый тон",
+  "Bewegtes Testbild mit Zeitanzeige und Stereo-Testton (links tief, rechts hoch)": "Движущееся тестовое изображение с часами и стереотестовым тоном (слева низкий, справа высокий)",
+  "Quelle: USB-Kamera oder Testbild": "Источник: USB-камера или тестовое изображение"
  },
  "patterns": []
 }
