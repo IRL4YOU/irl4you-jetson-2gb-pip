@@ -1,5 +1,8 @@
 # Änderungen
 
+## 1.0.6
+- **Testbild als Kamera-Quelle.** In der Karte „USB-Kameras“ lässt sich unter „Quelle“ das Testbild wählen: ein bewegtes Bild mit Zeitanzeige und ein Stereo-Testton (links tief, rechts hoch). Es braucht keine Kamera und läuft über denselben Weg wie jede andere Kamera, so lässt sich die ganze Kette bis zum Server prüfen. Die neuen Texte gibt es in 13 Sprachen.
+
 ## 1.0.5
 - Das stündliche Suchen nach Updates von BELABOX (`apt-get update`) läuft jetzt mit niedrigster Priorität, damit es die Sendung nicht stört. Die Installation legt dafür eine Umleitung `/usr/local/bin/apt-get` an, `uninstall` entfernt sie wieder.
 
