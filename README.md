@@ -13,6 +13,7 @@ Bild-in-Bild für den **Jetson Nano 2GB** (BELABOX-Image, JetPack 4.6.4 / L4T 32
 - **Senden über SRT und SRTLA** (Bündelung mehrerer Leitungen, zum Beispiel LAN, WLAN und Handy-Hotspot) mit angepasstem `belacoder` und `srtla_send` (Bitratenregler, Wegewahl, Kennzahlen).
 - **Kameras:**
   - **USB-Kamera** (zum Beispiel DJI Osmo Action 4 im USB-Modus, Webcam oder HDMI-USB-Grabber): 1080p mit 30 Bildern je Sekunde und 8000 kbit/s, gemessen genau 30,0 fps. MJPEG der Kamera wird in der Video-Hardware dekodiert und neu kodiert. Getestet mit HDMI-USB-Grabbern: Elgato Cam Link 4K (unkomprimiertes 1080p, die HDMI-Quelle muss 1080p ausgeben). Andere UVC-Grabber gehen wahrscheinlich, sind aber nicht getestet.
+  - **Testbild** (ohne Kamera): bewegtes Bild mit Zeitanzeige und Stereo-Testton (links tief, rechts hoch), zum Prüfen der ganzen Kette bis zum Server. Auswahl in der Karte „USB-Kameras“ unter „Quelle“.
   - **DJI-Kameras per Bluetooth** (Kopplung, Steuerung, Akkustand), bewährter Stick: ASUS USB-BT500.
   - **RTMP-Kameras** (zum Beispiel Handy-Apps oder Action-Cams), die an die Box senden.
 - **Weboberfläche** (Port 8780, 14 Sprachen): Live, Vorschau, Status, Bildaufbau (Positionen, Rahmen, Beschnitt, Facecam), Verbindungen (WLAN, Bluetooth, Upload-Leitungen), SRTLA-Einstellungen, Streamer.bot-Deck, Chat und Systemwarnungen im Twitch-Chat, öffentliche Statistik für OBS und Homepage, Einstellungen sichern, Protokolle.
