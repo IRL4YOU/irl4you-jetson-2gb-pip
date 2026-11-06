@@ -2,7 +2,7 @@
 
 Bild-in-Bild für den **Jetson Nano 2GB** (BELABOX-Image, JetPack 4.6.4 / L4T 32.7.4): mehrere Kameras zu einem Bild mischen und über SRT/SRTLA senden. Eigenständiges Projekt, die Jetson-Ausgabe von [IRL4YOU PIP](https://github.com/IRL4YOU/irl4you-pip).
 
-**Webseite:** [irl4you.de](https://irl4you.de) · **Schwesterprojekt:** [IRL4YOU BOX](https://github.com/IRL4YOU/irl4you-pip) · **Fehler und Wünsche:** [Issues](https://github.com/IRL4YOU/irl4you-jetson-2gb-pip/issues)
+**Webseite:** [irl4you.de](https://irl4you.de/irl4you-box.html#jetson) · **Schwesterprojekt:** [IRL4YOU BOX](https://github.com/IRL4YOU/irl4you-pip) · **Fehler und Wünsche:** [Issues](https://github.com/IRL4YOU/irl4you-jetson-2gb-pip/issues)
 
 > **Version 1.0:** Läuft auf dem Jetson Nano 2GB mit BELABOX-Image (JetPack 4.6.4). Die Versionsnummer steht in `VERSION`, die Änderungen in [CHANGELOG.md](CHANGELOG.md). Geprüft sind Dauerbetrieb (eine Stunde und eine ganze Nacht), Neuinstallation auf einem rohen BELABOX-Image und das Einspielen von Updates über die Oberfläche. Das 4-GB-Modell ist nicht getestet.
 
