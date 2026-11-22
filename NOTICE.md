@@ -1,7 +1,7 @@
 # Hinweise zu Herkunft und Drittprojekten
 
 Die Weboberfläche in `pipbox/` stammt aus dem Projekt IRL4YOU BOX (MIT-Lizenz) und wurde für den Jetson Nano 2GB und Python 3.6 angepasst.
-Dieses Repository enthält kein Erkennungsmodul (Verpixeln), keine KI-Modelle und keine Schrift- oder Bilddateien. Das IRL4YOU-Logo in der Kopfzeile ist als SVG im Seitenquelltext eingebettet. Logo: Eigenentwurf von IRL4YOU (favicon.svg der Seite irl4you.de).
+Dieses Repository enthält kein Erkennungsmodul (Verpixeln), keine KI-Modelle und keine Schrift- oder Bilddateien. Das IRL4YOU-Logo steht als SVG im Seitenquelltext (Kopfzeile) und als Datei `pipbox/web/favicon.svg` (Symbol im Browser-Tab). Logo: Eigenentwurf von IRL4YOU (favicon.svg der Seite irl4you.de).
 
 ## Moblin (MIT-Lizenz)
 

@@ -8,7 +8,7 @@ import threading
 from srv.util import BASE_DIR, WEB_DIR, read
 
 ASSET_RE = re.compile(r"^/(?:js/[a-z0-9_-]+\.js|app\.css|chat\.js|chat\.css)$")
-TYPES = {".js": "application/javascript; charset=utf-8", ".css": "text/css; charset=utf-8", ".html": "text/html; charset=utf-8", ".json": "application/json; charset=utf-8"}
+TYPES = {".js": "application/javascript; charset=utf-8", ".css": "text/css; charset=utf-8", ".html": "text/html; charset=utf-8", ".json": "application/json; charset=utf-8", ".svg": "image/svg+xml"}
 MIN_GZ = 600                                   # darunter lohnt das Packen nicht
 
 

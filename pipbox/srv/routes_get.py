@@ -24,6 +24,9 @@ class GetRoutes:
             if self.authed() and "app=1" not in self.path and self.phone_view_wanted():
                 return self.send_bytes(200, PHONE_FRAME.encode("utf-8"), "text/html; charset=utf-8")
             return self.page("index.html" if self.authed() else "login.html")
+        if path == "/favicon.svg":                                             # Symbol im Browser-Tab, auch auf der Anmeldeseite
+            e = self.webfiles.entry("favicon.svg")
+            return self.send_file(e, "public, max-age=86400") if e else self.reply(404, {"error": "not found"})
         if path == "/api/auth":
             out = {"configured": self.auth.configured, "mode": self.auth.mode, "authed": self.authed()}
             if self.auth.mode == "demo":

@@ -1,5 +1,8 @@
 # Änderungen
 
+## 1.0.11
+- Favicon ergänzt.
+
 ## 1.0.10
 - Lizenzhinweise überarbeitet: Die Fußzeile nennt jetzt auch belacoder (GPL-3.0). NOTICE und README führen die Patches, libsrt (MPL-2.0) und die nur genutzten Programme auf und nennen die Urheber der Gegenproben für die DJI-Kopplung.
 - Neues Logo in der Kopfzeile: das eigene IRL4YOU-Logo.
