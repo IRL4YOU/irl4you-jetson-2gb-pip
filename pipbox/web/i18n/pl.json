@@ -1757,7 +1757,7 @@
   "{1}: Zeitüberschreitung": "{1}: przekroczono czas",
   "{1}: die gewählte Verbindung heißt jetzt {2} (vorher {3})": "{1}: wybrane połączenie nazywa się teraz {2} (wcześniej {3})",
   "{1}{2} Mbit/s · {3}": "{1}{2} Mbit/s · {3}",
-  "© 2026 IRL4YOU · MIT-Lizenz (Ordner srtla: AGPL-3.0) ·": "© 2026 IRL4YOU · licencja MIT (folder srtla: AGPL-3.0) ·",
+  "© 2026 IRL4YOU · MIT-Lizenz (Ordner belacoder: GPL-3.0, Ordner srtla: AGPL-3.0) ·": "© 2026 IRL4YOU · licencja MIT (folder belacoder: GPL-3.0, folder srtla: AGPL-3.0) ·",
   "· Stream-ID gespeichert": "· ID streamu zapisane",
   "· Streammodus ist an": "· Tryb streamu jest włączony",
   "· kein Ton der Kamera gefunden": "· nie znaleziono dźwięku z kamery",

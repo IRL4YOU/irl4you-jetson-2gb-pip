@@ -1757,7 +1757,7 @@
   "{1}: Zeitüberschreitung": "{1}: หมดเวลา",
   "{1}: die gewählte Verbindung heißt jetzt {2} (vorher {3})": "{1}: การเชื่อมต่อที่เลือกชื่อ {2} แล้ว (เดิม {3})",
   "{1}{2} Mbit/s · {3}": "{1}{2} Mbit/s · {3}",
-  "© 2026 IRL4YOU · MIT-Lizenz (Ordner srtla: AGPL-3.0) ·": "© 2026 IRL4YOU · สัญญาอนุญาต MIT (โฟลเดอร์ srtla: AGPL-3.0) ·",
+  "© 2026 IRL4YOU · MIT-Lizenz (Ordner belacoder: GPL-3.0, Ordner srtla: AGPL-3.0) ·": "© 2026 IRL4YOU · สัญญาอนุญาต MIT (โฟลเดอร์ belacoder: GPL-3.0, โฟลเดอร์ srtla: AGPL-3.0) ·",
   "· Stream-ID gespeichert": "· บันทึก stream ID แล้ว",
   "· Streammodus ist an": "· เปิดโหมดสตรีมอยู่",
   "· kein Ton der Kamera gefunden": "· ไม่พบเสียงของกล้อง",

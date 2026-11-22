@@ -1757,7 +1757,7 @@
   "{1}: Zeitüberschreitung": "{1}: タイムアウト",
   "{1}: die gewählte Verbindung heißt jetzt {2} (vorher {3})": "{1}：選択した接続の名前が {2} になりました（以前は {3}）",
   "{1}{2} Mbit/s · {3}": "{1}{2} Mbit/s · {3}",
-  "© 2026 IRL4YOU · MIT-Lizenz (Ordner srtla: AGPL-3.0) ·": "© 2026 IRL4YOU · MITライセンス(srtlaフォルダー: AGPL-3.0) ·",
+  "© 2026 IRL4YOU · MIT-Lizenz (Ordner belacoder: GPL-3.0, Ordner srtla: AGPL-3.0) ·": "© 2026 IRL4YOU · MITライセンス(belacoderフォルダー: GPL-3.0、srtlaフォルダー: AGPL-3.0) ·",
   "· Stream-ID gespeichert": "· ストリームIDを保存済み",
   "· Streammodus ist an": "· ストリームモード: オン",
   "· kein Ton der Kamera gefunden": "· カメラの音声が見つかりません",

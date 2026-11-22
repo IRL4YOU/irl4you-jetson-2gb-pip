@@ -1,14 +1,18 @@
 # Hinweise zu Herkunft und Drittprojekten
 
 Die Weboberfläche in `pipbox/` stammt aus dem Projekt IRL4YOU BOX (MIT-Lizenz) und wurde für den Jetson Nano 2GB und Python 3.6 angepasst.
+Dieses Repository enthält kein Erkennungsmodul (Verpixeln), keine KI-Modelle und keine Schrift- oder Bilddateien. Das IRL4YOU-Logo in der Kopfzeile ist als SVG im Seitenquelltext eingebettet. Logo: Eigenentwurf von IRL4YOU (favicon.svg der Seite irl4you.de).
 
 ## Moblin (MIT-Lizenz)
 
 Die DJI-Kopplung (`pipbox/dji_daemon.py`) folgt dem Ablauf, den das Projekt
 [Moblin](https://github.com/eerimoq/moblin) von Erik Moqvist für DJI-Kameras
 per Bluetooth umsetzt (Ordner `Moblin/Integrations/Dji/`). Nachrichtenformat,
-Konstanten und Ablauf wurden von dort nach Python übertragen. Gegenprobe mit
-[dimadesu/dji-remote](https://github.com/dimadesu/dji-remote) (MIT).
+Konstanten und Ablauf wurden von dort nach Python übertragen. Gegenproben mit
+[dimadesu/dji-remote](https://github.com/dimadesu/dji-remote) (MIT, Copyright (c) 2026 Dmytro Antonov) und
+[datagutt/node-osmo](https://github.com/datagutt/node-osmo) (MIT, Copyright (c) 2024 Thomas Lekanger).
+Die Copyright-Zeilen stehen in der LICENSE-Datei des jeweiligen Projekts. Der Bezug zu node-osmo ist im Kopf von `pipbox/dji_daemon.py` vermerkt
+(dort als Gegenprobe des Protokolls, seit der ersten Fassung dieses Repositorys).
 Das Protokoll stammt aus dem Nachbau dieser Projekte und ist von DJI nicht
 dokumentiert.
 
@@ -71,9 +75,29 @@ Der Bluetooth-Dienst für die DJI-Kameras nutzt die Bibliothek [bleak](https://g
 Die Sendekette nutzt `belacoder` ([BELABOX/belacoder](https://github.com/BELABOX/belacoder), Commit ccce9ca, GPL-3.0)
 und `srtla_send` ([BELABOX/srtla](https://github.com/BELABOX/srtla), Commit 37862da, AGPL-3.0).
 Beide werden bei der Einrichtung auf dem Gerät aus dem Original-Quelltext gebaut. Dieses Repository enthält nur die eigenen Änderungen
-als Patch-Dateien (`belacoder/*.patch` unter GPL-3.0, `srtla/*.patch` unter AGPL-3.0), nicht den Quelltext der Projekte.
+als Patch-Dateien, nicht den Quelltext der Projekte:
+
+- `belacoder/` (GPL-3.0), 4 Patches: `belacoder-jitter-tolerant.patch`, `belacoder-stall-output.patch`, `belacoder-stats.patch`, `belacoder-padctl.patch`
+- `srtla/` (AGPL-3.0), 2 Patches: `srtla_send-latency-aware.patch`, `srtla_send-min-share.patch`
+
 Die Patches ändern das Verhalten des Bitraten-Reglers, der Wegewahl und liefern Kennzahlen für die Anzeige Live.
 Die Lizenztexte stehen in den jeweiligen Originalprojekten. Auf Wunsch gibt der Betreiber der Box den Quelltext der gebauten Fassung heraus.
+
+## libsrt (MPL-2.0)
+
+`belacoder` wird beim Bau gegen die Bibliothek libsrt (SRT) aus dem BELABOX-Paket `belabox-libsrt1` gelinkt; die Header für den Bau kommen aus demselben Paket (`belacoder/build.sh`).
+Sie wird unverändert verwendet und gehört nicht zu diesem Repository. Lizenz: Mozilla Public License 2.0. BELABOX pflegt dazu den Fork [BELABOX/srt](https://github.com/BELABOX/srt) („SRT tweaked for use with srtla“, Fork von [Haivision/srt](https://github.com/Haivision/srt)); dessen LICENSE-Datei enthält die MPL-2.0.
+
+## Nicht mitgeliefert, nur genutzt
+
+Diese Programme gehören nicht zu diesem Repository, es enthält weder ihren Quelltext noch Kopien. Sie stehen jeweils unter ihrer eigenen Lizenz.
+
+- **belaUI** ([BELABOX/belaUI](https://github.com/BELABOX/belaUI), GPL-3.0 laut LICENSE-Datei des Projekts) und der übrige Teil des BELABOX-Images (zum Beispiel nginx für den RTMP-Eingang): Läuft auf der Box. Von belaUI wird nur der Passwort-Hash aus `config.json` gelesen; es wird nichts daran geändert.
+- **Jetson Linux (L4T) von NVIDIA**: Die Video-Elemente `nvvidconv`, `nvv4l2decoder`, `nvv4l2h264enc`, `nvcompositor` und `nvjpegdec`/`nvjpegenc` sind Teil von NVIDIAs Jetson-Linux-Paketen und unterliegen der Lizenz des Herstellers.
+- **GStreamer und GLib** (LGPL): Systempakete. Für den Bau von `belacoder` werden ihre Header vorübergehend aus den Entwicklerpaketen entpackt, die Pakete selbst werden dabei nicht installiert.
+- **bleak und deren Abhängigkeiten** (bleak: MIT, siehe oben): werden bei der Einrichtung per pip in eine eigene Python-Umgebung geladen, jeweils unter eigener Lizenz.
+- **Tailscale** (nur wenn du den Fernzugriff einrichtest): Wird aus der offiziellen Paketquelle des Herstellers installiert, eigene Lizenz.
+- **Twitch, BetterTTV, FrankerFaceZ, 7TV**: Der Chat holt Emotes zur Laufzeit von deren Diensten und speichert sie nicht im Repository. Die Emotes gehören ihren Urhebern.
 
 ## BELABOX
 
@@ -82,6 +106,9 @@ Es ändert keine Dateien von BELABOX und liest das BELABOX-Passwort nur zur Anme
 
 ## Welche Lizenz gilt wo
 
-- **MIT** (eigener Code): alles in diesem Repository, außer den oben genannten Teilen, die auf MIT-lizenzierten Projekten beruhen.
-- **GPL-3.0** bzw. **AGPL-3.0**: die Patch-Dateien in `belacoder/` und `srtla/` sowie die daraus gebauten Programme.
+- **MIT** (eigener Code): alles in diesem Repository, außer den Patch-Dateien unten. Teile, die auf MIT-lizenzierten Projekten beruhen (Moblin, DJI-Dienst, bleak), sind oben genannt.
+- **GPL-3.0**: die 4 Patch-Dateien in `belacoder/` und das daraus gebaute Programm `belacoder`.
+- **AGPL-3.0**: die 2 Patch-Dateien in `srtla/` und das daraus gebaute Programm `srtla_send`.
+- **MPL-2.0**: libsrt (nicht Teil des Repositorys, siehe oben).
+- Alle anderen genutzten Programme: eigene Lizenz, siehe „Nicht mitgeliefert, nur genutzt“.
 - Keine Rechtsberatung.

@@ -1757,7 +1757,7 @@
   "{1}: Zeitüberschreitung": "{1}: превышено время ожидания",
   "{1}: die gewählte Verbindung heißt jetzt {2} (vorher {3})": "{1}: выбранное подключение теперь называется {2} (раньше {3})",
   "{1}{2} Mbit/s · {3}": "{1}{2} Mbit/s · {3}",
-  "© 2026 IRL4YOU · MIT-Lizenz (Ordner srtla: AGPL-3.0) ·": "© 2026 IRL4YOU · Лицензия MIT (папка srtla: AGPL-3.0) ·",
+  "© 2026 IRL4YOU · MIT-Lizenz (Ordner belacoder: GPL-3.0, Ordner srtla: AGPL-3.0) ·": "© 2026 IRL4YOU · Лицензия MIT (папка belacoder: GPL-3.0, папка srtla: AGPL-3.0) ·",
   "· Stream-ID gespeichert": "· ID потока сохранён",
   "· Streammodus ist an": "· Режим трансляции включён",
   "· kein Ton der Kamera gefunden": "· звук камеры не найден",

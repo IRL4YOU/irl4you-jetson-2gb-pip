@@ -1757,7 +1757,7 @@
   "{1}: Zeitüberschreitung": "{1}: timeout",
   "{1}: die gewählte Verbindung heißt jetzt {2} (vorher {3})": "{1}: la connessione scelta ora si chiama {2} (prima {3})",
   "{1}{2} Mbit/s · {3}": "{1}{2} Mbit/s · {3}",
-  "© 2026 IRL4YOU · MIT-Lizenz (Ordner srtla: AGPL-3.0) ·": "© 2026 IRL4YOU · Licenza MIT (cartella srtla: AGPL-3.0) ·",
+  "© 2026 IRL4YOU · MIT-Lizenz (Ordner belacoder: GPL-3.0, Ordner srtla: AGPL-3.0) ·": "© 2026 IRL4YOU · Licenza MIT (cartella belacoder: GPL-3.0, cartella srtla: AGPL-3.0) ·",
   "· Stream-ID gespeichert": "· ID stream salvato",
   "· Streammodus ist an": "· Modalità stream attiva",
   "· kein Ton der Kamera gefunden": "· nessun audio della camera trovato",

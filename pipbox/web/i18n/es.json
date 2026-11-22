@@ -1757,7 +1757,7 @@
   "{1}: Zeitüberschreitung": "{1}: tiempo de espera agotado",
   "{1}: die gewählte Verbindung heißt jetzt {2} (vorher {3})": "{1}: la conexión elegida ahora se llama {2} (antes {3})",
   "{1}{2} Mbit/s · {3}": "{1}{2} Mbit/s · {3}",
-  "© 2026 IRL4YOU · MIT-Lizenz (Ordner srtla: AGPL-3.0) ·": "© 2026 IRL4YOU · Licencia MIT (carpeta srtla: AGPL-3.0) ·",
+  "© 2026 IRL4YOU · MIT-Lizenz (Ordner belacoder: GPL-3.0, Ordner srtla: AGPL-3.0) ·": "© 2026 IRL4YOU · Licencia MIT (carpeta belacoder: GPL-3.0, carpeta srtla: AGPL-3.0) ·",
   "· Stream-ID gespeichert": "· ID de stream guardado",
   "· Streammodus ist an": "· modo de transmisión activado",
   "· kein Ton der Kamera gefunden": "· no se encontró sonido de la cámara",

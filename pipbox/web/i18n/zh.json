@@ -1757,7 +1757,7 @@
   "{1}: Zeitüberschreitung": "{1}：超时",
   "{1}: die gewählte Verbindung heißt jetzt {2} (vorher {3})": "{1}：所选连接现在名为 {2}（之前为 {3}）",
   "{1}{2} Mbit/s · {3}": "{1}{2} Mbit/s · {3}",
-  "© 2026 IRL4YOU · MIT-Lizenz (Ordner srtla: AGPL-3.0) ·": "© 2026 IRL4YOU · MIT 许可证（srtla 文件夹：AGPL-3.0）·",
+  "© 2026 IRL4YOU · MIT-Lizenz (Ordner belacoder: GPL-3.0, Ordner srtla: AGPL-3.0) ·": "© 2026 IRL4YOU · MIT 许可证（belacoder 文件夹：GPL-3.0，srtla 文件夹：AGPL-3.0）·",
   "· Stream-ID gespeichert": "· Stream ID 已保存",
   "· Streammodus ist an": "· 推流模式已开启",
   "· kein Ton der Kamera gefunden": "· 未找到摄像机声音",

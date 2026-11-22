@@ -70,13 +70,15 @@ Wenn etwas nicht geht, hilft die Protokolldatei der Box am meisten:
 Dieses Paket baut auf der Arbeit anderer auf. Danke an:
 
 - **[IRL4YOU BOX](https://github.com/IRL4YOU/irl4you-pip)** (MIT): Die Weboberfläche stammt aus diesem Projekt und wurde für den Jetson Nano 2GB und Python 3.6 angepasst.
-- **[Moblin](https://github.com/eerimoq/moblin)** von Erik Moqvist (MIT): Ablauf und Nachrichtenformat der DJI-Kopplung per Bluetooth. Gegenprobe mit [dimadesu/dji-remote](https://github.com/dimadesu/dji-remote) (MIT).
+- **[Moblin](https://github.com/eerimoq/moblin)** von Erik Moqvist (MIT): Ablauf und Nachrichtenformat der DJI-Kopplung per Bluetooth. Gegenproben mit [dimadesu/dji-remote](https://github.com/dimadesu/dji-remote) (Dmytro Antonov) und [datagutt/node-osmo](https://github.com/datagutt/node-osmo) (Thomas Lekanger), beide MIT.
 - **[Bittersweet1987](https://github.com/Bittersweet1987)** (MIT, mit Erlaubnis des Urhebers): Sitzungsablauf, Befehle und Oberfläche der DJI-Kameras.
 - **[bleak](https://github.com/hbldh/bleak)** von Henrik Blidh (MIT): Bluetooth-Bibliothek.
-- **[BELABOX](https://github.com/BELABOX)** (`belacoder` GPL-3.0, `srtla_send` AGPL-3.0): Sendekette und Bündelung. Dieses Repository enthält nur die eigenen Änderungen als Patch-Dateien.
+- **[BELABOX](https://github.com/BELABOX)** (`belacoder` GPL-3.0, `srtla_send` AGPL-3.0, libsrt MPL-2.0, belaUI GPL-3.0): Sendekette und Bündelung. Dieses Repository enthält nur die eigenen Änderungen als Patch-Dateien (4 für `belacoder`, 2 für `srtla_send`).
 
 Die genauen Lizenztexte und Quellen stehen in [NOTICE.md](NOTICE.md). Unabhängiges Zusatzprojekt, kein Produkt von BELABOX, NVIDIA oder DJI.
 
 ## Lizenz
 
-MIT, siehe [LICENSE](LICENSE).
+MIT für den eigenen Code, siehe [LICENSE](LICENSE). Ausnahmen: Die Patch-Dateien in `belacoder/` stehen unter GPL-3.0, die in `srtla/` unter AGPL-3.0. Alle genutzten, nicht mitgelieferten Programme (BELABOX-Image mit libsrt unter MPL-2.0, NVIDIA Jetson Linux, GStreamer und weitere) haben eine eigene Lizenz, siehe [NOTICE.md](NOTICE.md).
+
+Logo: Eigenentwurf von IRL4YOU (favicon.svg der Seite irl4you.de).

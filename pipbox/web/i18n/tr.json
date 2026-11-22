@@ -1757,7 +1757,7 @@
   "{1}: Zeitüberschreitung": "{1}: zaman aşımı",
   "{1}: die gewählte Verbindung heißt jetzt {2} (vorher {3})": "{1}: seçilen bağlantının adı artık {2} (önceden {3})",
   "{1}{2} Mbit/s · {3}": "{1}{2} Mbit/s · {3}",
-  "© 2026 IRL4YOU · MIT-Lizenz (Ordner srtla: AGPL-3.0) ·": "© 2026 IRL4YOU · MIT lisansı (srtla klasörü: AGPL-3.0) ·",
+  "© 2026 IRL4YOU · MIT-Lizenz (Ordner belacoder: GPL-3.0, Ordner srtla: AGPL-3.0) ·": "© 2026 IRL4YOU · MIT lisansı (belacoder klasörü: GPL-3.0, srtla klasörü: AGPL-3.0) ·",
   "· Stream-ID gespeichert": "· Stream ID kaydedildi",
   "· Streammodus ist an": "· Yayın modu açık",
   "· kein Ton der Kamera gefunden": "· kameranın sesi bulunamadı",
